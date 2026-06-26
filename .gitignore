@@ -1,0 +1,45 @@
+# Entornos virtuales (Virtual Environments)
+env/
+venv/
+ENV/
+.env
+
+# Cache de Python y compilación
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Credenciales, Tokens y Llaves Privadas (SUPER SENSIBLE)
+credentials.json
+token.json
+service_account.json
+config/service_account.json
+*.pem
+*.key
+*.p12
+*.jks
+
+# Archivos de configuración de editores/IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Carpetas y archivos de salida/temporales del proyecto
+test_output/
+*.log
+*.db
+*.sqlite
+
+to-do/

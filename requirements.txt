@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+jinja2
+openpyxl
+python-pptx
+reportlab
+google-auth
+google-auth-oauthlib
+google-api-python-client
+requests
+xhtml2pdf
+python-multipart
+weasyprint
+supabase
+python-dotenv
+fastmcp

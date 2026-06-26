@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 3335 3334" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,-46866,-32)">
+        <g id="estrella-vacia" transform="matrix(1.343915,0,0,0.950243,32690.250311,32.24214)">
+            <rect x="10548.701" y="0" width="2480.315" height="3507.874" style="fill:none;"/>
+            <clipPath id="_clip1">
+                <rect x="10548.701" y="0" width="2480.315" height="3507.874"/>
+            </clipPath>
+            <g clip-path="url(#_clip1)">
+                <g transform="matrix(12.401575,0,0,17.53937,-120263.110455,0)">
+                    <rect x="10530.497" y="-17.503" width="235.006" height="235.006" style="fill:none;"/>
+                </g>
+                <g transform="matrix(38.578524,0,0,54.561055,-200272.358738,-115676.253205)">
+                    <g transform="matrix(0.338006,0,0,0.338006,1347.897113,2117.781636)">
+                        <path d="M12274.842,11.587L12297.294,80.686L12369.948,80.686L12311.17,123.391L12333.621,192.489L12274.842,149.784L12216.064,192.489L12238.515,123.391L12179.737,80.686L12252.391,80.686L12274.842,11.587ZM12274.842,28.855L12256.268,86.022L12196.159,86.022L12244.788,121.353L12226.213,178.519L12274.842,143.188L12323.471,178.519L12304.897,121.353L12353.526,86.022L12293.417,86.022L12274.842,28.855Z" style="fill:rgb(247,187,70);"/>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
