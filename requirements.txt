@@ -3,12 +3,12 @@ uvicorn
 jinja2
 openpyxl
 python-pptx
-reportlab
+# reportlab
 google-auth
 google-auth-oauthlib
 google-api-python-client
 requests
-xhtml2pdf
+# xhtml2pdf
 python-multipart
 weasyprint
 supabase

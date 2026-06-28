@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Cotización de Viaje - {{ nombre_pax }} - {{ destino }}</title>
+    <style>
+        /* ══════════════════════════════════════════════════════════════════
+           FUENTES MONTSERRAT — @font-face local
+           ══════════════════════════════════════════════════════════════════ */
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('{{ font_regular }}') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('{{ font_medium }}') format('truetype');
+            font-weight: 500;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('{{ font_semibold }}') format('truetype');
+            font-weight: 600;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('{{ font_bold }}') format('truetype');
+            font-weight: 700;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('{{ font_extrabold }}') format('truetype');
+            font-weight: 800;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('{{ font_black }}') format('truetype');
+            font-weight: 900;
+            font-style: normal;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           PAGED MEDIA — A4 Portrait
+           ══════════════════════════════════════════════════════════════════ */
+        @page {
+            size: A4 portrait;
+            margin: 10mm 15mm;
+
+            @bottom-right {
+                content: "Página " counter(page) " de " counter(pages);
+                font-family: 'Montserrat', sans-serif;
+                font-size: 7pt;
+                color: #94a3b8;
+                font-weight: 500;
+            }
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           RESET & BASE
+           ══════════════════════════════════════════════════════════════════ */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            color: #343434;
+            font-size: 9pt;
+            line-height: 1.5;
+            letter-spacing: -0.01em;
+            position: relative;
+            padding-bottom: 55px;
+        }
+
+        img {
+            max-width: 100%;
+            display: block;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           1. CABECERA — Banner Institucional + Datos
+           ══════════════════════════════════════════════════════════════════ */
+        .header {
+            position: relative;
+            width: 100%;
+            min-height: 55px;
+            margin-bottom: 12px;
+        }
+
+        .header-banner {
+            width: 100%;
+            text-align: center;
+        }
+
+        .header-banner img {
+            max-height: 55px;
+            margin: 0 auto;
+            display: block;
+            object-fit: contain;
+        }
+
+        .header-meta {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-top: none;
+            pointer-events: none;
+        }
+
+        .header-date {
+            font-size: 7pt;
+            color: #64748b;
+            /* font-weight: 600; */
+            padding-top: 2px;
+        }
+
+        .header-contact {
+            text-align: right;
+            font-size: 6.5pt;
+            color: #64748b;
+            line-height: 1.25;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           2. TÍTULO PRINCIPAL — Destino
+           ══════════════════════════════════════════════════════════════════ */
+        .title-section {
+            text-align: center;
+            margin: 22px 0 22px 0;
+        }
+
+        .destination-title {
+            font-weight: 900;
+            font-size: 42pt;
+            text-transform: uppercase;
+            color: #343434;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            margin: 0;
+        }
+
+        .proposal-subtitle {
+            font-size: 8.5pt;
+            font-weight: 600;
+            color: #64748b;
+            margin-top: 6px;
+            letter-spacing: 0.02em;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           3. RESUMEN DE PROPUESTA — Servicios Incluidos
+           ══════════════════════════════════════════════════════════════════ */
+        .section-heading {
+            font-weight: 900;
+            font-size: 9pt;
+            text-transform: uppercase;
+            color: #343434;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid #343434;
+            padding-bottom: 3px;
+            margin-top: 28px;
+            margin-bottom: 10px;
+        }
+
+        body>.section-heading {
+            margin-top: 16px;
+        }
+
+        .services-list {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        .services-list tr {
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .services-list tr:last-child {
+            border-bottom: none;
+        }
+
+        .services-list td {
+            padding: 4px 6px;
+            font-size: 8pt;
+            vertical-align: middle;
+        }
+
+        .services-list .svc-icon {
+            width: 22px;
+            text-align: center;
+        }
+
+        .services-list .svc-icon img {
+            width: 14px;
+            height: 14px;
+            display: inline-block;
+        }
+
+        .services-list .svc-text {
+            color: #475569;
+            font-weight: 500;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           4. VUELOS — Dos columnas
+           ══════════════════════════════════════════════════════════════════ */
+        .flights-section {
+            break-inside: avoid;
+            margin-bottom: 12px;
+        }
+
+        .flights-row {
+            display: flex;
+            gap: 16px;
+        }
+
+        .flight-col {
+            flex: 1;
+        }
+
+        .flight-label {
+            background-color: #f1f5f9;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            border-bottom: none;
+            font-size: 7.5pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 4px 8px;
+            border-radius: 5px 5px 0 0;
+            text-align: center;
+        }
+
+        .flight-img-container {
+            border: 1px solid #e2e8f0;
+            border-radius: 0 0 5px 5px;
+            overflow: hidden;
+            background-color: #ffffff;
+            min-height: 35px;
+        }
+
+        .flight-img-container img {
+            width: 100%;
+            height: auto;
+            max-height: 70px;
+            object-fit: cover;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           5. ALOJAMIENTO — Tarjetas de Hotel
+           ══════════════════════════════════════════════════════════════════ */
+        .hotels-section {
+            margin-bottom: 0;
+        }
+
+        .hotel-card {
+            display: flex;
+            align-items: stretch;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 10px;
+            break-inside: avoid;
+            position: relative;
+            background: #fff;
+            min-height: 95px;
+        }
+
+        .hotel-card-img {
+            width: 28%;
+            min-height: 95px;
+            flex-shrink: 0;
+            overflow: hidden;
+            background: #f1f5f9;
+        }
+
+        .hotel-card-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .hotel-card-body {
+            flex: 1;
+            padding: 5px 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .hotel-card-top {
+            flex: 1;
+        }
+
+        /* Hotel Name + Stars */
+        .hotel-name-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0px;
+            width: 100%;
+        }
+
+        .hotel-name {
+            font-weight: 800;
+            font-size: 18pt;
+            color: #343434;
+            text-transform: capitalize;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            flex-grow: 1;
+            word-wrap: break-word;
+        }
+
+        /* Hotel services badges */
+        .hotel-services {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 3px;
+            margin-top: 1px;
+        }
+
+        .hotel-svc-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 7.5pt;
+            font-weight: 600;
+            color: #475569;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 2px 7px;
+            white-space: nowrap;
+        }
+
+        .hotel-svc-badge img {
+            width: 13px;
+            height: 13px;
+            display: inline-block;
+        }
+
+        /* Hotel description */
+        .hotel-desc {
+            font-size: 7pt;
+            color: #64748b;
+            line-height: 1.35;
+            margin: 2px 0 0 0;
+            text-align: justify;
+            max-width: 72%;
+        }
+
+        /* Hotel pricing block — bottom right */
+        .hotel-pricing {
+            text-align: right;
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        .hotel-price-pp {
+            font-size: 11.5pt;
+            font-weight: 900;
+            color: #ff545d;
+            line-height: 1.1;
+        }
+
+        .hotel-price-pp .currency {
+            font-size: 8.5pt;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+
+        .hotel-price-base {
+            font-size: 7pt;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        .hotel-price-total {
+            font-size: 8pt;
+            color: #343434;
+            font-weight: 700;
+            margin-top: 1px;
+        }
+
+        /* Recommendation badge */
+        .reco-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background-color: #ff545dff;
+            color: #ffffff;
+            font-size: 6.5pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 4px 12px;
+            border-radius: 0 8px 0 8px;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           6. PIE DE PÁGINA — Legales
+           ══════════════════════════════════════════════════════════════════ */
+        .legal-footer {
+            position: fixed;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            padding-top: 6px;
+            border-top: 1px solid #cbd5e1;
+            z-index: 100;
+        }
+
+        .legal-footer p {
+            font-size: 5pt;
+            color: #94a3b8;
+            line-height: 1.3;
+            text-align: justify;
+            margin: 0;
+        }
+
+        .footer-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: #ff545d;
+            border-radius: 2px;
+            z-index: 100;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ═══════════════ 1. CABECERA ═══════════════ -->
+    <div class="header">
+        <div class="header-banner">
+            {% if banner_path %}
+            <img src="{{ banner_path }}" alt="One Trip Giordano">
+            {% endif %}
+        </div>
+        <div class="header-meta">
+            <div class="header-date">
+                {{ fecha_generacion }}
+            </div>
+            <div class="header-contact">
+                Menéndez Pidal 3919, Córdoba, Argentina<br>
+                <strong>WhatsApp:</strong> +54 9 351 915-5018<br>
+                <strong>Email:</strong> onetripgiordano@gmail.com<br>
+                <strong>Instagram:</strong> @onetripgiordano
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ 2. TÍTULO PRINCIPAL ═══════════════ -->
+    <div class="title-section">
+        <h1 class="destination-title">{{ destino }}</h1>
+        <div class="proposal-subtitle">
+            Propuesta para {{ nombre_pax }} con salida el {{ fecha_salida }}
+        </div>
+    </div>
+
+    <!-- ═══════════════ 3. SERVICIOS INCLUIDOS ═══════════════ -->
+    <div class="section-heading">Servicios incluidos en la propuesta</div>
+    <table class="services-list">
+        <tr>
+            <td class="svc-icon">
+                {% if icon_vuelos %}<img src="{{ icon_vuelos }}" alt="✈">{% else %}✈{% endif %}
+            </td>
+            <td class="svc-text">
+                Vuelos desde {{ origen }} hacia {{ destino }} para {{ cantidad_pasajeros }} pasajero{{ 's' if
+                cantidad_pasajeros|int > 1 else '' }}.
+            </td>
+        </tr>
+        <tr>
+            <td class="svc-icon">
+                {% if icon_dormitorios %}<img src="{{ icon_dormitorios }}" alt="🛏">{% else %}🛏{% endif %}
+            </td>
+            <td class="svc-text">
+                Estadía en {{ destino }} por {{ noches_alojamiento }}.
+            </td>
+        </tr>
+        <tr>
+            <td class="svc-icon">
+                {% if icon_traslados %}<img src="{{ icon_traslados }}" alt="🚐">{% else %}🚐{% endif %}
+            </td>
+            <td class="svc-text">
+                Traslados de llegada y regreso (Aeropuerto / Hotel / Aeropuerto).
+            </td>
+        </tr>
+    </table>
+
+    <!-- ═══════════════ 4. VUELOS ═══════════════ -->
+    <div class="flights-section">
+        <div class="section-heading">Vuelos</div>
+        <div class="flights-row">
+            <div class="flight-col">
+                <div class="flight-label">SALIDA → {{ fecha_vuelo_ida }}</div>
+                <div class="flight-img-container">
+                    {% if img_vuelo_ida %}
+                    <img src="{{ img_vuelo_ida }}" alt="Vuelo de Ida">
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flight-col">
+                <div class="flight-label">REGRESO ← {{ fecha_vuelo_vuelta }}</div>
+                <div class="flight-img-container">
+                    {% if img_vuelo_vuelta %}
+                    <img src="{{ img_vuelo_vuelta }}" alt="Vuelo de Regreso">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ 5. ALOJAMIENTO ═══════════════ -->
+    <div class="hotels-section">
+        <div class="section-heading">Opciones de Alojamiento</div>
+
+        {% for hotel in hoteles %}
+        <div class="hotel-card">
+            <!-- Recommendation badge for first hotel -->
+            {% if loop.first and hoteles|length > 1 %}
+            <div class="reco-badge">NUESTRA RECOMIENDACIÓN</div>
+            {% endif %}
+
+            <!-- Hotel Image -->
+            <div class="hotel-card-img">
+                {% if hotel.imagen_path %}
+                <img src="{{ hotel.imagen_path }}" alt="{{ hotel.nombre }}">
+                {% endif %}
+            </div>
+
+            <!-- Hotel Info -->
+            <div class="hotel-card-body">
+                <div class="hotel-card-top">
+                    <!-- Name -->
+                    <div class="hotel-name-row" {% if loop.first and hoteles|length> 1 %}style="padding-right: 125px;"
+                        {% endif %}>
+                        <span class="hotel-name">{{ hotel.nombre }}</span>
+                    </div>
+
+                    <!-- Service Badges -->
+                    <div class="hotel-services">
+                        <span class="hotel-svc-badge">
+                            {{ hotel.stars_count }} estrellas
+                            <span style="color: #f7bd46; margin-left: 4px; letter-spacing: 0.5px;">
+                                {% for i in range(hotel.stars_count) %}★{% endfor %}
+                            </span>
+                        </span>
+                        {% if icon_noches %}
+                        <span class="hotel-svc-badge">
+                            <img src="{{ icon_noches }}" alt="">
+                            {{ noches_alojamiento }}
+                        </span>
+                        {% endif %}
+                        {% if icon_dormitorios %}
+                        <span class="hotel-svc-badge">
+                            <img src="{{ icon_dormitorios }}" alt="">
+                            {{ hotel.habitacion }}
+                        </span>
+                        {% endif %}
+                        {% if icon_regimen %}
+                        <span class="hotel-svc-badge">
+                            <img src="{{ icon_regimen }}" alt="">
+                            {{ hotel.regimen }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Description -->
+                    {% if hotel.descripcion %}
+                    <p class="hotel-desc">{{ hotel.descripcion }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Pricing -->
+                <div class="hotel-pricing">
+                    <div class="hotel-price-pp">
+                        <span class="currency">USD</span> {{ "%.2f"|format(hotel.precio_persona) }}
+                    </div>
+                    <div class="hotel-price-base">por persona — Base {{ base_habitacion }}</div>
+                    <div class="hotel-price-total">Total: USD {{ "%.2f"|format(hotel.costo) }}</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ═══════════════ 6. PIE DE PÁGINA — LEGALES ═══════════════ -->
+    <div class="legal-footer">
+        <p>
+            *TASAS TURÍSTICAS OBLIGATORIAS EN AQUELLOS DESTINOS QUE ASÍ LO REQUIERAN.
+            *ES DEBER DEL PASAJERO CONOCER LA DOCUMENTACIÓN REQUERIDA. CONSULTÁ LOS REQUISITOS DE INGRESO A CADA
+            DESTINO.
+            *LAS TARIFAS COTIZADAS NO EMITIDAS O RESERVADAS PUEDEN SUFRIR CAMBIOS SIN PREVIO AVISO.
+            *ONE TRIP, EN SU CARÁCTER DE INTERMEDIARIO Y DISPUESTO A REALIZAR LO QUE ESTÉ A SU ALCANCE, NO SE HACE
+            RESPONSABLE POR LAS POLÍTICAS DE REPROGRAMACIONES O CANCELACIONES DE CADA LÍNEA AÉREA U OTROS PROVEEDORES DE
+            SERVICIOS TURÍSTICOS ANTE CASOS EVENTUALES.
+        </p>
+    </div>
+    <div class="footer-bar"></div>
+
+</body>
+
+</html>

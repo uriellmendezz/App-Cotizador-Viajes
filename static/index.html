@@ -52,9 +52,6 @@
                     onclick="confirmNewQuote()">Nueva Cotización</button>
                 <button
                     class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                    onclick="switchTab('importar-tab')">Importar Lote (Excel)</button>
-                <button
-                    class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                     onclick="switchTab('config-tab')">Configuración</button>
             </nav>
         </div>
@@ -67,7 +64,7 @@
 
         <!-- ==================== TAB 1: NUEVA COTIZACIÓN ==================== -->
         <div id="cotizacion-tab" class="tab-content active block">
-            <form id="quote-form" onsubmit="generateQuote(event)"
+            <form id="quote-form" onsubmit="generatePDFPreview(event)"
                 class="flex flex-col lg:flex-row gap-8 items-start w-full transition-all duration-500">
 
                 <!-- Left Column - Form Sections -->
@@ -307,15 +304,17 @@
                             terrestres (Alojamiento + Traslados) en el cálculo final.</p>
                     </section>
 
-                    <!-- Submit Buttons Container: Slides only -->
-                    <div class="flex justify-end pt-4">
-                        <button type="submit" id="btn-generar-slides"
+                    <!-- Submit Buttons Container: PDF Preview -->
+                    <div class="flex flex-col sm:flex-row justify-start gap-3 pt-4">
+                        <button type="submit" id="btn-generar-preview"
                             class="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-brand-primary hover:bg-brand-primary/95 text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
-                            Generar cotización
+                            GENERAR COTIZACIÓN
                         </button>
                     </div>
                 </div>
@@ -364,46 +363,49 @@
                 <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                     <span
                         class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center font-bold text-sm">✓</span>
-                    <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight">¡Cotización Generada
-                        con Éxito!</h2>
+                    <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight">¡Vista Previa de la Cotización!</h2>
                 </div>
 
                 <div class="w-full space-y-8">
                     <!-- Left: details & actions -->
                     <div class="w-full space-y-6">
-                        <p class="text-sm text-slate-500 leading-relaxed">La presentación ha sido creada y guardada en
-                            Google Drive. Podés editarla directamente en la nube, ajustar textos o imágenes, y descargar
-                            el PDF oficial cuando gustes.</p>
+                        <p class="text-sm text-slate-500 leading-relaxed">Visualizá cómo quedó la cotización en PDF a continuación. Podés descargar el archivo oficial presionando el botón de descarga.</p>
 
-                        <div id="sheets-sync-status"
-                            class="hidden p-4 rounded-xl text-sm font-semibold border bg-emerald-50 border-emerald-100 text-emerald-700">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div id="res-total-card" class="bg-slate-50 rounded-2xl p-4 border border-slate-200/50 flex flex-col justify-center">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo Total</span>
+                                <span id="res-total-price" class="text-xl font-extrabold text-slate-800">USD 0.00</span>
+                            </div>
+                            <div id="res-pax-card" class="bg-brand-primary/5 rounded-2xl p-4 border border-brand-primary/10 flex flex-col justify-center">
+                                <span class="text-[10px] font-bold text-brand-primary uppercase tracking-wider" id="res-basis-label">Base Doble</span>
+                                <span id="res-pax-price" class="text-xl font-extrabold text-brand-primary">USD 0.00 / Pax</span>
+                            </div>
                         </div>
 
-                        <!-- CTA View Slides -->
-                        <a id="btn-view-slides" href="#" target="_blank"
-                            class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg transition-all duration-300 hover:-translate-y-0.5">
-                            <svg viewBox="0 0 24 24" class="w-5 h-5" fill="currentColor">
-                                <path
-                                    d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1zm-4-8H7v-2h7v2zm3 4H7v-2h10v2z" />
+                        <!-- CTA Download PDF -->
+                        <button id="btn-download-pdf" onclick="downloadPDFBlob()"
+                            class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-brand-primary to-brand-accent text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all duration-300 hover:-translate-y-0.5">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
-                            Abrir en Google Slides
-                        </a>
+                            Descargar Cotización en PDF
+                        </button>
 
-                        <!-- Live IFrame Embedded Preview -->
+                        <!-- Live PDF Embedded Preview -->
                         <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-lg bg-white mt-8">
                             <div
                                 class="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
                                 <span
                                     class="text-xs font-extrabold uppercase text-slate-500 tracking-wider flex items-center gap-2">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                    Previsualización en Vivo
+                                    <span class="w-2.5 h-2.5 rounded-full bg-brand-primary animate-pulse"></span>
+                                    Previsualización del PDF
                                 </span>
-                                <span class="text-xs text-slate-400 font-medium">Google Slides</span>
+                                <span class="text-xs text-slate-400 font-medium">Cotización A4</span>
                             </div>
                             <div class="relative pb-[141%] h-0 w-full bg-slate-100">
-                                <iframe id="slides-preview-iframe" class="absolute top-0 left-0 w-full h-full border-0"
-                                    src="" allowfullscreen="true" mozallowfullscreen="true"
-                                    webkitallowfullscreen="true"></iframe>
+                                <iframe id="pdf-preview-iframe" class="absolute top-0 left-0 w-full h-full border-0"
+                                    src="" allowfullscreen="true"></iframe>
                             </div>
                         </div>
                     </div>
@@ -413,57 +415,7 @@
 
         </div>
 
-        <!-- ==================== TAB 2: IMPORTAR LOTE (EXCEL) ==================== -->
-        <div id="importar-tab" class="tab-content hidden">
-            <div class="bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-sm">
-                <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight mb-2">Importación Masiva
-                    desde Excel o CSV</h2>
-                <p class="text-sm text-slate-500 leading-relaxed mb-6">Cargue un archivo estructurado con filas de
-                    cotizaciones. El sistema mapeará las columnas, computará los fees aéreos y cargos administrativos
-                    del 5% e importará las opciones a la base de datos de manera automatizada.</p>
 
-                <div class="import-dropzone border-2 border-dashed border-slate-200 hover:border-brand-primary bg-slate-50/50 rounded-2xl p-10 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center group"
-                    id="excel-dropzone" onclick="triggerFileInput('file-excel')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        class="w-12 h-12 text-slate-400 group-hover:text-brand-primary transition-colors mb-4">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="16" y1="13" x2="8" y2="13" />
-                        <line x1="16" y1="17" x2="8" y2="17" />
-                        <polyline points="10 9 9 9 8 9" />
-                    </svg>
-                    <div class="font-bold text-sm text-slate-700 mb-1">Arrastra tu archivo Excel/CSV aquí o haz clic
-                        para buscar</div>
-                    <div class="text-xs text-slate-400">Archivos soportados: .xlsx y .csv</div>
-                    <input type="file" id="file-excel" accept=".xlsx, .csv" class="hidden"
-                        onchange="handleExcelImport(this)">
-                </div>
-
-                <div id="import-results-panel" class="hidden mt-8">
-                    <h3 class="font-display font-bold text-base text-slate-800 mb-4 pb-2 border-b border-slate-100">
-                        Filas Importadas y Auditadas</h3>
-                    <div class="overflow-x-auto border border-slate-100 rounded-xl">
-                        <table class="w-full text-left border-collapse text-xs font-medium">
-                            <thead>
-                                <tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
-                                    <th class="p-3">Pasajero</th>
-                                    <th class="p-3">Destino</th>
-                                    <th class="p-3">Salida</th>
-                                    <th class="p-3">Vuelos (Neto)</th>
-                                    <th class="p-3">Hotel (Neto)</th>
-                                    <th class="p-3">Total Calc</th>
-                                    <th class="p-3">Por Pax</th>
-                                    <th class="p-3">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="import-table-body" class="divide-y divide-slate-50 text-slate-700">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- ==================== TAB 3: CONFIGURACIÓN ==================== -->
         <div id="config-tab" class="tab-content hidden">
@@ -521,11 +473,11 @@
                             </div>
                         </div>
 
-                        <!-- Logo & Slides integration -->
+                        <!-- Logo integration -->
                         <div class="space-y-6">
                             <h3
                                 class="font-display font-bold text-sm uppercase text-slate-500 tracking-wider border-b border-slate-100 pb-2">
-                                Integraciones y Logo</h3>
+                                Logo de Agencia</h3>
 
                             <div class="flex flex-col gap-2">
                                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Logo de la
@@ -544,22 +496,6 @@
                                             alt="">
                                     </div>
                                 </div>
-                            </div>
-
-                            <div class="flex flex-col gap-2">
-                                <label for="config_slides_template_id"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">ID Plantilla
-                                    Google Slides (v3)</label>
-                                <input type="text" id="config_slides_template_id" required
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
-                            </div>
-
-                            <div class="flex flex-col gap-2">
-                                <label for="config_slides_folder_id"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">ID Carpeta Destino
-                                    Google Drive</label>
-                                <input type="text" id="config_slides_folder_id"
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
                             </div>
                         </div>
                     </div>

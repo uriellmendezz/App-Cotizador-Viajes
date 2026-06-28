@@ -43,3 +43,9 @@ test_output/
 *.sqlite
 
 to-do/
+.vercel
+.env*
+
+.vercelignore
+.vercel
+node_modules/

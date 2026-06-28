@@ -23,39 +23,56 @@ mcp = FastMCP("GoogleSlides")
 
 def get_google_credentials():
     """Load Google credentials, checking env variables first, then local files."""
-    # 1. Try service account info from environment variable
-    google_creds_json = os.environ.get("GOOGLE_CREDS_JSON")
-    if google_creds_json:
-        try:
-            creds_info = json.loads(google_creds_json)
-            return service_account.Credentials.from_service_account_info(
-                creds_info, scopes=SCOPES
-            )
-        except Exception as e:
-            print(f"Error loading service account from GOOGLE_CREDS_JSON: {e}")
-
-    # 2. Try user token from environment variable
-    google_token_json = os.environ.get("GOOGLE_TOKEN_JSON")
+    # 1. Try user token from environment variable (GOOGLE_TOKEN or GOOGLE_TOKEN_JSON)
+    google_token_json = os.environ.get("GOOGLE_TOKEN") or os.environ.get("GOOGLE_TOKEN_JSON")
     if google_token_json:
         try:
             token_info = json.loads(google_token_json)
             return Credentials.from_authorized_user_info(token_info, SCOPES)
         except Exception as e:
-            print(f"Error loading user token from GOOGLE_TOKEN_JSON: {e}")
+            print(f"Error loading user token from environment variable: {e}")
+
+    # 2. Try service account info from environment variable (GOOGLE_CREDENTIALS or GOOGLE_CREDS_JSON)
+    google_creds_json = os.environ.get("GOOGLE_CREDENTIALS") or os.environ.get("GOOGLE_CREDS_JSON")
+    if google_creds_json:
+        try:
+            creds_info = json.loads(google_creds_json)
+            if creds_info.get("type") == "service_account":
+                return service_account.Credentials.from_service_account_info(
+                    creds_info, scopes=SCOPES
+                )
+            else:
+                print("Environment credentials is not a service account. Skipping environment loading.")
+        except Exception as e:
+            print(f"Error loading service account from environment variable: {e}")
 
     # 3. Fallback to local files
+    if os.path.exists(TOKEN_FILE):
+        try:
+            return Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        except Exception as e:
+            print(f"Error loading local token.json: {e}")
+            
     if os.path.exists(CREDENTIALS_FILE):
-        return service_account.Credentials.from_service_account_file(
-            CREDENTIALS_FILE,
-            scopes=SCOPES
-        )
-    elif os.path.exists(TOKEN_FILE):
-        return Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-    else:
-        raise FileNotFoundError(
-            f"Neither service account credentials at '{CREDENTIALS_FILE}', "
-            f"nor user token at '{TOKEN_FILE}', nor environment variables GOOGLE_CREDS_JSON or GOOGLE_TOKEN_JSON were found."
-        )
+        try:
+            with open(CREDENTIALS_FILE, "r") as f:
+                info = json.load(f)
+            if info.get("type") == "service_account":
+                return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+        except Exception:
+            pass
+        try:
+            return service_account.Credentials.from_service_account_file(
+                CREDENTIALS_FILE,
+                scopes=SCOPES
+            )
+        except Exception as e:
+            print(f"Error loading local credentials.json: {e}")
+
+    raise FileNotFoundError(
+        f"Neither user token at '{TOKEN_FILE}' or environment variable GOOGLE_TOKEN/GOOGLE_TOKEN_JSON, "
+        f"nor service account credentials at '{CREDENTIALS_FILE}' or environment variable GOOGLE_CREDENTIALS/GOOGLE_CREDS_JSON were found."
+    )
 
 def upload_base64_image_to_drive(drive_service, base64_str, filename, folder_id=None):
     """

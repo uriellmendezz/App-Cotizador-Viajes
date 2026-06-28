@@ -33,7 +33,10 @@ app.add_middleware(
 )
 
 # Ensure required directories exist
-os.makedirs(os.path.join(BASE_DIR, "config"), exist_ok=True)
+try:
+    os.makedirs(os.path.join(BASE_DIR, "config"), exist_ok=True)
+except Exception:
+    pass
 
 CONFIG_FILE = os.path.join(BASE_DIR, "config", "agency_config.json")
 CREDENTIALS_FILE = os.path.join(BASE_DIR, "config", "service_account.json")
@@ -60,6 +63,20 @@ DEFAULT_CONFIG = {
 
 
 def load_agency_config():
+    # Try tmp file first (for serverless environments)
+    try:
+        import tempfile
+        tmp_config = os.path.join(tempfile.gettempdir(), "agency_config.json")
+        if os.path.exists(tmp_config):
+            with open(tmp_config, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                for k, v in DEFAULT_CONFIG.items():
+                    if k not in data or (data[k] == "" and v != ""):
+                        data[k] = v
+                return data
+    except Exception:
+        pass
+
     if not os.path.exists(CONFIG_FILE):
         return DEFAULT_CONFIG
     try:
@@ -74,8 +91,19 @@ def load_agency_config():
         return DEFAULT_CONFIG
 
 def save_agency_config(config_data):
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(config_data, f, indent=4, ensure_ascii=False)
+    try:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(config_data, f, indent=4, ensure_ascii=False)
+    except (IOError, OSError) as e:
+        print(f"Failed to write to primary config path: {e}")
+        try:
+            import tempfile
+            tmp_config = os.path.join(tempfile.gettempdir(), "agency_config.json")
+            with open(tmp_config, "w", encoding="utf-8") as f:
+                json.dump(config_data, f, indent=4, ensure_ascii=False)
+            print(f"Successfully saved config to fallback path: {tmp_config}")
+        except Exception as ex:
+            print(f"Failed to write to fallback config path: {ex}")
 
 def safe_float(val, default=0.0):
     if val is None or val == "":
@@ -263,7 +291,8 @@ def api_cotizar(quote: dict):
     slides_url = None
     slides_error = None
 
-    if os.path.exists(CREDENTIALS_FILE) or os.path.exists(TOKEN_FILE):
+    has_env_credentials = any(os.getenv(k) for k in ["GOOGLE_CREDENTIALS", "GOOGLE_CREDS_JSON", "GOOGLE_TOKEN", "GOOGLE_TOKEN_JSON"])
+    if os.path.exists(CREDENTIALS_FILE) or os.path.exists(TOKEN_FILE) or has_env_credentials:
         try:
             if template_id:
                 print(f"[Slides] Generating presentation by copying template '{template_id}'...")
@@ -305,6 +334,95 @@ def api_cotizar(quote: dict):
         "precio_persona": quote["precio_persona"]
     }
 
+
+@app.post("/api/cotizar-pdf")
+def api_cotizar_pdf(quote: dict):
+    """
+    Recibe los datos de la cotización, calcula costos y genera un PDF
+    profesional con WeasyPrint. Devuelve el archivo PDF como descarga.
+    """
+    import io
+    from app.pdf_generator import generate_pdf
+
+    config = load_agency_config()
+
+    # Pre-populate agency details
+    quote["agencia_nombre"] = config.get("nombre_agencia", "ONE TRIP GIORDANO")
+    quote["agencia_logo_base64"] = config.get("logo_base64")
+    quote["colores"] = config.get("colores")
+
+    # ── Financial calculations (same as /api/cotizar) ─────────────────────
+    cant_pax = safe_int(quote.get("cantidad_pasajeros", 1))
+    monto_vuelos = safe_float(quote.get("monto_vuelos", 0.0))
+    monto_traslados = safe_float(quote.get("monto_traslados", 0.0))
+    gastos_iva = safe_float(quote.get("gastos_iva", 0.0))
+
+    if "fee_aereo" in quote:
+        fee_aereo = safe_float(quote.get("fee_aereo", 0.0))
+    else:
+        fee_aereo_percent = safe_float(quote.get("fee_aereo_percent", 10.0))
+        fee_aereo = monto_vuelos * (fee_aereo_percent / 100.0)
+
+    hoteles = quote.get("hoteles", [])
+    if not hoteles:
+        raise HTTPException(status_code=400, detail="Se requiere al menos una opción de hotel.")
+
+    for hotel in hoteles:
+        costo_hotel = safe_float(hotel.get("costo", 0.0))
+        gastos_admin = (costo_hotel + monto_traslados) * 0.05
+        costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
+        precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
+        hotel["costo"] = round(costo_total, 2)
+        hotel["precio_persona"] = round(precio_persona, 2)
+
+    primary_hotel = hoteles[0]
+    quote["costo_total"] = primary_hotel["costo"]
+    quote["precio_persona"] = primary_hotel["precio_persona"]
+
+    base_habitacion = "Single"
+    if cant_pax == 2: base_habitacion = "Doble"
+    elif cant_pax == 3: base_habitacion = "Triple"
+    elif cant_pax == 4: base_habitacion = "Cuádruple"
+    elif cant_pax > 4: base_habitacion = "Grupal"
+    quote["base_habitacion"] = base_habitacion
+
+    # Calculate nights from flight dates
+    noches_alojamiento = "7 noches"
+    fecha_ida = quote.get("fecha_vuelo_ida")
+    fecha_vuelta = quote.get("fecha_vuelo_vuelta")
+    if fecha_ida and fecha_vuelta:
+        try:
+            d_ida = datetime.strptime(fecha_ida, "%d/%m/%Y")
+            d_vuelta = datetime.strptime(fecha_vuelta, "%d/%m/%Y")
+            noches = abs((d_vuelta - d_ida).days)
+            noches_alojamiento = f"{noches} noches"
+        except Exception:
+            pass
+    quote["noches_alojamiento"] = noches_alojamiento
+
+    # ── Generate PDF ──────────────────────────────────────────────────────
+    try:
+        pdf_bytes = generate_pdf(quote)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando el PDF: {str(e)}")
+
+    # Build filename
+    nombre = quote.get("nombre_pax", "Pasajero").replace("/", "-").replace("\\", "-")
+    destino = quote.get("destino", "Destino").replace("/", "-").replace("\\", "-")
+    now = datetime.now()
+    fecha_str = now.strftime("%d-%m-%Y")
+    hora_str = now.strftime("%H-%M-%S")
+    filename = f"Cotización para {nombre} - {destino} - {fecha_str}_{hora_str}.pdf"
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
 
 
 

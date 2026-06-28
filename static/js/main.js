@@ -176,7 +176,7 @@ function switchTab(tabId) {
 window.switchTab = switchTab;
 
 // Show Alerts
-function showAlert(type, message) {
+function showAlert(type, message, preventScroll = false) {
     const el = document.getElementById('alert-message');
     el.className = `alert p-4 rounded-xl font-semibold border text-sm mb-6 transition-all duration-300`;
     
@@ -192,7 +192,9 @@ function showAlert(type, message) {
     el.classList.remove('hidden');
     el.classList.add('block');
     
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!preventScroll) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     
     setTimeout(() => {
         el.classList.add('hidden');
@@ -212,8 +214,14 @@ async function loadConfig() {
         document.getElementById('color_primary').value = agencyConfig.colores[0];
         document.getElementById('color_secondary').value = agencyConfig.colores[1];
         document.getElementById('color_neutral').value = agencyConfig.colores[2];
-        document.getElementById('config_slides_template_id').value = agencyConfig.google_slides_template_id || '';
-        document.getElementById('config_slides_folder_id').value = agencyConfig.google_slides_folder_id || '';
+        const slidesTemplateInput = document.getElementById('config_slides_template_id');
+        if (slidesTemplateInput) {
+            slidesTemplateInput.value = agencyConfig.google_slides_template_id || '';
+        }
+        const slidesFolderInput = document.getElementById('config_slides_folder_id');
+        if (slidesFolderInput) {
+            slidesFolderInput.value = agencyConfig.google_slides_folder_id || '';
+        }
         
         // Update header navbar title & colors
         const navAgencyName = document.getElementById('nav-agency-name');
@@ -252,8 +260,8 @@ async function saveConfig(e) {
             document.getElementById('color_neutral').value
         ],
         logo_base64: document.getElementById('data-logo').value.includes('base64') ? document.getElementById('data-logo').value.split(',')[1] : document.getElementById('data-logo').value,
-        google_slides_template_id: document.getElementById('config_slides_template_id').value,
-        google_slides_folder_id: document.getElementById('config_slides_folder_id').value
+        google_slides_template_id: document.getElementById('config_slides_template_id') ? document.getElementById('config_slides_template_id').value : '',
+        google_slides_folder_id: document.getElementById('config_slides_folder_id') ? document.getElementById('config_slides_folder_id').value : ''
     };
     
     try {
@@ -728,14 +736,11 @@ function updateRealTimeSummary() {
 }
 window.updateRealTimeSummary = updateRealTimeSummary;
 
-async function generateQuote(e) {
-    e.preventDefault();
-    await _doGenerateSlides();
-}
-window.generateQuote = generateQuote;
+let currentPdfBlob = null;
+let currentPdfFileName = '';
 
-// Core Slides generation (shared logic)
-async function _doGenerateSlides() {
+async function generatePDFPreview(e) {
+    if (e) e.preventDefault();
     if (!validateDates()) return;
     
     const imgIda = document.getElementById('data-vuelo-ida').value;
@@ -746,12 +751,13 @@ async function _doGenerateSlides() {
     }
     
     document.getElementById('loading-overlay').style.display = 'flex';
-    document.getElementById('loading-text').innerText = 'Generando cotización...';
+    const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
+    document.getElementById('loading-text').innerText = `Creando la cotización para ${paxNameForLoading}`;
     
     const payload = _buildPayload();
     
     try {
-        const res = await fetch('/api/cotizar', {
+        const res = await fetch('/api/cotizar-pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -759,44 +765,82 @@ async function _doGenerateSlides() {
         
         if (!res.ok) {
             const errData = await res.json();
-            throw new Error(errData.detail || 'Error al generar la cotización');
+            throw new Error(errData.detail || 'Error al generar el PDF');
         }
         
-        const result = await res.json();
+        const blob = await res.blob();
+        currentPdfBlob = blob;
+        
         document.getElementById('loading-overlay').style.display = 'none';
         
-        const slidesBtn = document.getElementById('btn-view-slides');
-        if (result.slides_url) {
-            slidesBtn.href = result.slides_url;
-            const iframe = document.getElementById('slides-preview-iframe');
-            if (iframe) {
-                iframe.src = result.slides_url.replace('/edit', '/embed?start=false&loop=false&delayms=3000');
-            }
+        // Update PDF iframe preview source
+        const url = window.URL.createObjectURL(blob);
+        const iframe = document.getElementById('pdf-preview-iframe');
+        if (iframe) {
+            iframe.src = url;
         }
         
-        document.getElementById('res-total-price').innerText = `USD ${result.costo_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        document.getElementById('res-pax-price').innerText = `USD ${result.precio_persona.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / Pax`;
+        // Build filename for future download
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const yyyy = now.getFullYear();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        const fecha = `${dd}-${mm}-${yyyy}`;
+        const hora = `${hh}-${min}-${ss}`;
+        const paxName = (document.getElementById('nombre_pax').value || 'Pasajero').replace(/[\/\\]/g, '-');
+        const destName = (document.getElementById('destino').value || 'Destino').replace(/[\/\\]/g, '-');
+        currentPdfFileName = `Cotización para ${paxName} - ${destName} - ${fecha}_${hora}.pdf`;
+        
+        // Calculate dynamic total price for results display (from payload)
+        const cantPax = payload.cantidad_pasajeros || 1;
+        const flightsCost = payload.monto_vuelos || 0;
+        const flightsFee = payload.fee_aereo || 0;
+        const transfersCost = payload.monto_traslados || 0;
+        const aereosTotal = flightsCost + flightsFee;
+        
+        const primaryHotel = payload.hoteles[0];
+        const hotelCost = primaryHotel ? primaryHotel.costo : 0;
+        const adminFee = (hotelCost + transfersCost) * 0.05;
+        const total = aereosTotal + hotelCost + transfersCost + adminFee;
+        const perPerson = total / cantPax;
+        
+        document.getElementById('res-total-price').innerText = `USD ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        document.getElementById('res-pax-price').innerText = `USD ${perPerson.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / Pax`;
         updateBaseLabel();
         
-        const sheetsStatus = document.getElementById('sheets-sync-status');
-        if (result.supabase_saved) {
-            sheetsStatus.className = 'alert bg-emerald-50 border-emerald-100 text-emerald-700 block';
-            sheetsStatus.innerText = '✔ Cotización guardada en base de datos Supabase de forma exitosa.';
-        } else {
-            sheetsStatus.className = 'alert bg-amber-50 border-amber-100 text-amber-700 block';
-            sheetsStatus.innerText = '⚠ Guardado en Supabase omitido (API no configurada). La presentación en Slides fue creada correctamente.';
-        }
+        // Show results panel
+        const resultsPanel = document.getElementById('results-panel');
+        resultsPanel.classList.remove('hidden');
+        resultsPanel.classList.add('block');
+        resultsPanel.scrollIntoView({ behavior: 'smooth' });
         
-        // Show Slides panel
-        document.getElementById('results-panel').classList.remove('hidden');
-        document.getElementById('results-panel').classList.add('block');
-        document.getElementById('results-panel').scrollIntoView({ behavior: 'smooth' });
+        showAlert('success', '✔ Vista previa de PDF generada correctamente.', true);
     } catch (err) {
         document.getElementById('loading-overlay').style.display = 'none';
-        showAlert('warning', 'Ocurrió un error: ' + err.message);
+        showAlert('warning', 'Error al generar el PDF: ' + err.message);
     }
 }
+window.generatePDFPreview = generatePDFPreview;
 
+function downloadPDFBlob() {
+    if (!currentPdfBlob) {
+        showAlert('warning', 'No hay ningún PDF generado para descargar.');
+        return;
+    }
+    const url = window.URL.createObjectURL(currentPdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = currentPdfFileName || 'Cotizacion.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    showAlert('success', '✔ PDF descargado con éxito.');
+}
+window.downloadPDFBlob = downloadPDFBlob;
 
 
 // Build payload from form (shared between Slides and PDF)

@@ -14,18 +14,52 @@ SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/a
 
 def obtener_servicio_slides():
     creds = None
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+    # 1. Try user token from environment variable (GOOGLE_TOKEN or GOOGLE_TOKEN_JSON)
+    google_token_json = os.environ.get("GOOGLE_TOKEN") or os.environ.get("GOOGLE_TOKEN_JSON")
+    if google_token_json:
+        try:
+            token_info = json.loads(google_token_json)
+            creds = Credentials.from_authorized_user_info(token_info, SCOPES)
+        except Exception as e:
+            print(f"Error loading user token from environment variable: {e}")
+
+    # 2. Try service account info from environment variable (GOOGLE_CREDENTIALS or GOOGLE_CREDS_JSON)
+    if not creds:
+        google_creds_json = os.environ.get("GOOGLE_CREDENTIALS") or os.environ.get("GOOGLE_CREDS_JSON")
+        if google_creds_json:
+            try:
+                creds_info = json.loads(google_creds_json)
+                if creds_info.get("type") == "service_account":
+                    from google.oauth2 import service_account
+                    creds = service_account.Credentials.from_service_account_info(
+                        creds_info, scopes=SCOPES
+                    )
+            except Exception as e:
+                print(f"Error loading service account from environment variable: {e}")
+
+    # 3. Fallback to local files
+    if not creds and os.path.exists(TOKEN_FILE):
+        try:
+            creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        except Exception as e:
+            print(f"Error loading local token.json: {e}")
     
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            if not os.path.exists(CREDENTIALS_FILE):
+                raise FileNotFoundError(f"Missing credentials file: {CREDENTIALS_FILE}")
             flow = InstalledAppFlow.from_client_secrets_file(
                 CREDENTIALS_FILE, SCOPES)
             creds = flow.run_local_server(port=0)
-        with open(TOKEN_FILE, 'w') as token:
-            token.write(creds.to_json())
+        
+        # Save credentials back, but handle read-only filesystems gracefully
+        try:
+            with open(TOKEN_FILE, 'w') as token:
+                token.write(creds.to_json())
+        except Exception as e:
+            print(f"Could not write token file (possibly read-only filesystem): {e}")
 
     return build('slides', 'v1', credentials=creds)
 
