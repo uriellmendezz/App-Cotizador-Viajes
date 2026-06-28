@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>One Trip Giordano - Cotizaciones Premium</title>
+    <title>Cotizador de viajes One Trip</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,6 +35,9 @@
             }
         }
     </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
@@ -52,6 +55,9 @@
                     onclick="confirmNewQuote()">Nueva Cotización</button>
                 <button
                     class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                    onclick="switchTab('editar-tab')">Editar Cotización</button>
+                <button
+                    class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                     onclick="switchTab('config-tab')">Configuración</button>
             </nav>
         </div>
@@ -65,7 +71,7 @@
         <!-- ==================== TAB 1: NUEVA COTIZACIÓN ==================== -->
         <div id="cotizacion-tab" class="tab-content active block">
             <form id="quote-form" onsubmit="generatePDFPreview(event)"
-                class="flex flex-col lg:flex-row gap-8 items-start w-full transition-all duration-500">
+                class="flex flex-col lg:flex-row gap-8 lg:gap-0 items-start w-full transition-all duration-500">
 
                 <!-- Left Column - Form Sections -->
                 <div id="form-container" class="flex-1 w-full space-y-8 transition-all duration-500">
@@ -209,6 +215,68 @@
                             </div>
                         </div>
 
+                        <!-- Baggage Selector -->
+                        <div class="mt-6 pt-6 border-t border-slate-100 flex flex-col gap-3">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Equipaje
+                                Incluido</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <!-- Option 1 -->
+                                <button type="button" id="btn-bag-mano" onclick="toggleBaggage('mano')"
+                                    class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
+                                            <img src="/assets/iconos/equipaje-de-mano.svg"
+                                                class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
+                                                alt="Mano">
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-600">Equipaje de mano</span>
+                                    </div>
+                                    <div
+                                        class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
+                                        <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
+                                    </div>
+                                </button>
+
+                                <!-- Option 2 -->
+                                <button type="button" id="btn-bag-carry" onclick="toggleBaggage('carry')"
+                                    class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
+                                            <img src="/assets/iconos/carry-on.svg"
+                                                class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
+                                                alt="Carry">
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-600">Carry-On 10kg</span>
+                                    </div>
+                                    <div
+                                        class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
+                                        <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
+                                    </div>
+                                </button>
+
+                                <!-- Option 3 -->
+                                <button type="button" id="btn-bag-valija" onclick="toggleBaggage('valija')"
+                                    class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
+                                            <img src="/assets/iconos/valija-23kg.svg"
+                                                class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
+                                                alt="Valija">
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-600">Valija 23kg</span>
+                                    </div>
+                                    <div
+                                        class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
+                                        <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
+                                    </div>
+                                </button>
+                            </div>
+                            <input type="hidden" id="equipaje_seleccionado" value="[]">
+                        </div>
+
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-100">
                             <div class="flex flex-col gap-2">
                                 <label for="monto_vuelos"
@@ -297,7 +365,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
-                            Gastos Administrativos (No editable)
+                            Gastos Administrativos
                         </h3>
                         <p class="text-[11px] text-slate-500 leading-relaxed font-medium">Se sumará automáticamente un
                             cargo fijo del <strong class="text-slate-700 font-bold">5%</strong> sobre los servicios
@@ -319,19 +387,26 @@
                     </div>
                 </div>
 
+                <!-- Resizer Bar (Desktop only) -->
+                <div id="layout-resizer"
+                    class="hidden lg:flex w-8 cursor-col-resize self-stretch items-center justify-center z-40 select-none group">
+                    <div
+                        class="resizer-line w-[2px] h-full bg-slate-200/80 group-hover:bg-brand-primary/80 transition-colors duration-200">
+                    </div>
+                </div>
+
                 <!-- Right Column - Floating Real-time Cost Breakdown -->
                 <div id="sidebar-container"
                     class="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-28 z-40 transition-all duration-500">
                     <div id="realtime-card"
                         class="bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl p-6 shadow-xl shadow-slate-200/50 lg:shadow-md lg:shadow-slate-100 fixed bottom-4 left-4 right-4 z-50 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:z-0 max-h-[85vh] overflow-hidden transition-all duration-500 w-[calc(100%-2rem)] lg:w-full">
 
-                        <!-- Toggle Button (positioned absolutely on the card) -->
+                        <!-- Toggle Button (positioned absolutely on the left margin, sticking out) -->
                         <button type="button" id="toggle-sidebar-btn"
-                            class="absolute top-5 right-5 p-1.5 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer z-50 text-slate-500"
-                            onclick="toggleRealTimeBreakdown()" title="Minimizar / Expandir">
-                            <svg id="sidebar-arrow-icon"
-                                class="w-4 h-4 text-slate-500 transition-transform duration-500 transform" fill="none"
-                                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            class="absolute top-5 right-5 w-7 h-7 bg-slate-100 hover:bg-brand-primary hover:text-white text-slate-500 rounded-full flex items-center justify-center shadow-sm border border-slate-200/60 cursor-pointer z-50 transition-all duration-300 hover:scale-105 active:scale-95"
+                            onclick="toggleRealTimeBreakdown()" title="Colapsar / Expandir Resumen">
+                            <svg id="sidebar-arrow-icon" class="w-4 h-4 transition-transform duration-500 transform"
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                             </svg>
                         </button>
@@ -349,6 +424,8 @@
                                 Resumen en tiempo real
                             </h3>
 
+
+
                             <div id="realtime-breakdown-container" class="space-y-6">
                                 <!-- Populated in real-time by JS -->
                             </div>
@@ -363,22 +440,29 @@
                 <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                     <span
                         class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center font-bold text-sm">✓</span>
-                    <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight">¡Vista Previa de la Cotización!</h2>
+                    <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight">¡Vista Previa de la
+                        Cotización!</h2>
                 </div>
 
                 <div class="w-full space-y-8">
                     <!-- Left: details & actions -->
                     <div class="w-full space-y-6">
-                        <p class="text-sm text-slate-500 leading-relaxed">Visualizá cómo quedó la cotización en PDF a continuación. Podés descargar el archivo oficial presionando el botón de descarga.</p>
+                        <p class="text-sm text-slate-500 leading-relaxed">Visualizá cómo quedó la cotización en PDF a
+                            continuación. Podés descargar el archivo oficial presionando el botón de descarga.</p>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div id="res-total-card" class="bg-slate-50 rounded-2xl p-4 border border-slate-200/50 flex flex-col justify-center">
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo Total</span>
+                            <div id="res-total-card"
+                                class="bg-slate-50 rounded-2xl p-4 border border-slate-200/50 flex flex-col justify-center">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo
+                                    Total</span>
                                 <span id="res-total-price" class="text-xl font-extrabold text-slate-800">USD 0.00</span>
                             </div>
-                            <div id="res-pax-card" class="bg-brand-primary/5 rounded-2xl p-4 border border-brand-primary/10 flex flex-col justify-center">
-                                <span class="text-[10px] font-bold text-brand-primary uppercase tracking-wider" id="res-basis-label">Base Doble</span>
-                                <span id="res-pax-price" class="text-xl font-extrabold text-brand-primary">USD 0.00 / Pax</span>
+                            <div id="res-pax-card"
+                                class="bg-brand-primary/5 rounded-2xl p-4 border border-brand-primary/10 flex flex-col justify-center">
+                                <span class="text-[10px] font-bold text-brand-primary uppercase tracking-wider"
+                                    id="res-basis-label">Base Doble</span>
+                                <span id="res-pax-price" class="text-xl font-extrabold text-brand-primary">USD 0.00 /
+                                    Pax</span>
                             </div>
                         </div>
 
@@ -506,6 +590,34 @@
                             Configuración</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 4: EDITAR COTIZACIÓN ==================== -->
+        <div id="editar-tab" class="tab-content hidden">
+            <div class="bento-box p-6 lg:p-8">
+                <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight mb-2">Editar Cotización
+                    desde PDF</h2>
+                <p class="text-sm text-slate-500 leading-relaxed mb-6">Sube una cotización en formato PDF generada
+                    anteriormente por este sistema para cargar todos sus datos y precompletar el formulario de edición.
+                </p>
+
+                <div class="border-2 border-dashed border-slate-200/80 hover:border-brand-primary bg-white/40 rounded-2xl p-10 text-center cursor-pointer transition-all duration-300 flex flex-col items-center justify-center group"
+                    id="pdf-edit-dropzone" onclick="triggerFileInput('file-pdf-edit')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        class="w-12 h-12 text-slate-400 group-hover:text-brand-primary transition-colors mb-4">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                    </svg>
+                    <div class="font-bold text-sm text-slate-700 mb-1">Arrastra tu PDF de cotización aquí o haz clic
+                        para buscar</div>
+                    <div class="text-xs text-slate-400">Solo archivos PDF (.pdf) generados por este sistema</div>
+                    <input type="file" id="file-pdf-edit" accept=".pdf" class="hidden"
+                        onchange="handlePDFEditImport(this)">
+                </div>
             </div>
         </div>
     </main>

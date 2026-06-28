@@ -275,10 +275,29 @@ def api_cotizar(quote: dict):
             pass
     quote["noches_alojamiento"] = noches_alojamiento
     
+    # Build dynamic baggage description
+    equipaje = quote.get("equipaje", [])
+    baggage_parts = []
+    for item in equipaje:
+        if item == 'mano':
+            baggage_parts.append("equipaje de mano")
+        elif item == 'carry':
+            baggage_parts.append("carry-on (10kg)")
+        elif item == 'valija':
+            baggage_parts.append("valija (23kg)")
+
+    if baggage_parts:
+        if len(baggage_parts) == 1:
+            baggage_str = f" Incluye {baggage_parts[0]}."
+        else:
+            baggage_str = f" Incluye {', '.join(baggage_parts[:-1])} y {baggage_parts[-1]}."
+    else:
+        baggage_str = " No incluye equipaje."
+
     # Enrich checklist details
+    origen = quote.get("origen", "Córdoba")
     destination = quote.get("destino", "")
-    quote.setdefault("detalle_aereo",
-        f"Vuelos para {cant_pax} pasajero{'s' if cant_pax > 1 else ''} a {destination}")
+    quote["detalle_aereo"] = f"Vuelos desde {origen} hacia {destination} para {cant_pax} pasajeros.{baggage_str}"
     quote.setdefault("detalle_hotel",
         f"Estadía en {destination} por {noches_alojamiento}.")
     quote.setdefault("detalle_traslado",
@@ -400,6 +419,29 @@ def api_cotizar_pdf(quote: dict):
             pass
     quote["noches_alojamiento"] = noches_alojamiento
 
+    # Build dynamic baggage description
+    equipaje = quote.get("equipaje", [])
+    baggage_parts = []
+    for item in equipaje:
+        if item == 'mano':
+            baggage_parts.append("equipaje de mano")
+        elif item == 'carry':
+            baggage_parts.append("carry-on (10kg)")
+        elif item == 'valija':
+            baggage_parts.append("valija (23kg)")
+
+    if baggage_parts:
+        if len(baggage_parts) == 1:
+            baggage_str = f" Incluye {baggage_parts[0]}."
+        else:
+            baggage_str = f" Incluye {', '.join(baggage_parts[:-1])} y {baggage_parts[-1]}."
+    else:
+        baggage_str = " No incluye equipaje."
+
+    origen = quote.get("origen", "Córdoba")
+    destino = quote.get("destino", "Destino")
+    quote["detalle_vuelo_completo"] = f"Vuelos desde {origen} hacia {destino} para {cant_pax} pasajeros.{baggage_str}"
+
     # ── Generate PDF ──────────────────────────────────────────────────────
     try:
         pdf_bytes = generate_pdf(quote)
@@ -424,6 +466,46 @@ def api_cotizar_pdf(quote: dict):
         }
     )
 
+
+
+@app.post("/api/extraer-pdf")
+async def api_extraer_pdf(file: UploadFile = File(...)):
+    """
+    Recibe un archivo PDF de cotización generado por este sistema,
+    lee los metadatos '/CotizacionData' que contienen el JSON original
+    del formulario, y lo devuelve.
+    """
+    import io
+    import json
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        raise HTTPException(
+            status_code=500,
+            detail="La librería 'pypdf' no está instalada en el servidor."
+        )
+
+    try:
+        contents = await file.read()
+        reader = PdfReader(io.BytesIO(contents))
+        metadata = reader.metadata
+        quote_data_json = metadata.get("/CotizacionData")
+        if not quote_data_json:
+            raise HTTPException(
+                status_code=400,
+                detail="El archivo PDF no contiene los metadatos '/CotizacionData' de cotización válidos de este sistema."
+            )
+        
+        # Make sure it is parsed as JSON
+        quote_data = json.loads(quote_data_json)
+        return quote_data
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ocurrió un error al procesar el archivo PDF: {str(e)}"
+        )
 
 
 # Mount static files folder

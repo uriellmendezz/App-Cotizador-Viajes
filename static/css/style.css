@@ -12,19 +12,22 @@
     width: 6px;
     height: 6px;
 }
+
 ::-webkit-scrollbar-track {
     background: #f8fafc;
 }
+
 ::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 8px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
 
 body {
-    background-image: 
+    background-image:
         radial-gradient(circle at 0% 0%, rgba(255, 84, 93, 0.04) 0%, transparent 45%),
         radial-gradient(circle at 100% 100%, rgba(247, 150, 70, 0.04) 0%, transparent 45%);
     background-attachment: fixed;
@@ -54,20 +57,31 @@ body {
 
 /* Pulsing hover border animation for dropzones */
 @keyframes pulse-border {
-    0%, 100% { border-color: rgba(255, 84, 93, 0.3); }
-    50% { border-color: rgba(255, 84, 93, 1); box-shadow: 0 0 0 4px rgba(255, 84, 93, 0.1); }
+
+    0%,
+    100% {
+        border-color: rgba(255, 84, 93, 0.3);
+    }
+
+    50% {
+        border-color: rgba(255, 84, 93, 1);
+        box-shadow: 0 0 0 4px rgba(255, 84, 93, 0.1);
+    }
 }
 
-.dropzone:hover, .dropzone.dragover {
+.dropzone:hover,
+.dropzone.dragover {
     animation: pulse-border 1.5s infinite;
 }
 
 /* Responsive Iframe Portrait aspect ratio helper */
 .aspect-w-16 {
     position: relative;
-    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+    padding-bottom: 56.25%;
+    /* 16:9 Aspect Ratio */
     height: 0;
 }
+
 .aspect-w-16 iframe {
     position: absolute;
     top: 0;
@@ -78,9 +92,165 @@ body {
 
 /* Slow spinner for AI optimizer button */
 @keyframes spin-slow {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
+
 .spin-slow {
     animation: spin-slow 1.5s linear infinite;
+}
+
+/* Bento Grid & Glassmorphism helpers */
+.bento-box {
+    background: rgba(255, 255, 255, 0.45) !important;
+    backdrop-filter: blur(15px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04) !important;
+    transition: all 0.3s ease;
+}
+
+.bento-box:hover {
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.35) !important;
+    background: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Glass inputs */
+.glass-input,
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
+    background: rgba(255, 255, 255, 0.5) !important;
+    border-radius: 12px !important;
+    transition: all 0.3s ease !important;
+}
+
+.glass-input:focus,
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+select:focus,
+textarea:focus {
+    border-color: #ff545d !important;
+    box-shadow: 0 0 0 4px rgba(255, 84, 93, 0.1) !important;
+    background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Glassmorphism Active State (Green) for Baggage Selector */
+.baggage-opt-btn {
+    transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease !important;
+}
+
+.baggage-opt-btn:hover {
+    background-color: rgba(255, 255, 255, 0.8) !important;
+    border-color: rgba(203, 213, 225, 0.9) !important;
+    transform: translateY(-1px);
+}
+
+.baggage-opt-btn.active {
+    background-color: rgba(16, 185, 129, 0.06) !important;
+    border-color: rgba(16, 185, 129, 0.3) !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.04) !important;
+    transform: translateY(0);
+}
+
+.baggage-opt-btn.active:hover {
+    background-color: rgba(16, 185, 129, 0.09) !important;
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    transform: translateY(-1px);
+}
+
+.baggage-opt-btn.active span {
+    color: #047857 !important;
+}
+
+.baggage-opt-btn.active .checkbox-indicator {
+    border-color: #10b981 !important;
+}
+
+.baggage-opt-btn.active .icon-container {
+    background: rgba(16, 185, 129, 0.18) !important;
+    color: #10b981 !important;
+}
+
+.baggage-opt-btn.active img {
+    opacity: 1 !important;
+    filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(130deg) brightness(95%) contrast(92%) !important;
+    /* Turn SVG icon green */
+}
+
+/* Custom Flatpickr Theme overrides */
+.flatpickr-calendar {
+    font-family: 'Montserrat', sans-serif !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(15px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06) !important;
+    border-radius: 20px !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.selected.inRange,
+.flatpickr-day.startRange.inRange,
+.flatpickr-day.endRange.inRange,
+.flatpickr-day.selected:focus,
+.flatpickr-day.startRange:focus,
+.flatpickr-day.endRange:focus,
+.flatpickr-day.selected:hover,
+.flatpickr-day.startRange:hover,
+.flatpickr-day.endRange:hover,
+.flatpickr-day.selected.prevMonthDay,
+.flatpickr-day.selected.nextMonthDay {
+    background: #ff545d !important;
+    border-color: #ff545d !important;
+    color: #fff !important;
+}
+
+.flatpickr-day:hover {
+    background: rgba(255, 84, 93, 0.1) !important;
+}
+
+.flatpickr-months .flatpickr-month {
+    color: #343434 !important;
+}
+
+.flatpickr-current-month .numInputWrapper span.arrowUp:after {
+    border-bottom-color: #343434 !important;
+}
+
+.flatpickr-current-month .numInputWrapper span.arrowDown:after {
+    border-top-color: #343434 !important;
+}
+
+/* Resizer drag border and utilities */
+#layout-resizer {
+    transition: background-color 0.2s, opacity 0.2s;
+}
+#layout-resizer:hover .resizer-line,
+#layout-resizer.is-dragging .resizer-line {
+    background-color: var(--primary-color) !important;
+}
+.is-resizing {
+    cursor: col-resize !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+.is-resizing * {
+    transition: none !important;
+}
+.is-resizing iframe {
+    pointer-events: none !important;
 }

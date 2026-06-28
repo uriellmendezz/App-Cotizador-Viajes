@@ -49,6 +49,28 @@ FONTS_DIR = BASE_DIR / "Montserrat" / "static"
 TEMPLATE_NAME = "cotizacion_pdf_v2.html"
 
 
+def format_price(val: float) -> str:
+    """Formats float price to string with dot as thousands separator and comma as decimal separator (e.g. 1.234,56)."""
+    if val is None:
+        return "0,00"
+    try:
+        val = float(val)
+    except (ValueError, TypeError):
+        return "0,00"
+    
+    s = f"{val:.2f}"
+    parts = s.split('.')
+    integer_part = parts[0]
+    decimal_part = parts[1]
+    
+    # Add dots as thousands separators
+    reversed_integer = integer_part[::-1]
+    chunks = [reversed_integer[i:i+3] for i in range(0, len(reversed_integer), 3)]
+    formatted_integer = ".".join(chunks)[::-1]
+    
+    return f"{formatted_integer},{decimal_part}"
+
+
 def _path_to_file_uri(path: Path) -> str:
     """Convert a local filesystem path to a file:// URI for WeasyPrint."""
     abs_path = path.resolve()
@@ -106,6 +128,29 @@ def _resolve_icon(name: str) -> str | None:
     return None
 
 
+def _read_svg_content(name: str) -> str:
+    """Reads local SVG file, strips style and fill attributes, and returns the raw SVG tag content."""
+    import re
+    path = ICONS_DIR / name
+    if path.exists():
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+            # Find index of <svg to ignore XML header
+            idx = content.find("<svg")
+            if idx != -1:
+                content = content[idx:]
+            # Clean up hardcoded style/fill tags to allow dynamic coloring in CSS
+            # Preserving fill:none and fill="none" to prevent transparent background helpers from rendering as black boxes
+            content = re.sub(r'fill:(?!none\b)[^;"]*;?', '', content)
+            content = re.sub(r'\bfill="(?!none\b)[^"]*"', '', content)
+            content = re.sub(r'serif:id="[^"]*"', '', content)
+            return content
+        except Exception as e:
+            print(f"[PDF] Error reading SVG {name}: {e}")
+    return ""
+
+
 def generate_pdf(data: dict) -> bytes:
     """
     Generate a travel quotation PDF from the provided data dictionary.
@@ -159,12 +204,18 @@ def generate_pdf(data: dict) -> bytes:
     banner_path = ASSETS_DIR / "Letras Rosas fondo transparente.png"
     banner_uri = _path_to_file_uri(banner_path) if banner_path.exists() else ""
 
-    # ── Resolve icons ──────────────────────────────────────────────────────
-    icon_vuelos = _resolve_icon("vuelos.svg")
-    icon_dormitorios = _resolve_icon("dormitorios.svg")
-    icon_traslados = _resolve_icon("traslados.svg")
-    icon_noches = _resolve_icon("noches.svg")
-    icon_regimen = _resolve_icon("regimen.svg")
+    # ── Resolve SVG inlines ────────────────────────────────────────────────
+    svg_vuelos = _read_svg_content("ticket-vuelos.svg")
+    svg_dormitorios = _read_svg_content("cama.svg")
+    svg_traslados = _read_svg_content("traslados.svg")
+    svg_noches = _read_svg_content("luna.svg")
+    svg_regimen = _read_svg_content("cafe.svg")
+    svg_estrella = _read_svg_content("estrella.svg")
+    svg_bag_mano = _read_svg_content("equipaje-de-mano.svg")
+    svg_bag_carry = _read_svg_content("carry-on.svg")
+    svg_bag_valija = _read_svg_content("valija-23kg.svg")
+    svg_avion_despegando = _read_svg_content("avion-despegando.svg")
+    svg_avion_aterrizando = _read_svg_content("avion-aterrizando.svg")
 
     # ── Decode flight images from base64 ───────────────────────────────────
     temp_files = []  # track temp files for cleanup
@@ -174,7 +225,6 @@ def generate_pdf(data: dict) -> bytes:
     if img_ida_b64:
         img_ida_uri = _safe_base64_to_temp_file(img_ida_b64, "vuelo_ida_")
         if img_ida_uri:
-            # Extract the temp file path for later cleanup
             temp_files.append(img_ida_uri)
 
     img_vuelta_uri = None
@@ -244,20 +294,30 @@ def generate_pdf(data: dict) -> bytes:
         "origen": data.get("origen", "Córdoba"),
         "cantidad_pasajeros": data.get("cantidad_pasajeros", 1),
         "noches_alojamiento": data.get("noches_alojamiento", "7 noches"),
-        # Icons
-        "icon_vuelos": icon_vuelos,
-        "icon_dormitorios": icon_dormitorios,
-        "icon_traslados": icon_traslados,
-        "icon_noches": icon_noches,
-        "icon_regimen": icon_regimen,
+        # SVGs for dynamic inlining and styling
+        "svg_vuelos": svg_vuelos,
+        "svg_dormitorios": svg_dormitorios,
+        "svg_traslados": svg_traslados,
+        "svg_noches": svg_noches,
+        "svg_regimen": svg_regimen,
+        "svg_estrella": svg_estrella,
+        "svg_bag_mano": svg_bag_mano,
+        "svg_bag_carry": svg_bag_carry,
+        "svg_bag_valija": svg_bag_valija,
+        "svg_avion_despegando": svg_avion_despegando,
+        "svg_avion_aterrizando": svg_avion_aterrizando,
         # Flights
         "fecha_vuelo_ida": data.get("fecha_vuelo_ida", ""),
         "fecha_vuelo_vuelta": data.get("fecha_vuelo_vuelta", ""),
         "img_vuelo_ida": img_ida_uri,
         "img_vuelo_vuelta": img_vuelta_uri,
+        "detalle_vuelo_completo": data.get("detalle_vuelo_completo", ""),
+        # Baggage selection list
+        "equipaje": data.get("equipaje", []),
         # Hotels
         "hoteles": processed_hotels,
         "base_habitacion": data.get("base_habitacion", "Doble"),
+        "format_price": format_price,
     }
 
     # ── Render HTML with Jinja2 ────────────────────────────────────────────
@@ -278,13 +338,42 @@ def generate_pdf(data: dict) -> bytes:
     except Exception as e:
         raise RuntimeError(f"Error generando el PDF con WeasyPrint: {e}") from e
 
+    # ── Inject PDF Metadata with pypdf ─────────────────────────────────────
+    try:
+        from pypdf import PdfReader, PdfWriter
+        import io
+        import json
+
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        writer = PdfWriter()
+        for page in reader.pages:
+            writer.add_page(page)
+
+        # Serialize complete original data
+        metadata = reader.metadata
+        metadata_to_add = {
+            **metadata,
+            "/CotizacionData": json.dumps(data, ensure_ascii=False)
+        }
+        writer.add_metadata(metadata_to_add)
+
+        output_stream = io.BytesIO()
+        writer.write(output_stream)
+        pdf_bytes = output_stream.getvalue()
+        print("[PDF] Metadata successfully injected into /CotizacionData.")
+    except Exception as meta_err:
+        print(f"[PDF] Warning: Failed to inject metadata. Details: {meta_err}")
+
     # ── Cleanup temporary image files ──────────────────────────────────────
     for uri in temp_files:
         try:
-            # Convert file:// URI back to a path for deletion
             if uri and uri.startswith("file:///"):
-                # On Windows: file:///C:/... -> C:/...
                 file_path = uri.replace("file:///", "")
+                if os.name == 'nt' and file_path.startswith('/'):
+                    # Strip leading slash on Windows
+                    file_path = file_path[1:]
+                # Resolve Windows backslash issues
+                file_path = file_path.replace("/", os.sep)
                 if os.path.exists(file_path):
                     os.remove(file_path)
         except Exception as cleanup_err:

@@ -14,3 +14,4 @@ weasyprint
 supabase
 python-dotenv
 fastmcp
+pypdf
