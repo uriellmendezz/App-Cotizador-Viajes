@@ -51,14 +51,14 @@ def parse_date_to_iso(date_str):
         print(f"Supabase Client: Error parsing date '{date_str}': {e}")
     return None
 
-def save_cotizacion(quote_data: dict) -> bool:
+def save_cotizacion(quote_data: dict) -> dict | None:
     """
-    Formats the quote data and inserts it structured into the Supabase table.
+    Formats the quote data and inserts or updates it structured in the Supabase table.
     """
     client = get_supabase_client()
     if not client:
         print("Supabase Client: Client not configured. Skipping save operation.")
-        return False
+        return None
         
     try:
         # Normalize and construct payload
@@ -92,16 +92,74 @@ def save_cotizacion(quote_data: dict) -> bool:
             "hoteles": quote_data.get("hoteles", [])
         }
         
-        print(f"Supabase Client: Inserting quote for '{payload['nombre_pax']}'...")
-        response = client.table("cotizaciones").insert(payload).execute()
+        quote_id = quote_data.get("id")
+        if quote_id:
+            print(f"Supabase Client: Updating quote #{quote_id} for '{payload['nombre_pax']}'...")
+            response = client.table("cotizaciones").update(payload).eq("id", quote_id).execute()
+        else:
+            print(f"Supabase Client: Inserting new quote for '{payload['nombre_pax']}'...")
+            response = client.table("cotizaciones").insert(payload).execute()
         
         # Verify response (supabase-py v2+ uses .data)
         if response and hasattr(response, 'data') and response.data:
-            print("Supabase Client: Row inserted successfully!")
-            return True
+            print("Supabase Client: Operation completed successfully!")
+            return response.data[0]
         else:
-            print(f"Supabase Client: Insertion did not return confirmation data. Response: {response}")
-            return False
+            print(f"Supabase Client: Operation did not return confirmation data. Response: {response}")
+            return None
     except Exception as e:
-        print(f"Supabase Client: Insertion failed. Error details: {e}")
+        print(f"Supabase Client: Operation failed. Error details: {e}")
+        return None
+
+def get_cotizaciones() -> list:
+    """
+    Retrieves all saved quotes metadata from Supabase.
+    """
+    client = get_supabase_client()
+    if not client:
+        print("Supabase Client: Client not configured. Skipping get operation.")
+        return []
+    try:
+        response = client.table("cotizaciones").select(
+            "id, nombre_pax, destino, cantidad_pasajeros, fecha_salida, origen, agente_nombre, costo_total, precio_persona, created_at"
+        ).order("created_at", desc=True).execute()
+        
+        if response and hasattr(response, 'data'):
+            return response.data
+        return []
+    except Exception as e:
+        print(f"Supabase Client: Failed to retrieve quotes. Details: {e}")
+        return []
+
+def get_cotizacion_by_id(quote_id) -> dict | None:
+    """
+    Retrieves a single quote by its ID.
+    """
+    client = get_supabase_client()
+    if not client:
+        print("Supabase Client: Client not configured. Skipping get by ID operation.")
+        return None
+    try:
+        response = client.table("cotizaciones").select("*").eq("id", quote_id).execute()
+        if response and hasattr(response, 'data') and response.data:
+            return response.data[0]
+        return None
+    except Exception as e:
+        print(f"Supabase Client: Failed to retrieve quote {quote_id}. Details: {e}")
+        return None
+
+def delete_cotizacion(quote_id) -> bool:
+    """
+    Deletes a quote from the database.
+    """
+    client = get_supabase_client()
+    if not client:
+        print("Supabase Client: Client not configured. Skipping delete operation.")
+        return False
+    try:
+        response = client.table("cotizaciones").delete().eq("id", quote_id).execute()
+        # Verify if deleted successfully
+        return True
+    except Exception as e:
+        print(f"Supabase Client: Failed to delete quote {quote_id}. Details: {e}")
         return False

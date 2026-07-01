@@ -17,7 +17,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 # Import our custom modules
 from app.parser import parse_excel_or_csv
-from app.database import save_cotizacion
+from app.database import save_cotizacion, get_cotizaciones, get_cotizacion_by_id, delete_cotizacion
 from app.google_slides.mcp import create_presentation_from_template
 from app.google_slides.generator import create_quotation_presentation
 
@@ -508,6 +508,96 @@ async def api_extraer_pdf(file: UploadFile = File(...)):
         )
 
 
+
+@app.get("/api/cotizaciones")
+def api_get_cotizaciones():
+    """Returns all saved quotes from Supabase."""
+    quotes = get_cotizaciones()
+    return quotes
+
+@app.get("/api/cotizaciones/{quote_id}")
+def api_get_cotizacion(quote_id: str):
+    """Returns a single quote's complete data by its ID."""
+    try:
+        quote_id_typed = int(quote_id)
+    except ValueError:
+        quote_id_typed = quote_id
+        
+    quote = get_cotizacion_by_id(quote_id_typed)
+    if not quote:
+        raise HTTPException(status_code=404, detail=f"Cotización con ID {quote_id} no encontrada.")
+    return quote
+
+@app.post("/api/cotizaciones")
+def api_save_cotizacion(payload: dict):
+    """Saves or updates a quote in Supabase."""
+    cant_pax = safe_int(payload.get("cantidad_pasajeros", 1))
+    monto_vuelos = safe_float(payload.get("monto_vuelos", 0.0))
+    monto_traslados = safe_float(payload.get("monto_traslados", 0.0))
+    gastos_iva = safe_float(payload.get("gastos_iva", 0.0))
+
+    if "fee_aereo" in payload:
+        fee_aereo = safe_float(payload.get("fee_aereo", 0.0))
+    else:
+        fee_aereo_percent = safe_float(payload.get("fee_aereo_percent", 10.0))
+        fee_aereo = monto_vuelos * (fee_aereo_percent / 100.0)
+    
+    payload["fee_aereo"] = fee_aereo
+
+    hoteles = payload.get("hoteles", [])
+    for hotel in hoteles:
+        costo_hotel = safe_float(hotel.get("costo", 0.0))
+        gastos_admin = (costo_hotel + monto_traslados) * 0.05
+        costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
+        precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
+        hotel["costo"] = round(costo_total, 2)
+        hotel["precio_persona"] = round(precio_persona, 2)
+
+    if hoteles:
+        primary_hotel = hoteles[0]
+        payload["costo_total"] = primary_hotel["costo"]
+        payload["precio_persona"] = primary_hotel["precio_persona"]
+
+    base_habitacion = "Single"
+    if cant_pax == 2: base_habitacion = "Doble"
+    elif cant_pax == 3: base_habitacion = "Triple"
+    elif cant_pax == 4: base_habitacion = "Cuádruple"
+    elif cant_pax > 4: base_habitacion = "Grupal"
+    payload["base_habitacion"] = base_habitacion
+
+    noches_alojamiento = "7 noches"
+    fecha_ida = payload.get("fecha_vuelo_ida")
+    fecha_vuelta = payload.get("fecha_vuelo_vuelta")
+    if fecha_ida and fecha_vuelta:
+        try:
+            d_ida = datetime.strptime(fecha_ida, "%d/%m/%Y")
+            d_vuelta = datetime.strptime(fecha_vuelta, "%d/%m/%Y")
+            noches = abs((d_vuelta - d_ida).days)
+            noches_alojamiento = f"{noches} noches"
+        except Exception:
+            pass
+    payload["noches_alojamiento"] = noches_alojamiento
+
+    # Save to Supabase (this will perform insert or update depending on presence of id)
+    saved_quote = save_cotizacion(payload)
+    if not saved_quote:
+        raise HTTPException(status_code=500, detail="No se pudo guardar la cotización en la base de datos.")
+    return saved_quote
+
+@app.delete("/api/cotizaciones/{quote_id}")
+def api_delete_cotizacion(quote_id: str):
+    """Deletes a quote from Supabase by its ID."""
+    try:
+        quote_id_typed = int(quote_id)
+    except ValueError:
+        quote_id_typed = quote_id
+        
+    success = delete_cotizacion(quote_id_typed)
+    if not success:
+        raise HTTPException(status_code=500, detail=f"No se pudo eliminar la cotización con ID {quote_id}.")
+    return {"status": "success", "message": f"Cotización {quote_id} eliminada con éxito."}
+
+
 # Mount static files folder
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
@@ -519,6 +609,11 @@ app.mount("/assets", StaticFiles(directory=os.path.join(BASE_DIR, "assets")), na
 def read_root():
     from fastapi.responses import FileResponse
     return FileResponse(os.path.join(BASE_DIR, "static", "index.html"))
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    from fastapi.responses import FileResponse
+    return FileResponse(os.path.join(BASE_DIR, "assets", "favicon.png"))
 
 if __name__ == "__main__":
     import uvicorn

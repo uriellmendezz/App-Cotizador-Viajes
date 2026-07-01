@@ -251,6 +251,17 @@ textarea:focus {
 .is-resizing * {
     transition: none !important;
 }
+
+/* Custom SVG filters for summary icons */
+.icon-slate {
+    filter: brightness(0) saturate(100%) invert(49%) sepia(13%) saturate(919%) hue-rotate(178deg) brightness(93%) contrast(88%);
+}
+.icon-brand {
+    filter: brightness(0) saturate(100%) invert(56%) sepia(87%) saturate(2256%) hue-rotate(328deg) brightness(101%) contrast(102%);
+}
+.icon-dark {
+    filter: brightness(0) saturate(100%) invert(12%) sepia(21%) saturate(1518%) hue-rotate(185deg) brightness(94%) contrast(92%);
+}
 .is-resizing iframe {
     pointer-events: none !important;
 }

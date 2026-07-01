@@ -61,7 +61,7 @@
             @bottom-right {
                 content: "Página " counter(page) " de " counter(pages);
                 font-family: 'Montserrat', sans-serif;
-                font-size: 7pt;
+                font-size: 8pt;
                 color: #94a3b8;
                 font-weight: 500;
             }
@@ -82,7 +82,7 @@
         body {
             font-family: 'Montserrat', sans-serif;
             color: #343434;
-            font-size: 9pt;
+            font-size: 10pt;
             line-height: 1.5;
             letter-spacing: -0.01em;
             position: relative;
@@ -100,8 +100,8 @@
         .header {
             position: relative;
             width: 100%;
-            min-height: 55px;
-            margin-bottom: 12px;
+            min-height: 80px;
+            margin-bottom: 20px;
         }
 
         .header-banner {
@@ -110,7 +110,7 @@
         }
 
         .header-banner img {
-            max-height: 55px;
+            max-height: 80px;
             margin: 0 auto;
             display: block;
             object-fit: contain;
@@ -129,7 +129,7 @@
         }
 
         .header-date {
-            font-size: 6pt;
+            font-size: 7pt;
             color: #64748b;
             /* font-weight: 600; */
             padding-top: 2px;
@@ -137,7 +137,7 @@
 
         .header-contact {
             text-align: right;
-            font-size: 6pt;
+            font-size: 7pt;
             color: #64748b;
             line-height: 1.25;
         }
@@ -152,7 +152,7 @@
 
         .destination-title {
             font-weight: 900;
-            font-size: 42pt;
+            font-size: 43pt;
             text-transform: uppercase;
             color: #343434;
             letter-spacing: -0.03em;
@@ -161,7 +161,7 @@
         }
 
         .proposal-subtitle {
-            font-size: 8.5pt;
+            font-size: 9.5pt;
             font-weight: 600;
             color: #64748b;
             margin-top: 6px;
@@ -173,18 +173,18 @@
            ══════════════════════════════════════════════════════════════════ */
         .section-heading {
             font-weight: 900;
-            font-size: 9pt;
+            font-size: 10pt;
             text-transform: uppercase;
             color: #343434;
             letter-spacing: 0.05em;
             border-bottom: 2px solid #343434;
             padding-bottom: 3px;
-            margin-top: 28px;
-            margin-bottom: 10px;
+            margin-top: 42px;
+            margin-bottom: 14px;
         }
 
         body>.section-heading {
-            margin-top: 16px;
+            margin-top: 24px;
         }
 
         .services-list {
@@ -203,7 +203,7 @@
 
         .services-list td {
             padding: 4px 6px;
-            font-size: 8pt;
+            font-size: 9pt;
             vertical-align: middle;
         }
 
@@ -222,8 +222,8 @@
         }
 
         .hotel-svc-badge svg {
-            width: 12.5px !important;
-            height: 12.5px !important;
+            width: 13.5px !important;
+            height: 13.5px !important;
             display: inline-block !important;
             fill: #64748b !important;
             vertical-align: middle !important;
@@ -239,7 +239,7 @@
         }
 
         .star-char {
-            font-size: 13pt !important;
+            font-size: 14pt !important;
             font-weight: 1000 !important;
             line-height: 1 !important;
             display: inline-block !important;
@@ -265,12 +265,21 @@
            ══════════════════════════════════════════════════════════════════ */
         .flights-section {
             break-inside: avoid;
-            margin-bottom: 12px;
+            margin-bottom: 24px;
         }
 
         .flights-row {
             display: flex;
             gap: 16px;
+        }
+
+        .flights-row.flights-stacked {
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .flights-row.flights-stacked .flight-img-container img {
+            max-height: 120px;
         }
 
         .flight-col {
@@ -286,7 +295,7 @@
             color: #334155;
             border: 1px solid #e2e8f0;
             border-bottom: none;
-            font-size: 7.5pt;
+            font-size: 8.5pt;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.04em;
@@ -337,7 +346,7 @@
             border: 1px solid #e2e8f0;
             border-radius: 6px;
             overflow: hidden;
-            margin-bottom: 10px;
+            margin-bottom: 16px;
             break-inside: avoid;
             position: relative;
             background: #fff;
@@ -382,7 +391,7 @@
 
         .hotel-name {
             font-weight: 800;
-            font-size: 13pt !important;
+            font-size: 14pt !important;
             color: #343434;
             text-transform: capitalize;
             letter-spacing: -0.02em;
@@ -404,7 +413,7 @@
         .hotel-svc-badge {
             display: inline-block !important;
             vertical-align: middle !important;
-            font-size: 7.5pt;
+            font-size: 8.5pt;
             font-weight: 600;
             color: #475569;
             background: #f8fafc;
@@ -414,7 +423,7 @@
             white-space: nowrap;
             margin-right: 3px !important;
             margin-bottom: 4px !important;
-            line-height: 12.5px !important;
+            line-height: 13.5px !important;
         }
 
         .hotel-svc-badge .badge-icon {
@@ -432,14 +441,14 @@
         }
 
         .hotel-svc-badge img {
-            width: 13px;
-            height: 13px;
+            width: 14px;
+            height: 14px;
             display: inline-block;
         }
 
         /* Hotel description */
         .hotel-desc {
-            font-size: 7pt;
+            font-size: 8pt;
             color: #64748b;
             line-height: 1.35;
             margin: 2px 0 0 0;
@@ -455,26 +464,26 @@
         }
 
         .hotel-price-pp {
-            font-size: 11.5pt;
+            font-size: 12.5pt;
             font-weight: 900;
             color: #ff545d;
             line-height: 1.1;
         }
 
         .hotel-price-pp .currency {
-            font-size: 8.5pt;
+            font-size: 9.5pt;
             font-weight: 700;
             color: #94a3b8;
         }
 
         .hotel-price-base {
-            font-size: 7pt;
+            font-size: 8pt;
             color: #94a3b8;
             font-weight: 600;
         }
 
         .hotel-price-total {
-            font-size: 8pt;
+            font-size: 9pt;
             color: #343434;
             font-weight: 700;
             margin-top: 1px;
@@ -486,7 +495,7 @@
             right: 0;
             background-color: #ff545dff;
             color: #ffffff;
-            font-size: 5.5pt !important;
+            font-size: 6.5pt !important;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.04em;
@@ -514,7 +523,7 @@
         }
 
         .legal-footer p {
-            font-size: 5pt;
+            font-size: 6pt;
             color: #94a3b8;
             line-height: 1.3;
             text-align: justify;
@@ -531,10 +540,63 @@
             border-radius: 2px;
             z-index: 100;
         }
+
+        /* ══════════════════════════════════════════════════════════════════
+           SINGLE HOTEL LAYOUT DENSITY OVERRIDES
+           ══════════════════════════════════════════════════════════════════ */
+        body.single-hotel-layout {
+            padding-bottom: 45px;
+        }
+
+        body.single-hotel-layout .header {
+            min-height: 70px;
+            margin-bottom: 12px;
+        }
+
+        body.single-hotel-layout .header-banner img {
+            max-height: 70px;
+        }
+
+        body.single-hotel-layout .title-section {
+            margin: 14px 0 14px 0;
+        }
+
+        body.single-hotel-layout .destination-title {
+            font-size: 35pt;
+        }
+
+        body.single-hotel-layout .section-heading {
+            margin-top: 24px;
+            margin-bottom: 10px;
+        }
+
+        body.single-hotel-layout body>.section-heading {
+            margin-top: 14px;
+        }
+
+        body.single-hotel-layout .services-list {
+            margin-bottom: 6px;
+        }
+
+        body.single-hotel-layout .flights-section {
+            margin-bottom: 14px;
+        }
+
+        body.single-hotel-layout .flights-row.flights-stacked {
+            gap: 8px;
+        }
+
+        body.single-hotel-layout .flights-row.flights-stacked .flight-img-container img {
+            max-height: 80px; /* Reduced from 120px to prevent overflow/overlap with footer */
+        }
+
+        body.single-hotel-layout .hotel-card {
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 
-<body>
+<body class="{% if hoteles|length == 1 %}single-hotel-layout{% endif %}">
 
     <!-- ═══════════════ 1. CABECERA ═══════════════ -->
     <div class="header">
@@ -596,7 +658,7 @@
     <!-- ═══════════════ 4. VUELOS ═══════════════ -->
     <div class="flights-section">
         <div class="section-heading">Vuelos</div>
-        <div class="flights-row">
+        <div class="flights-row {% if hoteles|length == 1 %}flights-stacked{% endif %}">
             <div class="flight-col">
                 <div class="flight-label">
                     <span class="flight-icon">{{ svg_avion_despegando }}</span>
@@ -692,6 +754,12 @@
 
     <!-- ═══════════════ 6. PIE DE PÁGINA — LEGALES ═══════════════ -->
     <div class="legal-footer">
+        {% if validez_cotizacion %}
+        <div class="validity-notice"
+            style="font-size: 7pt; color: #64748b; font-weight: 700; text-align: center; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em;">
+            Cotización válida hasta el {{ validez_cotizacion }}
+        </div>
+        {% endif %}
         <p>
             *TASAS TURÍSTICAS OBLIGATORIAS EN AQUELLOS DESTINOS QUE ASÍ LO REQUIERAN.
             *ES DEBER DEL PASAJERO CONOCER LA DOCUMENTACIÓN REQUERIDA. CONSULTÁ LOS REQUISITOS DE INGRESO A CADA

@@ -290,6 +290,7 @@ def generate_pdf(data: dict) -> bytes:
         "destino": data.get("destino", "Destino"),
         "nombre_pax": data.get("nombre_pax", "Pasajero"),
         "fecha_salida": data.get("fecha_salida", ""),
+        "validez_cotizacion": data.get("validez_cotizacion", ""),
         # Services summary
         "origen": data.get("origen", "Córdoba"),
         "cantidad_pasajeros": data.get("cantidad_pasajeros", 1),

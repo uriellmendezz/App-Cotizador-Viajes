@@ -4,6 +4,7 @@ let importedQuotes = [];
 let hoveredDropzone = null;
 let isDraggingSidebar = false;
 let sidebarWidth = 380;
+let currentQuoteId = null;
 
 function formatPriceES(val) {
     if (val === undefined || val === null || isNaN(val)) return "0,00";
@@ -35,6 +36,12 @@ window.addEventListener('load', () => {
         disableMobile: "true"
     });
     flatpickr("#fecha_vuelo_vuelta", {
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "d/m/Y",
+        disableMobile: "true"
+    });
+    flatpickr("#validez_cotizacion", {
         dateFormat: "Y-m-d",
         altInput: true,
         altFormat: "d/m/Y",
@@ -342,6 +349,22 @@ function addHotelCard(data = null) {
     card.id = cardId;
 
     const starsVal = data ? (data.estrellas || data.hotel_estrellas || "★★★★☆") : "★★★★☆";
+    
+    const regimenVal = data ? (data.hotel_regimen || data.regimen || 'Desayuno incluido') : 'Desayuno incluido';
+    const standardRegimens = ["All Inclusive", "Desayuno incluido", "Solo alojamiento", "Media Pension", "Desayuno y Cena incluidos"];
+    
+    let isRegimenMapped = false;
+    let regimenOptionsHtml = "";
+    
+    standardRegimens.forEach(opt => {
+        const isSelected = regimenVal.toLowerCase().trim() === opt.toLowerCase().trim();
+        if (isSelected) isRegimenMapped = true;
+        regimenOptionsHtml += `<option value="${opt}" ${isSelected ? 'selected' : ''}>${opt}</option>`;
+    });
+    
+    if (!isRegimenMapped && regimenVal) {
+        regimenOptionsHtml += `<option value="${regimenVal}" selected>${regimenVal}</option>`;
+    }
 
     card.innerHTML = `
         <button type="button" class="remove-hotel-btn absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 bg-rose-50 border border-rose-100 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all" onclick="removeHotelCard('${cardId}')">Eliminar Opción</button>
@@ -362,7 +385,9 @@ function addHotelCard(data = null) {
             </div>
             <div class="flex flex-col gap-1">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Régimen</label>
-                <input type="text" class="hotel-regimen-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Desayuno" value="${data ? (data.hotel_regimen || data.regimen || '') : ''}">
+                <select class="hotel-regimen-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white">
+                    ${regimenOptionsHtml}
+                </select>
             </div>
         </div>
         
@@ -733,42 +758,42 @@ function updateRealTimeSummary() {
                 <tbody class="divide-y divide-slate-100 text-slate-600">
                     <tr>
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
-                            <span>✈</span>
+                            <img src="/assets/iconos/avion.svg" class="w-3.5 h-3.5 icon-slate" alt="Vuelos">
                             <span class="truncate">Vuelos${flightsFee > 0 ? ' + Fee' : ''}</span>
                         </td>
                         ${flightsHtml}
                     </tr>
                     <tr>
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
-                            <span>🏨</span>
+                            <img src="/assets/iconos/cama.svg" class="w-3.5 h-3.5 icon-slate" alt="Alojamiento">
                             <span class="truncate">Alojamiento</span>
                         </td>
                         ${hotelCostsHtml}
                     </tr>
                     <tr>
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
-                            <span>🚕</span>
+                            <img src="/assets/iconos/traslados.svg" class="w-3.5 h-3.5 icon-slate" alt="Traslados">
                             <span class="truncate">Traslados</span>
                         </td>
                         ${transfersHtml}
                     </tr>
                     <tr>
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
-                            <span>📄</span>
+                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Gtos Admin">
                             <span class="truncate">Gtos Admin (5%)</span>
                         </td>
                         ${adminFeesHtml}
                     </tr>
                     <tr class="bg-slate-50/50 font-bold border-t border-slate-200">
                         <td class="py-2.5 pr-2 text-[10px] text-slate-800 uppercase tracking-wider flex items-center gap-1">
-                            <span>💰</span>
+                            <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 icon-dark" alt="Total">
                             <span>Total</span>
                         </td>
                         ${totalsHtml}
                     </tr>
                     <tr class="bg-brand-primary/5 font-bold border-t border-brand-primary/10">
                         <td class="py-2.5 pr-2 text-[9px] text-brand-primary uppercase tracking-widest flex items-center gap-1">
-                            <span>👤</span>
+                            <img src="/assets/iconos/persona.svg" class="w-3.5 h-3.5 icon-brand" alt="Por Pax">
                             <span class="truncate">Por Pax (${cantPax})</span>
                         </td>
                         ${perPersonHtml}
@@ -798,7 +823,30 @@ async function generatePDFPreview(e) {
     const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
     document.getElementById('loading-text').innerText = `Creando la cotización para ${paxNameForLoading}`;
 
-    const payload = _buildPayload();
+    let payload = _buildPayload();
+    
+    // Auto-save to Supabase first before generating PDF preview
+    try {
+        document.getElementById('loading-text').innerText = `Guardando cotización en Supabase...`;
+        const saveRes = await fetch('/api/cotizaciones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (saveRes.ok) {
+            const savedQuote = await saveRes.json();
+            currentQuoteId = savedQuote.id;
+            payload.id = currentQuoteId; // Include the generated ID in subsequent PDF payload
+            updateEditingIndicator();
+            console.log("Auto-save to Supabase completed successfully. ID:", currentQuoteId);
+        } else {
+            console.warn("Auto-save to Supabase returned error status. Proceeding with preview.");
+        }
+    } catch (saveErr) {
+        console.warn("Auto-save to Supabase failed (persistence disabled or network error):", saveErr);
+    }
+
+    document.getElementById('loading-text').innerText = `Compilando PDF para ${paxNameForLoading}...`;
 
     try {
         const res = await fetch('/api/cotizar-pdf', {
@@ -901,6 +949,7 @@ function _buildPayload() {
         agente_nombre: document.getElementById('agente_nombre').value,
         fecha_vuelo_ida: formatDatePickerDate(getDatePickerValue('fecha_vuelo_ida')),
         fecha_vuelo_vuelta: formatDatePickerDate(getDatePickerValue('fecha_vuelo_vuelta')),
+        validez_cotizacion: formatDatePickerDate(getDatePickerValue('validez_cotizacion')),
         img_vuelo_ida: imgIda,
         img_vuelo_vuelta: imgVuelta,
         monto_vuelos: parseFloat(document.getElementById('monto_vuelos').value),
@@ -910,6 +959,10 @@ function _buildPayload() {
         equipaje: selectedBaggage,
         hoteles: []
     };
+
+    if (currentQuoteId) {
+        payload.id = currentQuoteId;
+    }
 
     const hotelCards = document.querySelectorAll('.hotel-option-card');
     hotelCards.forEach(card => {
@@ -1041,6 +1094,7 @@ function loadImportedQuoteIntoForm(idx) {
     setDateSafe('fecha_salida', q.fecha_salida);
     setDateSafe('fecha_vuelo_ida', q.fecha_vuelo_ida || q.fecha_salida);
     setDateSafe('fecha_vuelo_vuelta', q.fecha_vuelo_vuelta);
+    setDateSafe('validez_cotizacion', q.validez_cotizacion || '');
 
     // Pricing
     document.getElementById('monto_vuelos').value = q.monto_vuelos;
@@ -1161,6 +1215,7 @@ function resetForm() {
     clearDateSafe('fecha_salida');
     clearDateSafe('fecha_vuelo_ida');
     clearDateSafe('fecha_vuelo_vuelta');
+    clearDateSafe('validez_cotizacion');
 
     // Reset flight dropzones
     const resetDropzone = (dropzoneId, previewId, dataId) => {
@@ -1403,6 +1458,10 @@ async function handlePDFEditImport(inputEl) {
         const data = await response.json();
         if (!data) throw new Error("No se encontraron metadatos en el PDF.");
 
+        // Set quote ID if it exists in metadata
+        currentQuoteId = data.id || null;
+        updateEditingIndicator();
+
         // Populating basic data
         document.getElementById('nombre_pax').value = data.nombre_pax || '';
         document.getElementById('destino').value = data.destino || '';
@@ -1424,6 +1483,9 @@ async function handlePDFEditImport(inputEl) {
         document.getElementById('fecha_salida')._flatpickr.setDate(formatToPicker(data.fecha_salida));
         document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(formatToPicker(data.fecha_vuelo_ida));
         document.getElementById('fecha_vuelo_vuelta')._flatpickr.setDate(formatToPicker(data.fecha_vuelo_vuelta));
+        if (document.getElementById('validez_cotizacion') && document.getElementById('validez_cotizacion')._flatpickr) {
+            document.getElementById('validez_cotizacion')._flatpickr.setDate(formatToPicker(data.validez_cotizacion || ''));
+        }
 
         // Costs
         document.getElementById('monto_vuelos').value = data.monto_vuelos || '';
@@ -1499,3 +1561,397 @@ async function handlePDFEditImport(inputEl) {
     }
 }
 window.handlePDFEditImport = handlePDFEditImport;
+
+function fillTestData() {
+    // 1. Reset form
+    resetForm();
+
+    // 2. Populate general fields
+    document.getElementById('nombre_pax').value = 'Mariana López';
+    document.getElementById('destino').value = 'Punta Cana';
+    document.getElementById('cantidad_pasajeros').value = 2;
+    document.getElementById('origen').value = 'Córdoba';
+    document.getElementById('agente_nombre').value = 'Uriel';
+
+    // Calculate sample dates
+    const today = new Date();
+    
+    // Departure date = today + 30 days
+    const departureDate = new Date(today);
+    departureDate.setDate(today.getDate() + 30);
+    
+    // Return date = today + 37 days
+    const returnDate = new Date(today);
+    returnDate.setDate(today.getDate() + 37);
+    
+    // Validity date = today + 5 days
+    const validityDate = new Date(today);
+    validityDate.setDate(today.getDate() + 5);
+
+    // Format helper to YYYY-MM-DD
+    const toYMD = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const r = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${r}`;
+    };
+
+    // Set dates in Flatpickr instances
+    document.getElementById('fecha_salida')._flatpickr.setDate(toYMD(departureDate));
+    document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(toYMD(departureDate));
+    document.getElementById('fecha_vuelo_vuelta')._flatpickr.setDate(toYMD(returnDate));
+    document.getElementById('validez_cotizacion')._flatpickr.setDate(toYMD(validityDate));
+
+    // 3. Set flight costs & fees
+    document.getElementById('monto_vuelos').value = '1250.00';
+    document.getElementById('fee_aereo_tipo').value = 'auto';
+    document.getElementById('monto_traslados').value = '150.00';
+    toggleFeeType(); // Trigger auto calculation
+
+    // 4. Select baggage
+    setBaggageSelection(['mano', 'carry']);
+
+    // 5. Load mock base64 images for flight screenshots to make the PDF compiler happy
+    const mockImageBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    
+    const setMockFlightImage = (previewId, dataId, dropzoneId) => {
+        const preview = document.getElementById(previewId);
+        if (preview) {
+            preview.src = mockImageBase64;
+            preview.style.display = 'block';
+        }
+        const dataEl = document.getElementById(dataId);
+        if (dataEl) dataEl.value = mockImageBase64;
+        
+        const dz = document.getElementById(dropzoneId);
+        if (dz) {
+            const span = dz.querySelector('span');
+            if (span) span.style.display = 'none';
+            const svg = dz.querySelector('svg');
+            if (svg) svg.style.display = 'none';
+        }
+    };
+    
+    setMockFlightImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida');
+    setMockFlightImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta');
+
+    // 6. Clear and load mock hotels
+    const hotelsContainer = document.getElementById('hotels-container');
+    hotelsContainer.innerHTML = '';
+    hotelCount = 0;
+
+    // Add Hotel 1 (Nuestra recomendación)
+    addHotelCard({
+        nombre: 'Lopesan Costa Bávaro Resort',
+        estrellas: '5',
+        habitacion: 'Junior Suite Tropical',
+        regimen: 'Todo Incluido',
+        costo: 2450.00,
+        descripcion: 'Espectacular resort de 5 estrellas con infinitas piscinas frente a la playa de arena blanca, múltiples restaurantes gourmet y actividades todo el día.'
+    });
+
+    // Add Hotel 2
+    addHotelCard({
+        nombre: 'Barceló Bávaro Palace',
+        estrellas: '4',
+        habitacion: 'Superior Room',
+        regimen: 'Todo Incluido',
+        costo: 2100.00,
+        descripcion: 'Resort ideal con campo de golf, parque acuático, spa de primer nivel y acceso directo a una de las 10 mejores playas del mundo.'
+    });
+
+    // 7. Update base label & real-time summary
+    updateBaseLabel();
+    updateRealTimeSummary();
+
+    showAlert('success', '✔ Datos de prueba cargados correctamente. ¡Listo para generar PDF o Slides!');
+}
+window.fillTestData = fillTestData;
+
+// ── CRUD Functions for Supabase ──
+
+async function loadSavedQuotesList() {
+    const tbody = document.getElementById('db-quotes-table-body');
+    if (!tbody) return;
+    
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="p-8 text-center text-slate-400">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" class="spin-slow animate-spin inline mr-2 text-brand-primary"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                Cargando cotizaciones desde Supabase...
+            </td>
+        </tr>
+    `;
+    
+    try {
+        const res = await fetch('/api/cotizaciones');
+        if (!res.ok) throw new Error("Error al obtener las cotizaciones de la base de datos.");
+        const quotes = await res.json();
+        
+        tbody.innerHTML = '';
+        if (quotes.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="p-8 text-center text-slate-400 font-semibold">
+                        No hay cotizaciones guardadas en Supabase todavía.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        quotes.forEach(q => {
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-slate-100 hover:bg-slate-50/50';
+            
+            // Format date YYYY-MM-DD to DD/MM/YYYY
+            let fechaSalidaFormatted = q.fecha_salida || '';
+            if (fechaSalidaFormatted.includes('-')) {
+                const parts = fechaSalidaFormatted.split('-');
+                if (parts.length === 3) {
+                    fechaSalidaFormatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+            }
+            
+            const totalUSD = q.costo_total || 0;
+            
+            tr.innerHTML = `
+                <td class="p-3 font-semibold text-slate-800">${q.nombre_pax || 'Sin Nombre'}</td>
+                <td class="p-3">${q.destino || 'Sin Destino'}</td>
+                <td class="p-3">${q.agente_nombre || '-'}</td>
+                <td class="p-3">${fechaSalidaFormatted}</td>
+                <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
+                <td class="p-3 flex justify-center gap-2">
+                    <button type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="loadSavedQuoteIntoForm('${q.id}')">Editar</button>
+                    <button type="button" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-500 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="deleteSavedQuote('${q.id}')">Borrar</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-8 text-center text-rose-500 font-bold">
+                    Error al cargar las cotizaciones: ${err.message}
+                </td>
+            </tr>
+        `;
+    }
+}
+window.loadSavedQuotesList = loadSavedQuotesList;
+
+async function loadSavedQuoteIntoForm(quoteId) {
+    document.getElementById('loading-overlay').style.display = 'flex';
+    document.getElementById('loading-text').innerText = 'Cargando cotización desde Supabase...';
+    
+    try {
+        const res = await fetch(`/api/cotizaciones/${quoteId}`);
+        if (!res.ok) throw new Error("No se pudo cargar la cotización solicitada.");
+        const q = await res.json();
+        
+        switchTab('cotizacion-tab');
+        
+        // Fill basic data fields
+        document.getElementById('nombre_pax').value = q.nombre_pax || '';
+        document.getElementById('destino').value = q.destino || '';
+        document.getElementById('cantidad_pasajeros').value = q.cantidad_pasajeros || 1;
+        document.getElementById('origen').value = q.origen || 'Córdoba';
+        document.getElementById('agente_nombre').value = q.agente_nombre || 'Uriel';
+        
+        const formatToPicker = (val) => {
+            if (!val) return '';
+            if (val.includes('-')) return val; // YYYY-MM-DD
+            if (val.includes('/')) {
+                const parts = val.split('/');
+                return `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
+            }
+            return val;
+        };
+        
+        // Set dates
+        document.getElementById('fecha_salida')._flatpickr.setDate(formatToPicker(q.fecha_salida));
+        document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(formatToPicker(q.fecha_vuelo_ida));
+        document.getElementById('fecha_vuelo_vuelta')._flatpickr.setDate(formatToPicker(q.fecha_vuelo_vuelta));
+        if (document.getElementById('validez_cotizacion') && document.getElementById('validez_cotizacion')._flatpickr) {
+            document.getElementById('validez_cotizacion')._flatpickr.setDate(formatToPicker(q.validez_cotizacion || ''));
+        }
+        
+        // Costs
+        document.getElementById('monto_vuelos').value = q.monto_vuelos || '';
+        document.getElementById('fee_aereo_monto').value = q.fee_aereo || '';
+        document.getElementById('monto_traslados').value = q.monto_traslados || '';
+        
+        if (q.fee_aereo) {
+            document.getElementById('fee_aereo_tipo').value = 'fixed';
+        } else {
+            document.getElementById('fee_aereo_tipo').value = 'auto';
+        }
+        toggleFeeType();
+        
+        // Baggage selection
+        setBaggageSelection(q.equipaje || []);
+        
+        // Flight Images
+        const populateImage = (previewId, dataId, dzId, b64) => {
+            const preview = document.getElementById(previewId);
+            const dataInput = document.getElementById(dataId);
+            const dz = document.getElementById(dzId);
+            if (preview && dataInput && dz) {
+                if (b64) {
+                    preview.src = b64;
+                    preview.style.display = 'block';
+                    dataInput.value = b64;
+                    
+                    const span = dz.querySelector('span');
+                    const svg = dz.querySelector('svg');
+                    if (span) span.style.display = 'none';
+                    if (svg) svg.style.display = 'none';
+                } else {
+                    preview.src = '';
+                    preview.style.display = 'none';
+                    dataInput.value = '';
+                    
+                    const span = dz.querySelector('span');
+                    const svg = dz.querySelector('svg');
+                    if (span) span.style.display = 'block';
+                    if (svg) svg.style.display = 'block';
+                }
+            }
+        };
+        
+        populateImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida', q.img_vuelo_ida);
+        populateImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta', q.img_vuelo_vuelta);
+        
+        // Hotels
+        const hotelsContainer = document.getElementById('hotels-container');
+        hotelsContainer.innerHTML = ''; // Clear existing hotels
+        hotelCount = 0; // Reset counter
+        
+        const hotels = q.hoteles || [];
+        if (hotels.length === 0) {
+            addHotelCard();
+        } else {
+            hotels.forEach(h => {
+                addHotelCard(h);
+            });
+        }
+        
+        // Update edit state
+        currentQuoteId = q.id;
+        updateEditingIndicator();
+        
+        // Update breakdown
+        updateRealTimeSummary();
+        
+        // Hide preview results if they were open from previous generations
+        const results = document.getElementById('results-panel');
+        if (results) {
+            results.classList.add('hidden');
+            results.classList.remove('block');
+        }
+        
+        showAlert('success', `Cotización de ${q.nombre_pax} cargada correctamente.`);
+        
+    } catch (err) {
+        showAlert('warning', 'Error al cargar la cotización: ' + err.message);
+    } finally {
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+}
+window.loadSavedQuoteIntoForm = loadSavedQuoteIntoForm;
+
+async function deleteSavedQuote(quoteId) {
+    if (!confirm('¿Estás seguro de que deseas eliminar permanentemente esta cotización de Supabase?')) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/cotizaciones/${quoteId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!res.ok) throw new Error("Error al eliminar la cotización de la base de datos.");
+        
+        showAlert('success', '✔ Cotización eliminada con éxito.');
+        
+        // If current quote is being edited, reset the form
+        if (currentQuoteId == quoteId) {
+            cancelEditingQuote();
+        }
+        loadSavedQuotesList();
+    } catch (err) {
+        showAlert('warning', 'Error al eliminar la cotización: ' + err.message);
+    }
+}
+window.deleteSavedQuote = deleteSavedQuote;
+
+async function saveQuoteToDBExplicit() {
+    // Validation check
+    const paxInput = document.getElementById('nombre_pax');
+    const destInput = document.getElementById('destino');
+    if (!paxInput.value.trim() || !destInput.value.trim()) {
+        showAlert('warning', 'Complete al menos los campos Nombre de Pasajero y Destino para poder guardar.');
+        return;
+    }
+    
+    document.getElementById('loading-overlay').style.display = 'flex';
+    document.getElementById('loading-text').innerText = 'Guardando en Supabase...';
+    
+    const payload = _buildPayload();
+    
+    try {
+        const res = await fetch('/api/cotizaciones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.detail || 'Error al guardar la cotización');
+        }
+        
+        const savedQuote = await res.json();
+        currentQuoteId = savedQuote.id;
+        
+        updateEditingIndicator();
+        showAlert('success', `✔ Cotización guardada con éxito en Supabase (ID #${currentQuoteId}).`);
+    } catch (err) {
+        showAlert('warning', 'Error al guardar en Supabase: ' + err.message);
+    } finally {
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+}
+window.saveQuoteToDBExplicit = saveQuoteToDBExplicit;
+
+function duplicateCurrentQuote() {
+    if (!currentQuoteId) return;
+    currentQuoteId = null;
+    updateEditingIndicator();
+    showAlert('success', 'La cotización se ha duplicado en el formulario. Al presionar Guardar se creará un nuevo registro.');
+}
+window.duplicateCurrentQuote = duplicateCurrentQuote;
+
+function cancelEditingQuote() {
+    currentQuoteId = null;
+    updateEditingIndicator();
+    resetForm();
+    showAlert('success', 'Formulario reiniciado. Modo de edición cancelado.');
+}
+window.cancelEditingQuote = cancelEditingQuote;
+
+function updateEditingIndicator() {
+    const indicator = document.getElementById('editing-indicator');
+    const indicatorText = document.getElementById('editing-indicator-text');
+    if (!indicator || !indicatorText) return;
+    
+    if (currentQuoteId) {
+        indicatorText.innerText = `Modo Edición: Editando cotización guardada (ID #${currentQuoteId})`;
+        indicator.classList.remove('hidden');
+        indicator.classList.add('flex');
+    } else {
+        indicator.classList.add('hidden');
+        indicator.classList.remove('flex');
+    }
+}
+window.updateEditingIndicator = updateEditingIndicator;
