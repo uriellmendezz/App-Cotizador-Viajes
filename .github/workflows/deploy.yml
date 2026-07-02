@@ -21,7 +21,13 @@ jobs:
           HF_SPACE_PATH: "urielmendez-edu/cotizador.onetrip"
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Configurar identidad de Git para modificaciones locales de LFS
+          # Eliminar el historial de Git local en el workspace de la acción para limpiar binarios históricos
+          rm -rf .git
+          
+          # Inicializar un nuevo repositorio Git limpio desde cero
+          git init -b main
+          
+          # Configurar identidad de Git para el commit de despliegue
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
           
@@ -35,12 +41,12 @@ jobs:
           git lfs track "*.png"
           git lfs track "*.avif"
           
-          # Agregar .gitattributes al commit
-          git add .gitattributes
+          # Agregar todos los archivos al nuevo índice de Git
+          git add .
           
-          # Hacer commit temporal de .gitattributes si fue creado o modificado
-          git diff --cached --quiet || git commit -m "chore: configure Git LFS for binaries"
+          # Crear un único commit limpio con los punteros LFS configurados desde el inicio
+          git commit -m "Deploy version: ${{ github.sha }}"
           
-          # Agregar el remoto de Hugging Face y empujar de forma forzada
+          # Agregar el remoto de Hugging Face y empujar con fuerza
           git remote add hf https://user:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE_PATH
           git push hf main --force
