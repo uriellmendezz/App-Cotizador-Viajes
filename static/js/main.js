@@ -6,6 +6,7 @@ let isDraggingSidebar = false;
 let sidebarWidth = 380;
 let currentQuoteId = null;
 let currentPdfUrl = null;
+let allSavedQuotes = [];
 
 let authToken = null; // Guardado de forma segura en memoria de JS
 let loggedInUser = null;
@@ -16,10 +17,10 @@ async function authenticatedFetch(url, options = {}) {
     if (authToken) {
         options.headers['Authorization'] = `Bearer ${authToken}`;
     }
-    
+
     try {
         let res = await fetch(url, options);
-        
+
         // Si da 401 y no es una ruta de autenticación, intentar auto-refrescar
         if (res.status === 401 && !url.includes('/api/auth/')) {
             console.warn("Access Token expirado (401). Intentando autorefrescar sesión...");
@@ -82,7 +83,7 @@ window.addEventListener('load', () => {
 
     setupDragAndDrop();
     setupSidebarResizer();
-    
+
     // Initialize flights fee
     toggleFeeType();
 
@@ -96,7 +97,7 @@ window.addEventListener('load', () => {
     setupCostInputHelpers();
 
     updateRealTimeSummary();
-    
+
     // Validar sesión inicial
     checkSession();
 });
@@ -387,19 +388,19 @@ function addHotelCard(data = null) {
     card.id = cardId;
 
     const starsVal = data ? (data.estrellas || data.hotel_estrellas || "★★★★☆") : "★★★★☆";
-    
+
     const regimenVal = data ? (data.hotel_regimen || data.regimen || 'Desayuno incluido') : 'Desayuno incluido';
     const standardRegimens = ["All Inclusive", "Desayuno incluido", "Solo alojamiento", "Media Pension", "Desayuno y Cena incluidos"];
-    
+
     let isRegimenMapped = false;
     let regimenOptionsHtml = "";
-    
+
     standardRegimens.forEach(opt => {
         const isSelected = regimenVal.toLowerCase().trim() === opt.toLowerCase().trim();
         if (isSelected) isRegimenMapped = true;
         regimenOptionsHtml += `<option value="${opt}" ${isSelected ? 'selected' : ''}>${opt}</option>`;
     });
-    
+
     if (!isRegimenMapped && regimenVal) {
         regimenOptionsHtml += `<option value="${regimenVal}" selected>${regimenVal}</option>`;
     }
@@ -862,7 +863,7 @@ async function generatePDFPreview(e) {
     document.getElementById('loading-text').innerText = `Creando la cotización para ${paxNameForLoading}`;
 
     let payload = _buildPayload();
-    
+
     // Auto-save to Supabase first before generating PDF preview
     try {
         document.getElementById('loading-text').innerText = `Guardando cotización en Supabase...`;
@@ -1210,7 +1211,7 @@ function showCustomConfirm({ title, desc, btnText, confirmColorClass, callback }
     const titleEl = document.getElementById('confirm-modal-title');
     const descEl = document.getElementById('confirm-modal-desc');
     const confirmBtn = document.getElementById('confirm-modal-btn-confirm');
-    
+
     if (titleEl) titleEl.innerText = title;
     if (descEl) descEl.innerText = desc;
     if (confirmBtn) {
@@ -1223,9 +1224,9 @@ function showCustomConfirm({ title, desc, btnText, confirmColorClass, callback }
             confirmBtn.className += " bg-brand-primary hover:bg-brand-primary/95 shadow-brand-primary/20";
         }
     }
-    
+
     currentConfirmCallback = callback;
-    
+
     const modal = document.getElementById('confirm-modal');
     const box = document.getElementById('confirm-modal-box');
     if (modal && box) {
@@ -1272,7 +1273,7 @@ function resetForm() {
     document.getElementById('nombre_pax').value = '';
     document.getElementById('destino').value = '';
     document.getElementById('cantidad_pasajeros').value = '';
-    
+
     const clearDateSafe = (id) => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -1348,16 +1349,16 @@ let selectedBaggage = [];
 function updateBaggageUI(type, isActive) {
     const btn = document.getElementById(`btn-bag-${type}`);
     if (!btn) return;
-    
+
     const span = btn.querySelector('span');
     const iconContainer = btn.querySelector('.icon-container');
     const checkDot = btn.querySelector('.check-dot');
     const img = btn.querySelector('img');
-    
+
     if (isActive) {
         btn.classList.remove('border-slate-200/80', 'bg-white/40', 'hover:bg-white/60');
         btn.classList.add('border-emerald-500/30', 'bg-emerald-500/5', 'hover:bg-emerald-500/10', 'active');
-        
+
         if (span) {
             span.classList.remove('text-slate-600');
             span.classList.add('text-emerald-700');
@@ -1377,7 +1378,7 @@ function updateBaggageUI(type, isActive) {
     } else {
         btn.classList.remove('border-emerald-500/30', 'bg-emerald-500/5', 'hover:bg-emerald-500/10', 'active');
         btn.classList.add('border-slate-200/80', 'bg-white/40', 'hover:bg-white/60');
-        
+
         if (span) {
             span.classList.remove('text-emerald-700');
             span.classList.add('text-slate-600');
@@ -1410,7 +1411,7 @@ function toggleBaggage(type) {
         selectedBaggage.push(type);
         isActive = true;
     }
-    
+
     updateBaggageUI(type, isActive);
 
     document.getElementById('equipaje_seleccionado').value = JSON.stringify(selectedBaggage);
@@ -1458,7 +1459,7 @@ function setupSidebarResizer() {
     resizer.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return; // Left click only
         e.preventDefault(); // Prevent text selection/drag behaviors
-        
+
         isDraggingSidebar = true;
         document.body.classList.add('is-resizing');
         resizer.classList.add('is-dragging');
@@ -1487,7 +1488,7 @@ function setupSidebarResizer() {
             isDraggingSidebar = false;
             document.body.classList.remove('is-resizing');
             resizer.classList.remove('is-dragging');
-            
+
             try {
                 localStorage.setItem('sidebarWidth', sidebarWidth);
             } catch (e) {
@@ -1645,15 +1646,15 @@ function fillTestData() {
 
     // Calculate sample dates
     const today = new Date();
-    
+
     // Departure date = today + 30 days
     const departureDate = new Date(today);
     departureDate.setDate(today.getDate() + 30);
-    
+
     // Return date = today + 37 days
     const returnDate = new Date(today);
     returnDate.setDate(today.getDate() + 37);
-    
+
     // Validity date = today + 5 days
     const validityDate = new Date(today);
     validityDate.setDate(today.getDate() + 5);
@@ -1683,7 +1684,7 @@ function fillTestData() {
 
     // 5. Load mock base64 images for flight screenshots to make the PDF compiler happy
     const mockImageBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-    
+
     const setMockFlightImage = (previewId, dataId, dropzoneId) => {
         const preview = document.getElementById(previewId);
         if (preview) {
@@ -1692,7 +1693,7 @@ function fillTestData() {
         }
         const dataEl = document.getElementById(dataId);
         if (dataEl) dataEl.value = mockImageBase64;
-        
+
         const dz = document.getElementById(dropzoneId);
         if (dz) {
             const span = dz.querySelector('span');
@@ -1701,7 +1702,7 @@ function fillTestData() {
             if (svg) svg.style.display = 'none';
         }
     };
-    
+
     setMockFlightImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida');
     setMockFlightImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta');
 
@@ -1734,7 +1735,7 @@ function fillTestData() {
     updateBaseLabel();
     updateRealTimeSummary();
 
-    showAlert('success', '✔ Datos de prueba cargados correctamente. ¡Listo para generar PDF o Slides!');
+    showAlert('success', '✔ Datos de prueba cargados correctamente.');
 }
 window.fillTestData = fillTestData;
 
@@ -1743,72 +1744,127 @@ window.fillTestData = fillTestData;
 async function loadSavedQuotesList() {
     const tbody = document.getElementById('db-quotes-table-body');
     if (!tbody) return;
-    
+
+    // Limpiar input de búsqueda cuando se recarga la lista
+    const searchInput = document.getElementById('quote-search-input');
+    if (searchInput) searchInput.value = '';
+
     tbody.innerHTML = `
         <tr>
-            <td colspan="6" class="p-8 text-center text-slate-400">
+            <td colspan="7" class="p-8 text-center text-slate-400">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" class="spin-slow animate-spin inline mr-2 text-brand-primary"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
                 Cargando cotizaciones desde Supabase...
             </td>
         </tr>
     `;
-    
+
     try {
         const res = await authenticatedFetch('/api/cotizaciones');
         if (!res.ok) throw new Error("Error al obtener las cotizaciones de la base de datos.");
         const quotes = await res.json();
-        
-        tbody.innerHTML = '';
-        if (quotes.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="p-8 text-center text-slate-400 font-semibold">
-                        No hay cotizaciones guardadas en Supabase todavía.
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-        
-        quotes.forEach(q => {
-            const tr = document.createElement('tr');
-            tr.className = 'border-b border-slate-100 hover:bg-slate-50/50';
-            
-            // Format date YYYY-MM-DD to DD/MM/YYYY
-            let fechaSalidaFormatted = q.fecha_salida || '';
-            if (fechaSalidaFormatted.includes('-')) {
-                const parts = fechaSalidaFormatted.split('-');
-                if (parts.length === 3) {
-                    fechaSalidaFormatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                }
-            }
-            
-            const totalUSD = q.costo_total || 0;
-            
-            tr.innerHTML = `
-                <td class="p-3 font-semibold text-slate-800">${q.nombre_pax || 'Sin Nombre'}</td>
-                <td class="p-3">${q.destino || 'Sin Destino'}</td>
-                <td class="p-3">${q.agente_nombre || '-'}</td>
-                <td class="p-3">${fechaSalidaFormatted}</td>
-                <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
-                <td class="p-3 flex justify-center gap-2">
-                    <button type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="loadSavedQuoteIntoForm('${q.id}')">Ver</button>
-                    <button type="button" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-500 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="deleteSavedQuote('${q.id}')">Borrar</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+
+        // Almacenar en la variable global
+        allSavedQuotes = quotes;
+
+        // Renderizar cotizaciones (por defecto, todas filtradas pero limitadas a 10)
+        renderQuotesTable(allSavedQuotes);
+
     } catch (err) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="p-8 text-center text-rose-500 font-bold">
+                <td colspan="7" class="p-8 text-center text-rose-500 font-bold">
                     Error al cargar las cotizaciones: ${err.message}
                 </td>
             </tr>
         `;
     }
 }
+
+function renderQuotesTable(quotesList) {
+    const tbody = document.getElementById('db-quotes-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    if (quotesList.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="p-8 text-center text-slate-400 font-semibold">
+                    No se encontraron cotizaciones.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    // Limitar visualización a un máximo de 10 elementos (ya ordenados de Supabase)
+    const quotesToDisplay = quotesList.slice(0, 10);
+
+    quotesToDisplay.forEach(q => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-100 hover:bg-slate-50/50';
+
+        // Format date YYYY-MM-DD to DD/MM/YYYY
+        let fechaSalidaFormatted = q.fecha_salida || '';
+        if (fechaSalidaFormatted.includes('-')) {
+            const parts = fechaSalidaFormatted.split('-');
+            if (parts.length === 3) {
+                fechaSalidaFormatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+        }
+
+        const totalUSD = q.costo_total || 0;
+        const fechaCreadoFormatted = formatCreatedAt(q.created_at);
+
+        tr.innerHTML = `
+            <td class="p-3 font-semibold text-slate-500">${fechaCreadoFormatted}</td>
+            <td class="p-3 font-semibold text-slate-800">${q.nombre_pax || 'Sin Nombre'}</td>
+            <td class="p-3">${q.destino || 'Sin Destino'}</td>
+            <td class="p-3">${q.agente_nombre || '-'}</td>
+            <td class="p-3">${fechaSalidaFormatted}</td>
+            <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
+            <td class="p-3 flex justify-center gap-2">
+                <button type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="loadSavedQuoteIntoForm('${q.id}')">Ver</button>
+                <button type="button" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-500 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="deleteSavedQuote('${q.id}')">Borrar</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function filterSavedQuotes() {
+    const query = document.getElementById('quote-search-input').value.toLowerCase().trim();
+    if (!query) {
+        renderQuotesTable(allSavedQuotes);
+        return;
+    }
+
+    const filtered = allSavedQuotes.filter(q => {
+        const name = (q.nombre_pax || '').toLowerCase();
+        const dest = (q.destino || '').toLowerCase();
+        return name.includes(query) || dest.includes(query);
+    });
+
+    renderQuotesTable(filtered);
+}
+
+function formatCreatedAt(isoStr) {
+    if (!isoStr) return '-';
+    try {
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return '-';
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+    } catch (e) {
+        return '-';
+    }
+}
+
 window.loadSavedQuotesList = loadSavedQuotesList;
+window.filterSavedQuotes = filterSavedQuotes;
 
 let isReadOnlyMode = false;
 
@@ -1895,21 +1951,21 @@ window.enableFormEditing = enableFormEditing;
 async function loadSavedQuoteIntoForm(quoteId) {
     document.getElementById('loading-overlay').style.display = 'flex';
     document.getElementById('loading-text').innerText = 'Cargando cotización desde Supabase...';
-    
+
     try {
         const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`);
         if (!res.ok) throw new Error("No se pudo cargar la cotización solicitada.");
         const q = await res.json();
-        
+
         switchTab('cotizacion-tab');
-        
+
         // Fill basic data fields
         document.getElementById('nombre_pax').value = q.nombre_pax || '';
         document.getElementById('destino').value = q.destino || '';
         document.getElementById('cantidad_pasajeros').value = q.cantidad_pasajeros || 1;
         document.getElementById('origen').value = q.origen || 'Córdoba';
         document.getElementById('agente_nombre').value = q.agente_nombre || 'Uriel';
-        
+
         const formatToPicker = (val) => {
             if (!val) return '';
             if (val.includes('-')) return val; // YYYY-MM-DD
@@ -1919,7 +1975,7 @@ async function loadSavedQuoteIntoForm(quoteId) {
             }
             return val;
         };
-        
+
         // Set dates
         document.getElementById('fecha_salida')._flatpickr.setDate(formatToPicker(q.fecha_salida));
         document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(formatToPicker(q.fecha_vuelo_ida));
@@ -1927,22 +1983,22 @@ async function loadSavedQuoteIntoForm(quoteId) {
         if (document.getElementById('validez_cotizacion') && document.getElementById('validez_cotizacion')._flatpickr) {
             document.getElementById('validez_cotizacion')._flatpickr.setDate(formatToPicker(q.validez_cotizacion || ''));
         }
-        
+
         // Costs
         document.getElementById('monto_vuelos').value = q.monto_vuelos || '';
         document.getElementById('fee_aereo_monto').value = q.fee_aereo || '';
         document.getElementById('monto_traslados').value = q.monto_traslados || '';
-        
+
         if (q.fee_aereo) {
             document.getElementById('fee_aereo_tipo').value = 'fixed';
         } else {
             document.getElementById('fee_aereo_tipo').value = 'auto';
         }
         toggleFeeType();
-        
+
         // Baggage selection
         setBaggageSelection(q.equipaje || []);
-        
+
         // Flight Images
         const populateImage = (previewId, dataId, dzId, b64) => {
             const preview = document.getElementById(previewId);
@@ -1953,7 +2009,7 @@ async function loadSavedQuoteIntoForm(quoteId) {
                     preview.src = b64;
                     preview.style.display = 'block';
                     dataInput.value = b64;
-                    
+
                     const span = dz.querySelector('span');
                     const svg = dz.querySelector('svg');
                     if (span) span.style.display = 'none';
@@ -1962,7 +2018,7 @@ async function loadSavedQuoteIntoForm(quoteId) {
                     preview.src = '';
                     preview.style.display = 'none';
                     dataInput.value = '';
-                    
+
                     const span = dz.querySelector('span');
                     const svg = dz.querySelector('svg');
                     if (span) span.style.display = 'block';
@@ -1970,15 +2026,15 @@ async function loadSavedQuoteIntoForm(quoteId) {
                 }
             }
         };
-        
+
         populateImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida', q.img_vuelo_ida);
         populateImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta', q.img_vuelo_vuelta);
-        
+
         // Hotels
         const hotelsContainer = document.getElementById('hotels-container');
         hotelsContainer.innerHTML = ''; // Clear existing hotels
         hotelCount = 0; // Reset counter
-        
+
         const hotels = q.hoteles || [];
         if (hotels.length === 0) {
             addHotelCard();
@@ -1987,23 +2043,23 @@ async function loadSavedQuoteIntoForm(quoteId) {
                 addHotelCard(h);
             });
         }
-        
+
         // Update edit state and enter Read-only mode
         currentQuoteId = q.id;
-        enableFormEditing(false); 
-        
+        enableFormEditing(false);
+
         // Update breakdown
         updateRealTimeSummary();
-        
+
         // Hide preview results if they were open from previous generations
         const results = document.getElementById('results-panel');
         if (results) {
             results.classList.add('hidden');
             results.classList.remove('block');
         }
-        
+
         showAlert('success', `Cotización de ${q.nombre_pax} cargada correctamente en modo Solo Lectura.`);
-        
+
     } catch (err) {
         showAlert('warning', 'Error al cargar la cotización: ' + err.message);
     } finally {
@@ -2023,11 +2079,11 @@ async function deleteSavedQuote(quoteId) {
                 const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`, {
                     method: 'DELETE'
                 });
-                
+
                 if (!res.ok) throw new Error("Error al eliminar la cotización de la base de datos.");
-                
+
                 showAlert('success', '✔ Cotización eliminada con éxito.');
-                
+
                 // If current quote is being edited, reset the form
                 if (currentQuoteId == quoteId) {
                     cancelEditingQuote();
@@ -2076,14 +2132,14 @@ function updateEditingIndicator() {
     const indicator = document.getElementById('editing-indicator');
     const indicatorText = document.getElementById('editing-indicator-text');
     if (!indicator || !indicatorText) return;
-    
+
     if (currentQuoteId) {
         indicator.classList.remove('hidden');
         indicator.classList.add('flex');
-        
+
         if (isReadOnlyMode) {
             indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando cotización guardada (ID #${currentQuoteId}) [Solo Lectura]</span>`;
-            
+
             indicator.querySelector('.flex.gap-2').innerHTML = `
                 <button type="button" onclick="confirmEditQuote()" class="px-3 py-1 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-brand-primary/20">Editar Cotización</button>
                 <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
@@ -2091,7 +2147,7 @@ function updateEditingIndicator() {
             `;
         } else {
             indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Editando cotización guardada (ID #${currentQuoteId})</span>`;
-            
+
             indicator.querySelector('.flex.gap-2').innerHTML = `
                 <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
                 <button type="button" onclick="cancelEditingQuote()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cancelar Edición</button>
@@ -2119,9 +2175,9 @@ async function refreshSession() {
         const res = await fetch('/api/auth/refresh', {
             method: 'POST'
         });
-        
+
         if (!res.ok) return false;
-        
+
         const data = await res.json();
         loginSuccess(data.access_token, data.username);
         return true;
@@ -2134,7 +2190,7 @@ async function refreshSession() {
 function showLoginScreen() {
     const loginScreen = document.getElementById('login-screen');
     const appContent = document.getElementById('app-content');
-    
+
     if (loginScreen) {
         loginScreen.classList.remove('opacity-0', 'pointer-events-none');
         loginScreen.classList.add('opacity-100', 'pointer-events-auto');
@@ -2143,22 +2199,22 @@ function showLoginScreen() {
         appContent.classList.add('hidden');
         appContent.classList.remove('app-fade-in');
     }
-    
+
     // Iniciar slideshow de fondos de login
     startLoginSlideshow();
 }
 
 function startLoginSlideshow() {
     if (loginSlideshowInterval) clearInterval(loginSlideshowInterval);
-    
+
     const layers = document.querySelectorAll('.login-bg-layer');
     if (layers.length === 0) return;
-    
+
     // Activar primera capa
     let currentIdx = 0;
     layers.forEach(l => l.classList.remove('active'));
     layers[currentIdx].classList.add('active');
-    
+
     loginSlideshowInterval = setInterval(() => {
         layers[currentIdx].classList.remove('active');
         currentIdx = (currentIdx + 1) % layers.length;
@@ -2175,36 +2231,36 @@ function stopLoginSlideshow() {
 
 async function handleLoginSubmit(e) {
     if (e) e.preventDefault();
-    
+
     const usernameInput = document.getElementById('login_username');
     const passwordInput = document.getElementById('login_password');
     const alertEl = document.getElementById('login-alert-message');
-    
+
     if (!usernameInput || !passwordInput) return;
-    
+
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
-    
+
     if (alertEl) {
         alertEl.classList.add('hidden');
         alertEl.className = "hidden p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300";
     }
-    
+
     try {
         const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
         });
-        
+
         if (!res.ok) {
             const err = await res.json();
             throw new Error(err.detail || "Credenciales inválidas");
         }
-        
+
         const data = await res.json();
         loginSuccess(data.access_token, data.username);
-        
+
         // Limpiar formulario
         usernameInput.value = '';
         passwordInput.value = '';
@@ -2220,13 +2276,13 @@ async function handleLoginSubmit(e) {
 function loginSuccess(token, username) {
     authToken = token;
     loggedInUser = username;
-    
+
     stopLoginSlideshow();
-    
+
     // Ocultar login y mostrar app con animación
     const loginScreen = document.getElementById('login-screen');
     const appContent = document.getElementById('app-content');
-    
+
     if (loginScreen) {
         loginScreen.classList.add('opacity-0', 'pointer-events-none');
         loginScreen.classList.remove('opacity-100', 'pointer-events-auto');
@@ -2235,18 +2291,18 @@ function loginSuccess(token, username) {
         appContent.classList.remove('hidden');
         appContent.classList.add('app-fade-in');
     }
-    
+
     // Controlar UI según el rol (Invitado vs Agente)
     const btnGenerar = document.getElementById('btn-generar-preview');
     const navSavedQuotes = document.getElementById('nav-btn-saved-quotes');
     const navConfig = document.getElementById('nav-btn-config');
     const navTestData = document.getElementById('nav-btn-test-data');
-    
+
     if (username === 'guest') {
         if (navSavedQuotes) navSavedQuotes.classList.add('hidden');
         if (navConfig) navConfig.classList.add('hidden');
         if (navTestData) navTestData.classList.add('hidden');
-        
+
         if (btnGenerar) {
             btnGenerar.disabled = true;
             btnGenerar.classList.add('opacity-50', 'pointer-events-none', 'cursor-not-allowed');
@@ -2261,7 +2317,7 @@ function loginSuccess(token, username) {
         if (navSavedQuotes) navSavedQuotes.classList.remove('hidden');
         if (navConfig) navConfig.classList.remove('hidden');
         if (navTestData) navTestData.classList.remove('hidden');
-        
+
         if (btnGenerar) {
             btnGenerar.disabled = false;
             btnGenerar.classList.remove('opacity-50', 'pointer-events-none', 'cursor-not-allowed');
@@ -2274,10 +2330,10 @@ function loginSuccess(token, username) {
             `;
         }
     }
-    
+
     // Cargar datos iniciales
     loadConfig();
-    
+
     // Asegurar que haya una tarjeta de hotel vacía si no hay hoteles cargados
     const hotelsContainer = document.getElementById('hotels-container');
     if (hotelsContainer && hotelsContainer.children.length === 0) {
@@ -2291,24 +2347,24 @@ function logoutAgent(notifyServer = true, reasonMessage = null) {
             method: 'POST'
         }).catch(err => console.warn("Logout request failed:", err));
     }
-    
+
     authToken = null;
     loggedInUser = null;
-    
+
     // Reset form to blank
     resetForm();
     currentQuoteId = null;
     updateEditingIndicator();
-    
+
     // Ocultar resultados previos
     const resultsPanel = document.getElementById('results-panel');
     if (resultsPanel) {
         resultsPanel.classList.add('hidden');
         resultsPanel.classList.remove('block');
     }
-    
+
     showLoginScreen();
-    
+
     // Mostrar mensaje de aviso en la UI si está definido
     if (reasonMessage) {
         const alertEl = document.getElementById('login-alert-message');
@@ -2326,18 +2382,18 @@ async function loginAsGuest() {
         alertEl.classList.add('hidden');
         alertEl.className = "hidden p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300";
     }
-    
+
     try {
         const res = await fetch('/api/auth/login-guest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        
+
         if (!res.ok) {
             const err = await res.json();
             throw new Error(err.detail || "No se pudo ingresar como invitado");
         }
-        
+
         const data = await res.json();
         loginSuccess(data.access_token, data.username);
     } catch (err) {
@@ -2357,8 +2413,26 @@ function openPDFInNewTab() {
     window.open(currentPdfUrl, '_blank');
 }
 
+function toggleLoginPassword() {
+    const passwordInput = document.getElementById('login_password');
+    const eyeOpen = document.getElementById('svg-eye-open');
+    const eyeClosed = document.getElementById('svg-eye-closed');
+    if (!passwordInput || !eyeOpen || !eyeClosed) return;
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        eyeOpen.classList.add('hidden');
+        eyeClosed.classList.remove('hidden');
+    } else {
+        passwordInput.type = 'password';
+        eyeOpen.classList.remove('hidden');
+        eyeClosed.classList.add('hidden');
+    }
+}
+
 window.logoutAgent = logoutAgent;
 window.handleLoginSubmit = handleLoginSubmit;
 window.checkSession = checkSession;
 window.loginAsGuest = loginAsGuest;
 window.openPDFInNewTab = openPDFInNewTab;
+window.toggleLoginPassword = toggleLoginPassword;

@@ -229,7 +229,7 @@
             vertical-align: middle !important;
         }
 
-        /* Star ASCII character styles */
+        /* Star SVG styles */
         .stars-container {
             display: inline-block !important;
             white-space: nowrap !important;
@@ -238,20 +238,28 @@
             line-height: 1 !important;
         }
 
-        .star-char {
-            font-size: 11pt !important;
-            line-height: 1 !important;
+        .star-svg {
             display: inline-block !important;
+            width: 12px !important;
+            height: 12px !important;
             vertical-align: middle !important;
-            margin-right: 2px !important;
+            margin-right: 2.5px !important;
         }
 
-        .star-char.star-filled {
-            color: #ffc551 !important;
+        .star-svg svg {
+            width: 100% !important;
+            height: 100% !important;
+            display: block !important;
         }
 
-        .star-char.star-empty {
-            color: #d0d0d0 !important;
+        .star-svg.star-filled svg,
+        .star-svg.star-filled svg path {
+            fill: #ffc551 !important;
+        }
+
+        .star-svg.star-empty svg,
+        .star-svg.star-empty svg path {
+            fill: #e2e8f0 !important;
         }
 
         .services-list .svc-text {
@@ -724,9 +732,12 @@
                         <span class="hotel-name">{{ hotel.nombre }}</span>
                         <span class="stars-container">
                             {% for i in range(5) %}
-                            {% if i < hotel.stars_count %}<span class="star-char star-filled">★</span>{% else %}<span
-                            class="star-char star-empty">★</span>{% endif %}
-                        {% endfor %}
+                            {% if i < hotel.stars_count %}
+                            <span class="star-svg star-filled">{{ svg_estrella }}</span>
+                            {% else %}
+                            <span class="star-svg star-empty">{{ svg_estrella }}</span>
+                            {% endif %}
+                            {% endfor %}
                         </span>
                     </div>
 
