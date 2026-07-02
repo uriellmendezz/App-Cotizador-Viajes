@@ -1244,8 +1244,11 @@ function confirmNewQuote() {
         desc: 'Se borrarán todos los datos cargados en el formulario actual. Esta acción no se puede deshacer.',
         btnText: 'Sí, Empezar Nueva',
         callback: () => {
+            currentQuoteId = null;
+            enableFormEditing(true); // Habilitar formulario para la nueva cotización
             resetForm();
-            cancelEditingQuote();
+            switchTab('cotizacion-tab');
+            showAlert('success', 'Formulario reiniciado. Listo para crear una nueva cotización.');
         }
     });
 }
@@ -2104,11 +2107,19 @@ function cancelEditingQuote() {
     currentQuoteId = null;
     enableFormEditing(true); // Habilitar formulario
     resetForm();
+    showAlert('success', 'Formulario reiniciado. Modo de edición cancelado.');
+}
+window.cancelEditingQuote = cancelEditingQuote;
+
+function closeSavedQuoteView() {
+    currentQuoteId = null;
+    enableFormEditing(true); // Habilitar formulario
+    resetForm();
     switchTab('editar-tab');
     loadSavedQuotesList();
     showAlert('success', 'Visualización cerrada. Retornando a la lista de cotizaciones.');
 }
-window.cancelEditingQuote = cancelEditingQuote;
+window.closeSavedQuoteView = closeSavedQuoteView;
 
 function confirmEditQuote() {
     showCustomConfirm({
@@ -2140,14 +2151,14 @@ function updateEditingIndicator() {
             actionsContainer.innerHTML = `
                 <button type="button" onclick="confirmEditQuote()" class="px-3 py-1 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-brand-primary/20">Editar Cotización</button>
                 <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
-                <button type="button" onclick="cancelEditingQuote()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cerrar</button>
+                <button type="button" onclick="closeSavedQuoteView()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cerrar</button>
             `;
         } else {
             indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Editando cotización guardada (ID #${currentQuoteId})</span>`;
 
             actionsContainer.innerHTML = `
                 <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
-                <button type="button" onclick="cancelEditingQuote()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cancelar Edición</button>
+                <button type="button" onclick="closeSavedQuoteView()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cancelar Edición</button>
             `;
         }
     } else {
