@@ -543,14 +543,10 @@
         }
 
         .footer-bar {
-            position: fixed;
-            bottom: -10mm;
-            left: 0;
-            right: 0;
             height: 3px;
             background-color: #ff545d;
             border-radius: 2px;
-            z-index: 100;
+            margin-top: 8px;
         }
 
         /* ══════════════════════════════════════════════════════════════════
@@ -710,7 +706,7 @@
         <div class="hotel-card">
             <!-- Recommendation badge for first hotel -->
             {% if loop.first and hoteles|length > 1 %}
-            <div class="reco-badge">NUESTRA RECOMENDACIÓN</div>
+            <div class="reco-badge">RECOMENDADO</div>
             {% endif %}
 
             <!-- Hotel Image -->
@@ -789,8 +785,8 @@
             RESPONSABLE POR LAS POLÍTICAS DE REPROGRAMACIONES O CANCELACIONES DE CADA LÍNEA AÉREA U OTROS PROVEEDORES DE
             SERVICIOS TURÍSTICOS ANTE CASOS EVENTUALES.
         </p>
+        <div class="footer-bar"></div>
     </div>
-    <div class="footer-bar"></div>
 
 </body>
 
