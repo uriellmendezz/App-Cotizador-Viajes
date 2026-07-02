@@ -39,7 +39,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-    <link rel="stylesheet" href="/static/css/style.css?v=6">
+    <link rel="stylesheet" href="/static/css/style.css?v=7">
 </head>
 
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen selection:bg-brand-primary selection:text-white">
@@ -51,6 +51,11 @@
             <div class="flex items-center gap-4">
                 <img id="nav-logo" src="/assets/Banner%20letra%20O.png" alt="One Trip Giordano"
                     class="h-16 w-auto object-contain transition-transform hover:scale-105">
+                <div id="logged-user-badge" class="hidden items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>Agente: </span>
+                    <span id="logged-username-span" class="text-slate-700 font-extrabold">-</span>
+                </div>
             </div>
             <nav class="flex gap-2 items-center">
                 <button id="nav-btn-new-quote" class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 active"
@@ -95,7 +100,7 @@
                             <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
                             <span id="editing-indicator-text">Editando cotización guardada</span>
                         </div>
-                        <div class="flex gap-2">
+                        <div id="editing-indicator-actions" class="flex gap-2">
                             <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer">Duplicar como Nueva</button>
                             <button type="button" onclick="cancelEditingQuote()" class="px-3 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold transition-all cursor-pointer">Cancelar Edición</button>
                         </div>
@@ -796,7 +801,7 @@
     </div>
 
     <!-- Javascript links -->
-    <script src="/static/js/main.js?v=6"></script>
+    <script src="/static/js/main.js?v=7"></script>
 </body>
 
 </html>

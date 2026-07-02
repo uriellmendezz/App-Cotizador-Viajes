@@ -240,20 +240,26 @@
 
         .star-char {
             font-family: 'DejaVu Sans', 'Liberation Sans', sans-serif !important;
-            font-size: 14pt !important; /* Tamaño del nombre del hotel */
+            font-size: 14pt !important;
+            /* Tamaño del nombre del hotel */
             line-height: 1 !important;
             display: inline-block !important;
             vertical-align: middle !important;
-            margin-right: -1.5px !important; /* Más juntas */
-            margin-top: -2.5px !important; /* Alineación vertical con la tipografía del hotel */
+            margin-right: -1.5px !important;
+            letter-spacing: -4px !important;
+            /* Más juntas */
+            margin-top: -2.5px !important;
+            /* Alineación vertical con la tipografía del hotel */
         }
 
         .star-char.star-filled {
-            color: #ffb800 !important; /* Amarillo premium brillante */
+            color: #ffb800 !important;
+            /* Amarillo premium brillante */
         }
 
         .star-char.star-empty {
-            color: #e2e8f0 !important; /* Gris claro sutil */
+            color: #e2e8f0 !important;
+            /* Gris claro sutil */
         }
 
         .services-list .svc-text {
@@ -602,7 +608,8 @@
         }
 
         body.single-hotel-layout .flights-row.flights-stacked .flight-img-container img {
-            max-height: 80px; /* Reduced from 120px to prevent overflow/overlap with footer */
+            max-height: 80px;
+            /* Reduced from 120px to prevent overflow/overlap with footer */
         }
 
         body.single-hotel-layout .hotel-card {
@@ -726,12 +733,11 @@
                         <span class="hotel-name">{{ hotel.nombre }}</span>
                         <span class="stars-container">
                             {% for i in range(5) %}
-                            {% if i < hotel.stars_count %}
-                            <span class="star-char star-filled">★</span>
-                            {% else %}
-                            <span class="star-char star-empty">★</span>
-                            {% endif %}
-                            {% endfor %}
+                            {% if i < hotel.stars_count %} <span class="star-char star-filled">★</span>
+                        {% else %}
+                        <span class="star-char star-empty">★</span>
+                        {% endif %}
+                        {% endfor %}
                         </span>
                     </div>
 

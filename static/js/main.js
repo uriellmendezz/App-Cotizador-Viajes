@@ -1929,18 +1929,12 @@ function enableFormEditing(enabled) {
         }
     });
 
-    // Deshabilitar botón de Generar Cotización
+    // El botón de Generar Cotización permanece habilitado para poder generarla directamente sin editar
     const submitBtn = document.getElementById('btn-generar-preview');
     if (submitBtn) {
-        if (enabled) {
-            submitBtn.disabled = false;
-            submitBtn.style.opacity = '1';
-            submitBtn.style.pointerEvents = 'auto';
-        } else {
-            submitBtn.disabled = true;
-            submitBtn.style.opacity = '0.5';
-            submitBtn.style.pointerEvents = 'none';
-        }
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.style.pointerEvents = 'auto';
     }
 
     // Actualizar indicador de edición
@@ -2110,7 +2104,9 @@ function cancelEditingQuote() {
     currentQuoteId = null;
     enableFormEditing(true); // Habilitar formulario
     resetForm();
-    showAlert('success', 'Formulario reiniciado. Modo de edición cancelado.');
+    switchTab('editar-tab');
+    loadSavedQuotesList();
+    showAlert('success', 'Visualización cerrada. Retornando a la lista de cotizaciones.');
 }
 window.cancelEditingQuote = cancelEditingQuote;
 
@@ -2131,7 +2127,8 @@ window.confirmEditQuote = confirmEditQuote;
 function updateEditingIndicator() {
     const indicator = document.getElementById('editing-indicator');
     const indicatorText = document.getElementById('editing-indicator-text');
-    if (!indicator || !indicatorText) return;
+    const actionsContainer = document.getElementById('editing-indicator-actions');
+    if (!indicator || !indicatorText || !actionsContainer) return;
 
     if (currentQuoteId) {
         indicator.classList.remove('hidden');
@@ -2140,7 +2137,7 @@ function updateEditingIndicator() {
         if (isReadOnlyMode) {
             indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando cotización guardada (ID #${currentQuoteId}) [Solo Lectura]</span>`;
 
-            indicator.querySelector('.flex.gap-2').innerHTML = `
+            actionsContainer.innerHTML = `
                 <button type="button" onclick="confirmEditQuote()" class="px-3 py-1 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-brand-primary/20">Editar Cotización</button>
                 <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
                 <button type="button" onclick="cancelEditingQuote()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cerrar</button>
@@ -2148,7 +2145,7 @@ function updateEditingIndicator() {
         } else {
             indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Editando cotización guardada (ID #${currentQuoteId})</span>`;
 
-            indicator.querySelector('.flex.gap-2').innerHTML = `
+            actionsContainer.innerHTML = `
                 <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
                 <button type="button" onclick="cancelEditingQuote()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cancelar Edición</button>
             `;
@@ -2334,6 +2331,26 @@ function loginSuccess(token, username) {
     // Cargar datos iniciales
     loadConfig();
 
+    // Actualizar badge del agente logueado en la navegación
+    const badge = document.getElementById('logged-user-badge');
+    const spanUsername = document.getElementById('logged-username-span');
+    if (badge && spanUsername) {
+        if (username === 'guest') {
+            spanUsername.innerText = 'Invitado';
+            // Poner el puntito en color gris para invitado
+            const dot = badge.querySelector('span');
+            if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-400';
+        } else {
+            // Capitalizar primer letra del nombre del agente
+            const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
+            spanUsername.innerText = formattedName;
+            const dot = badge.querySelector('span');
+            if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+        }
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+    }
+
     // Asegurar que haya una tarjeta de hotel vacía si no hay hoteles cargados
     const hotelsContainer = document.getElementById('hotels-container');
     if (hotelsContainer && hotelsContainer.children.length === 0) {
@@ -2350,6 +2367,13 @@ function logoutAgent(notifyServer = true, reasonMessage = null) {
 
     authToken = null;
     loggedInUser = null;
+
+    // Ocultar badge del agente logueado
+    const badge = document.getElementById('logged-user-badge');
+    if (badge) {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+    }
 
     // Reset form to blank
     resetForm();
