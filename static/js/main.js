@@ -1211,8 +1211,9 @@ async function optimizeDescription(btn) {
 window.optimizeDescription = optimizeDescription;
 
 let currentConfirmCallback = null;
+let currentCancelCallback = null;
 
-function showCustomConfirm({ title, desc, btnText, confirmColorClass, callback }) {
+function showCustomConfirm({ title, desc, btnText, confirmColorClass, callback, cancelCallback }) {
     const titleEl = document.getElementById('confirm-modal-title');
     const descEl = document.getElementById('confirm-modal-desc');
     const confirmBtn = document.getElementById('confirm-modal-btn-confirm');
@@ -1231,6 +1232,7 @@ function showCustomConfirm({ title, desc, btnText, confirmColorClass, callback }
     }
 
     currentConfirmCallback = callback;
+    currentCancelCallback = cancelCallback || null;
 
     const modal = document.getElementById('confirm-modal');
     const box = document.getElementById('confirm-modal-box');
@@ -1254,6 +1256,10 @@ function confirmNewQuote() {
             resetForm();
             switchTab('cotizacion-tab');
             showAlert('success', 'Formulario reiniciado. Listo para crear una nueva cotización.');
+        },
+        cancelCallback: () => {
+            switchTab('cotizacion-tab');
+            showAlert('info', 'Permaneces en el formulario actual con los datos ingresados.');
         }
     });
 }
@@ -1269,10 +1275,13 @@ function closeConfirmModal(confirmAction) {
         box.classList.remove('scale-100');
     }
 
-    if (confirmAction && currentConfirmCallback) {
-        currentConfirmCallback();
+    if (confirmAction) {
+        if (currentConfirmCallback) currentConfirmCallback();
+    } else {
+        if (currentCancelCallback) currentCancelCallback();
     }
     currentConfirmCallback = null;
+    currentCancelCallback = null;
 }
 window.closeConfirmModal = closeConfirmModal;
 
