@@ -55,17 +55,7 @@
            ══════════════════════════════════════════════════════════════════ */
         @page {
             size: A4 portrait;
-            margin: 10mm 15mm;
-
-            /*
-            @bottom-right {
-                content: "Página " counter(page) " de " counter(pages);
-                font-family: 'Montserrat', sans-serif;
-                font-size: 8pt;
-                color: #94a3b8;
-                font-weight: 500;
-            }
-            */
+            margin: 10mm 15mm 25mm 15mm;
         }
 
         /* ══════════════════════════════════════════════════════════════════
@@ -240,7 +230,7 @@
 
         .star-char {
             font-family: 'DejaVu Sans', 'Liberation Sans', sans-serif !important;
-            font-size: 16pt !important;
+            font-size: 14pt !important;
             /* Tamaño del nombre del hotel */
             line-height: 1 !important;
             display: inline-block !important;
@@ -258,7 +248,7 @@
         }
 
         .star-char.star-empty {
-            color: #bdbdbd !important;
+            color: #eaeaea !important;
             /* Gris claro sutil */
         }
 
@@ -603,13 +593,17 @@
             margin-bottom: 14px;
         }
 
-        body.single-hotel-layout .flights-row.flights-stacked {
-            gap: 8px;
+        body.single-hotel-layout .flights-row.flights-stacked .flight-col:first-child {
+            margin-bottom: 12px !important;
         }
 
         body.single-hotel-layout .flights-row.flights-stacked .flight-img-container img {
             max-height: 80px;
             /* Reduced from 120px to prevent overflow/overlap with footer */
+        }
+
+        body.single-hotel-layout .hotels-section {
+            margin-top: 30px !important; /* Desplaza holgadamente la sección de alojamiento hacia abajo */
         }
 
         body.single-hotel-layout .hotel-card {
