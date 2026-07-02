@@ -229,7 +229,7 @@
             vertical-align: middle !important;
         }
 
-        /* Star SVG styles */
+        /* Star ASCII styles with DejaVu Sans fallback */
         .stars-container {
             display: inline-block !important;
             white-space: nowrap !important;
@@ -238,29 +238,22 @@
             line-height: 1 !important;
         }
 
-        .star-svg {
+        .star-char {
+            font-family: 'DejaVu Sans', 'Liberation Sans', sans-serif !important;
+            font-size: 14pt !important; /* Tamaño del nombre del hotel */
+            line-height: 1 !important;
             display: inline-block !important;
-            width: 13.5px !important;
-            height: 13.5px !important;
             vertical-align: middle !important;
-            margin-right: 0.5px !important;
-            margin-top: -3px !important; /* Centrado vertical con el texto de 14pt del hotel */
+            margin-right: -1.5px !important; /* Más juntas */
+            margin-top: -2.5px !important; /* Alineación vertical con la tipografía del hotel */
         }
 
-        .star-svg svg {
-            width: 100% !important;
-            height: 100% !important;
-            display: block !important;
+        .star-char.star-filled {
+            color: #ffb800 !important; /* Amarillo premium brillante */
         }
 
-        .star-svg.star-filled svg,
-        .star-svg.star-filled svg path {
-            fill: #ffb800 !important; /* Amarillo premium brillante para las estrellas activas */
-        }
-
-        .star-svg.star-empty svg,
-        .star-svg.star-empty svg path {
-            fill: #e2e8f0 !important; /* Gris claro para las estrellas inactivas */
+        .star-char.star-empty {
+            color: #e2e8f0 !important; /* Gris claro sutil */
         }
 
         .services-list .svc-text {
@@ -734,9 +727,9 @@
                         <span class="stars-container">
                             {% for i in range(5) %}
                             {% if i < hotel.stars_count %}
-                            <span class="star-svg star-filled">{{ svg_estrella }}</span>
+                            <span class="star-char star-filled">★</span>
                             {% else %}
-                            <span class="star-svg star-empty">{{ svg_estrella }}</span>
+                            <span class="star-char star-empty">★</span>
                             {% endif %}
                             {% endfor %}
                         </span>
