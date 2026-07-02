@@ -865,24 +865,29 @@ async function generatePDFPreview(e) {
     let payload = _buildPayload();
 
     // Auto-save to Supabase first before generating PDF preview
-    try {
-        document.getElementById('loading-text').innerText = `Guardando cotización en Supabase...`;
-        const saveRes = await authenticatedFetch('/api/cotizaciones', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (saveRes.ok) {
-            const savedQuote = await saveRes.json();
-            currentQuoteId = savedQuote.id;
-            payload.id = currentQuoteId; // Include the generated ID in subsequent PDF payload
-            updateEditingIndicator();
-            console.log("Auto-save to Supabase completed successfully. ID:", currentQuoteId);
-        } else {
-            console.warn("Auto-save to Supabase returned error status. Proceeding with preview.");
+    // ONLY if the form is NOT in read-only mode (which means it has been edited or is a new quote)
+    if (!isReadOnlyMode) {
+        try {
+            document.getElementById('loading-text').innerText = `Guardando cotización en Supabase...`;
+            const saveRes = await authenticatedFetch('/api/cotizaciones', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (saveRes.ok) {
+                const savedQuote = await saveRes.json();
+                currentQuoteId = savedQuote.id;
+                payload.id = currentQuoteId; // Include the generated ID in subsequent PDF payload
+                updateEditingIndicator();
+                console.log("Auto-save to Supabase completed successfully. ID:", currentQuoteId);
+            } else {
+                console.warn("Auto-save to Supabase returned error status. Proceeding with preview.");
+            }
+        } catch (saveErr) {
+            console.warn("Auto-save to Supabase failed (persistence disabled or network error):", saveErr);
         }
-    } catch (saveErr) {
-        console.warn("Auto-save to Supabase failed (persistence disabled or network error):", saveErr);
+    } else {
+        console.log("Form is in Read-only mode. Skipping auto-save to Supabase.");
     }
 
     document.getElementById('loading-text').innerText = `Compilando PDF para ${paxNameForLoading}...`;

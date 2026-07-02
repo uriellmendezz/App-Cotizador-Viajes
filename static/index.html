@@ -39,7 +39,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-    <link rel="stylesheet" href="/static/css/style.css?v=11">
+    <link rel="stylesheet" href="/static/css/style.css?v=12">
 </head>
 
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen selection:bg-brand-primary selection:text-white">
@@ -140,7 +140,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
                             <div class="flex flex-col gap-2">
                                 <label for="fecha_salida"
                                     class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha
@@ -155,19 +155,13 @@
                                     class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                             </div>
                             <div class="flex flex-col gap-2">
-                                <label for="agente_nombre"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Agente
-                                    Operador</label>
-                                <input type="text" id="agente_nombre" value="Uriel" required
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
-                            </div>
-                            <div class="flex flex-col gap-2">
                                 <label for="validez_cotizacion"
                                     class="text-xs font-bold text-slate-500 uppercase tracking-wider">Validez
                                     cotización</label>
                                 <input type="date" id="validez_cotizacion"
                                     class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                             </div>
+                            <input type="hidden" id="agente_nombre" value="Uriel">
                         </div>
                     </section>
 
@@ -801,7 +795,7 @@
     </div>
 
     <!-- Javascript links -->
-    <script src="/static/js/main.js?v=11"></script>
+    <script src="/static/js/main.js?v=12"></script>
 </body>
 
 </html>

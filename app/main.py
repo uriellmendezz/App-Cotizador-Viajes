@@ -545,6 +545,12 @@ def api_cotizar_pdf(quote: dict, current_user: str = Depends(verify_agent_user))
 
     config = load_agency_config()
 
+    # Auto-detect logged in agent from active session for PDF rendering
+    if current_user == "guest":
+        quote["agente_nombre"] = "Invitado"
+    else:
+        quote["agente_nombre"] = current_user.capitalize()
+
     # Pre-populate agency details
     quote["agencia_nombre"] = config.get("nombre_agencia", "ONE TRIP GIORDANO")
     quote["agencia_logo_base64"] = config.get("logo_base64")
@@ -711,6 +717,12 @@ def api_get_cotizacion(quote_id: str, current_user: str = Depends(verify_agent_u
 @app.post("/api/cotizaciones")
 def api_save_cotizacion(payload: dict, current_user: str = Depends(verify_agent_user)):
     """Saves or updates a quote in Supabase."""
+    # Auto-detect logged in agent from active session
+    if current_user == "guest":
+        payload["agente_nombre"] = "Invitado"
+    else:
+        payload["agente_nombre"] = current_user.capitalize()
+
     cant_pax = safe_int(payload.get("cantidad_pasajeros", 1))
     monto_vuelos = safe_float(payload.get("monto_vuelos", 0.0))
     monto_traslados = safe_float(payload.get("monto_traslados", 0.0))
