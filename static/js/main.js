@@ -1804,7 +1804,7 @@ function renderQuotesTable(quotesList) {
 
     quotesToDisplay.forEach(q => {
         const tr = document.createElement('tr');
-        tr.className = 'border-b border-slate-100 hover:bg-slate-50/50';
+        tr.className = 'border-b border-slate-100 hover:bg-rose-50/30 transition-colors duration-150';
 
         // Format date YYYY-MM-DD to DD/MM/YYYY
         let fechaSalidaFormatted = q.fecha_salida || '';

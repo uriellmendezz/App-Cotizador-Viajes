@@ -284,7 +284,7 @@ textarea:focus {
     background-position: center;
     opacity: 0;
     z-index: 1;
-    filter: blur(5px) saturate(90%);
+    filter: blur(1.5px) saturate(110%);
     transition: opacity 2s ease-in-out;
     transform: scale(1.08);
 }
@@ -303,7 +303,7 @@ textarea:focus {
 }
 
 .login-bg-layer.active {
-    opacity: 0.35; /* 35% opacity blended over a light gradient background */
+    opacity: 0.75; /* 75% opacity for crisp background visualization */
     z-index: 2;
     animation: kenburns 25s infinite ease-in-out alternate;
 }
