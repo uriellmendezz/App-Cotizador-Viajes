@@ -5,6 +5,7 @@ let hoveredDropzone = null;
 let isDraggingSidebar = false;
 let sidebarWidth = 380;
 let currentQuoteId = null;
+let currentPdfUrl = null;
 
 let authToken = null; // Guardado de forma segura en memoria de JS
 let loggedInUser = null;
@@ -904,6 +905,7 @@ async function generatePDFPreview(e) {
 
         // Update PDF iframe preview source
         const url = window.URL.createObjectURL(blob);
+        currentPdfUrl = url;
         const iframe = document.getElementById('pdf-preview-iframe');
         if (iframe) {
             iframe.src = url;
@@ -2347,7 +2349,16 @@ async function loginAsGuest() {
     }
 }
 
+function openPDFInNewTab() {
+    if (!currentPdfUrl) {
+        showAlert('warning', 'No hay ningún PDF generado para previsualizar.');
+        return;
+    }
+    window.open(currentPdfUrl, '_blank');
+}
+
 window.logoutAgent = logoutAgent;
 window.handleLoginSubmit = handleLoginSubmit;
 window.checkSession = checkSession;
 window.loginAsGuest = loginAsGuest;
+window.openPDFInNewTab = openPDFInNewTab;

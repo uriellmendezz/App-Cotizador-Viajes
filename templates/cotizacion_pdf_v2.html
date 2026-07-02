@@ -239,12 +239,11 @@
         }
 
         .star-char {
-            font-size: 14pt !important;
-            font-weight: 1000 !important;
+            font-size: 11pt !important;
             line-height: 1 !important;
             display: inline-block !important;
             vertical-align: middle !important;
-            letter-spacing: -5px !important;
+            margin-right: 2px !important;
         }
 
         .star-char.star-filled {
@@ -270,20 +269,34 @@
 
         .flights-row {
             display: flex;
-            gap: 16px;
-        }
-
-        .flights-row.flights-stacked {
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .flights-row.flights-stacked .flight-img-container img {
-            max-height: 120px;
         }
 
         .flight-col {
             flex: 1;
+            margin-right: 8px;
+        }
+
+        .flights-row .flight-col:last-child {
+            margin-right: 0;
+            margin-left: 8px;
+        }
+
+        .flights-row.flights-stacked {
+            flex-direction: column;
+        }
+
+        .flights-row.flights-stacked .flight-col {
+            margin-right: 0 !important;
+            margin-left: 0 !important;
+            margin-bottom: 16px !important;
+        }
+
+        .flights-row.flights-stacked .flight-col:last-child {
+            margin-bottom: 0 !important;
+        }
+
+        .flights-row.flights-stacked .flight-img-container img {
+            max-height: 120px;
         }
 
         .flight-label {
