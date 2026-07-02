@@ -265,3 +265,69 @@ textarea:focus {
 .is-resizing iframe {
     pointer-events: none !important;
 }
+
+/* ── Login screen visual effects ── */
+#login-screen {
+    background-image:
+        radial-gradient(circle at 0% 0%, rgba(255, 84, 93, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 100% 100%, rgba(247, 150, 70, 0.08) 0%, transparent 45%);
+    background-color: #f8fafc;
+}
+
+.login-bg-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    z-index: 1;
+    filter: blur(5px) saturate(90%);
+    transition: opacity 2s ease-in-out;
+    transform: scale(1.08);
+}
+
+/* Smooth zoom-in/zoom-out Ken Burns animation */
+@keyframes kenburns {
+    0% {
+        transform: scale(1.04) translate(0, 0);
+    }
+    50% {
+        transform: scale(1.10) translate(-0.8%, 0.4%);
+    }
+    100% {
+        transform: scale(1.04) translate(0, 0);
+    }
+}
+
+.login-bg-layer.active {
+    opacity: 0.35; /* 35% opacity blended over a light gradient background */
+    z-index: 2;
+    animation: kenburns 25s infinite ease-in-out alternate;
+}
+
+/* Frost glassmorphism design for the login container */
+.glass-login-panel {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+}
+
+.app-fade-in {
+    animation: fadeInApp 0.6s forwards ease-out;
+}
+
+@keyframes fadeInApp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

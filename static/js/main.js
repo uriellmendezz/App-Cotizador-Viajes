@@ -6,6 +6,41 @@ let isDraggingSidebar = false;
 let sidebarWidth = 380;
 let currentQuoteId = null;
 
+let authToken = null; // Guardado de forma segura en memoria de JS
+let loggedInUser = null;
+let loginSlideshowInterval = null;
+
+async function authenticatedFetch(url, options = {}) {
+    options.headers = options.headers || {};
+    if (authToken) {
+        options.headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    
+    try {
+        let res = await fetch(url, options);
+        
+        // Si da 401 y no es una ruta de autenticación, intentar auto-refrescar
+        if (res.status === 401 && !url.includes('/api/auth/')) {
+            console.warn("Access Token expirado (401). Intentando autorefrescar sesión...");
+            const success = await refreshSession();
+            if (success) {
+                // Reintentar la llamada original con el nuevo token
+                options.headers['Authorization'] = `Bearer ${authToken}`;
+                res = await fetch(url, options);
+            } else {
+                logoutAgent(false, "Su sesión ha expirado o es inválida. Inicie sesión nuevamente.");
+                throw new Error("Su sesión ha expirado. Por favor, inicie sesión nuevamente.");
+            }
+        } else if (res.status === 401 && url === '/api/auth/refresh') {
+            // El Refresh Token también expiró
+            logoutAgent(false, "Su sesión ha expirado o es inválida. Inicie sesión nuevamente.");
+        }
+        return res;
+    } catch (err) {
+        throw err;
+    }
+}
+
 function formatPriceES(val) {
     if (val === undefined || val === null || isNaN(val)) return "0,00";
     return val.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -13,10 +48,6 @@ function formatPriceES(val) {
 
 // On window load
 window.addEventListener('load', () => {
-    loadConfig();
-    addHotelCard(); // Add default hotel option card
-    setupDragAndDrop();
-    setupSidebarResizer();
     // Set flatpickr Spanish translation globally
     if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.es) {
         flatpickr.localize(flatpickr.l10ns.es);
@@ -48,6 +79,9 @@ window.addEventListener('load', () => {
         disableMobile: "true"
     });
 
+    setupDragAndDrop();
+    setupSidebarResizer();
+    
     // Initialize flights fee
     toggleFeeType();
 
@@ -61,6 +95,9 @@ window.addEventListener('load', () => {
     setupCostInputHelpers();
 
     updateRealTimeSummary();
+    
+    // Validar sesión inicial
+    checkSession();
 });
 
 function calculateAutoFee() {
@@ -256,7 +293,7 @@ function showAlert(type, message, preventScroll = false) {
 // Load Agency Configurations
 async function loadConfig() {
     try {
-        const res = await fetch('/api/config');
+        const res = await authenticatedFetch('/api/config');
         agencyConfig = await res.json();
 
         // Update Configuration Form inputs
@@ -316,7 +353,7 @@ async function saveConfig(e) {
     };
 
     try {
-        const res = await fetch('/api/config', {
+        const res = await authenticatedFetch('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(configData)
@@ -828,7 +865,7 @@ async function generatePDFPreview(e) {
     // Auto-save to Supabase first before generating PDF preview
     try {
         document.getElementById('loading-text').innerText = `Guardando cotización en Supabase...`;
-        const saveRes = await fetch('/api/cotizaciones', {
+        const saveRes = await authenticatedFetch('/api/cotizaciones', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -849,7 +886,7 @@ async function generatePDFPreview(e) {
     document.getElementById('loading-text').innerText = `Compilando PDF para ${paxNameForLoading}...`;
 
     try {
-        const res = await fetch('/api/cotizar-pdf', {
+        const res = await authenticatedFetch('/api/cotizar-pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -1024,7 +1061,7 @@ async function handleExcelImport(inputEl) {
     formData.append('file', file);
 
     try {
-        const res = await fetch('/api/importar-excel', {
+        const res = await authenticatedFetch('/api/importar-excel', {
             method: 'POST',
             body: formData
         });
@@ -1142,7 +1179,7 @@ async function optimizeDescription(btn) {
     `;
 
     try {
-        const res = await fetch('/api/optimizar-descripcion', {
+        const res = await authenticatedFetch('/api/optimizar-descripcion', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ descripcion: originalText })
@@ -1165,35 +1202,66 @@ async function optimizeDescription(btn) {
 }
 window.optimizeDescription = optimizeDescription;
 
-function confirmNewQuote() {
+let currentConfirmCallback = null;
+
+function showCustomConfirm({ title, desc, btnText, confirmColorClass, callback }) {
+    const titleEl = document.getElementById('confirm-modal-title');
+    const descEl = document.getElementById('confirm-modal-desc');
+    const confirmBtn = document.getElementById('confirm-modal-btn-confirm');
+    
+    if (titleEl) titleEl.innerText = title;
+    if (descEl) descEl.innerText = desc;
+    if (confirmBtn) {
+        confirmBtn.innerText = btnText || 'Confirmar';
+        // Reset classes
+        confirmBtn.className = "flex-1 px-4 py-2.5 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer";
+        if (confirmColorClass) {
+            confirmBtn.className += " " + confirmColorClass;
+        } else {
+            confirmBtn.className += " bg-brand-primary hover:bg-brand-primary/95 shadow-brand-primary/20";
+        }
+    }
+    
+    currentConfirmCallback = callback;
+    
     const modal = document.getElementById('confirm-modal');
     const box = document.getElementById('confirm-modal-box');
-    if (!modal || !box) return;
+    if (modal && box) {
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        modal.classList.add('opacity-100', 'pointer-events-auto');
+        box.classList.remove('scale-90');
+        box.classList.add('scale-100');
+    }
+}
+window.showCustomConfirm = showCustomConfirm;
 
-    // Show modal
-    modal.classList.remove('opacity-0', 'pointer-events-none');
-    modal.classList.add('opacity-100', 'pointer-events-auto');
-    box.classList.remove('scale-90');
-    box.classList.add('scale-100');
+function confirmNewQuote() {
+    showCustomConfirm({
+        title: '¿Crear nueva cotización?',
+        desc: 'Se borrarán todos los datos cargados en el formulario actual. Esta acción no se puede deshacer.',
+        btnText: 'Sí, Empezar Nueva',
+        callback: () => {
+            resetForm();
+            cancelEditingQuote();
+        }
+    });
 }
 window.confirmNewQuote = confirmNewQuote;
 
 function closeConfirmModal(confirmAction) {
     const modal = document.getElementById('confirm-modal');
     const box = document.getElementById('confirm-modal-box');
-    if (!modal || !box) return;
-
-    // Hide modal
-    modal.classList.add('opacity-0', 'pointer-events-none');
-    modal.classList.remove('opacity-100', 'pointer-events-auto');
-    box.classList.add('scale-90');
-    box.classList.remove('scale-100');
-
-    if (confirmAction) {
-        resetForm();
-    } else {
-        switchTab('cotizacion-tab');
+    if (modal && box) {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        modal.classList.remove('opacity-100', 'pointer-events-auto');
+        box.classList.add('scale-90');
+        box.classList.remove('scale-100');
     }
+
+    if (confirmAction && currentConfirmCallback) {
+        currentConfirmCallback();
+    }
+    currentConfirmCallback = null;
 }
 window.closeConfirmModal = closeConfirmModal;
 
@@ -1445,7 +1513,7 @@ async function handlePDFEditImport(inputEl) {
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await fetch('/api/extraer-pdf', {
+        const response = await authenticatedFetch('/api/extraer-pdf', {
             method: 'POST',
             body: formData
         });
@@ -1684,7 +1752,7 @@ async function loadSavedQuotesList() {
     `;
     
     try {
-        const res = await fetch('/api/cotizaciones');
+        const res = await authenticatedFetch('/api/cotizaciones');
         if (!res.ok) throw new Error("Error al obtener las cotizaciones de la base de datos.");
         const quotes = await res.json();
         
@@ -1722,7 +1790,7 @@ async function loadSavedQuotesList() {
                 <td class="p-3">${fechaSalidaFormatted}</td>
                 <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
                 <td class="p-3 flex justify-center gap-2">
-                    <button type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="loadSavedQuoteIntoForm('${q.id}')">Editar</button>
+                    <button type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="loadSavedQuoteIntoForm('${q.id}')">Ver</button>
                     <button type="button" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-500 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="deleteSavedQuote('${q.id}')">Borrar</button>
                 </td>
             `;
@@ -1740,12 +1808,94 @@ async function loadSavedQuotesList() {
 }
 window.loadSavedQuotesList = loadSavedQuotesList;
 
+let isReadOnlyMode = false;
+
+function enableFormEditing(enabled) {
+    isReadOnlyMode = !enabled;
+    const form = document.getElementById('quote-form');
+    if (!form) return;
+
+    // Deshabilitar todos los inputs, textareas y selectores
+    const inputs = form.querySelectorAll('input, textarea, select');
+    inputs.forEach(el => {
+        el.disabled = !enabled;
+    });
+
+    // Deshabilitar botones de equipaje
+    const bagButtons = form.querySelectorAll('.baggage-opt-btn');
+    bagButtons.forEach(btn => {
+        if (enabled) {
+            btn.style.pointerEvents = 'auto';
+            btn.style.opacity = '1';
+        } else {
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.7';
+        }
+    });
+
+    // Deshabilitar flatpickrs
+    const dateInputs = ['fecha_salida', 'fecha_vuelo_ida', 'fecha_vuelo_vuelta', 'validez_cotizacion'];
+    dateInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el._flatpickr) {
+            el._flatpickr.input.disabled = !enabled;
+            if (el._flatpickr.altInput) {
+                el._flatpickr.altInput.disabled = !enabled;
+            }
+        }
+    });
+
+    // Deshabilitar dropzones de imágenes
+    const dropzones = form.querySelectorAll('.dropzone');
+    dropzones.forEach(dz => {
+        if (enabled) {
+            dz.style.pointerEvents = 'auto';
+            dz.style.opacity = '1';
+        } else {
+            dz.style.pointerEvents = 'none';
+            dz.style.opacity = '0.7';
+        }
+    });
+
+    // Deshabilitar botones de añadir/remover hotel
+    const actionButtons = form.querySelectorAll('.add-hotel-btn, .btn-remove-hotel, .btn-optimize-desc');
+    actionButtons.forEach(btn => {
+        if (enabled) {
+            btn.style.pointerEvents = 'auto';
+            btn.style.opacity = '1';
+            btn.disabled = false;
+        } else {
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.5';
+            btn.disabled = true;
+        }
+    });
+
+    // Deshabilitar botón de Generar Cotización
+    const submitBtn = document.getElementById('btn-generar-preview');
+    if (submitBtn) {
+        if (enabled) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.pointerEvents = 'auto';
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.5';
+            submitBtn.style.pointerEvents = 'none';
+        }
+    }
+
+    // Actualizar indicador de edición
+    updateEditingIndicator();
+}
+window.enableFormEditing = enableFormEditing;
+
 async function loadSavedQuoteIntoForm(quoteId) {
     document.getElementById('loading-overlay').style.display = 'flex';
     document.getElementById('loading-text').innerText = 'Cargando cotización desde Supabase...';
     
     try {
-        const res = await fetch(`/api/cotizaciones/${quoteId}`);
+        const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`);
         if (!res.ok) throw new Error("No se pudo cargar la cotización solicitada.");
         const q = await res.json();
         
@@ -1836,9 +1986,9 @@ async function loadSavedQuoteIntoForm(quoteId) {
             });
         }
         
-        // Update edit state
+        // Update edit state and enter Read-only mode
         currentQuoteId = q.id;
-        updateEditingIndicator();
+        enableFormEditing(false); 
         
         // Update breakdown
         updateRealTimeSummary();
@@ -1850,7 +2000,7 @@ async function loadSavedQuoteIntoForm(quoteId) {
             results.classList.remove('block');
         }
         
-        showAlert('success', `Cotización de ${q.nombre_pax} cargada correctamente.`);
+        showAlert('success', `Cotización de ${q.nombre_pax} cargada correctamente en modo Solo Lectura.`);
         
     } catch (err) {
         showAlert('warning', 'Error al cargar la cotización: ' + err.message);
@@ -1861,84 +2011,64 @@ async function loadSavedQuoteIntoForm(quoteId) {
 window.loadSavedQuoteIntoForm = loadSavedQuoteIntoForm;
 
 async function deleteSavedQuote(quoteId) {
-    if (!confirm('¿Estás seguro de que deseas eliminar permanentemente esta cotización de Supabase?')) {
-        return;
-    }
-    
-    try {
-        const res = await fetch(`/api/cotizaciones/${quoteId}`, {
-            method: 'DELETE'
-        });
-        
-        if (!res.ok) throw new Error("Error al eliminar la cotización de la base de datos.");
-        
-        showAlert('success', '✔ Cotización eliminada con éxito.');
-        
-        // If current quote is being edited, reset the form
-        if (currentQuoteId == quoteId) {
-            cancelEditingQuote();
+    showCustomConfirm({
+        title: '¿Eliminar cotización permanentemente?',
+        desc: 'Esta acción borrará el registro de Supabase de forma definitiva. No se puede deshacer.',
+        btnText: 'Sí, Eliminar',
+        confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
+        callback: async () => {
+            try {
+                const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!res.ok) throw new Error("Error al eliminar la cotización de la base de datos.");
+                
+                showAlert('success', '✔ Cotización eliminada con éxito.');
+                
+                // If current quote is being edited, reset the form
+                if (currentQuoteId == quoteId) {
+                    cancelEditingQuote();
+                }
+                loadSavedQuotesList();
+            } catch (err) {
+                showAlert('warning', 'Error al eliminar la cotización: ' + err.message);
+            }
         }
-        loadSavedQuotesList();
-    } catch (err) {
-        showAlert('warning', 'Error al eliminar la cotización: ' + err.message);
-    }
+    });
 }
 window.deleteSavedQuote = deleteSavedQuote;
-
-async function saveQuoteToDBExplicit() {
-    // Validation check
-    const paxInput = document.getElementById('nombre_pax');
-    const destInput = document.getElementById('destino');
-    if (!paxInput.value.trim() || !destInput.value.trim()) {
-        showAlert('warning', 'Complete al menos los campos Nombre de Pasajero y Destino para poder guardar.');
-        return;
-    }
-    
-    document.getElementById('loading-overlay').style.display = 'flex';
-    document.getElementById('loading-text').innerText = 'Guardando en Supabase...';
-    
-    const payload = _buildPayload();
-    
-    try {
-        const res = await fetch('/api/cotizaciones', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.detail || 'Error al guardar la cotización');
-        }
-        
-        const savedQuote = await res.json();
-        currentQuoteId = savedQuote.id;
-        
-        updateEditingIndicator();
-        showAlert('success', `✔ Cotización guardada con éxito en Supabase (ID #${currentQuoteId}).`);
-    } catch (err) {
-        showAlert('warning', 'Error al guardar en Supabase: ' + err.message);
-    } finally {
-        document.getElementById('loading-overlay').style.display = 'none';
-    }
-}
-window.saveQuoteToDBExplicit = saveQuoteToDBExplicit;
 
 function duplicateCurrentQuote() {
     if (!currentQuoteId) return;
     currentQuoteId = null;
+    enableFormEditing(true); // Permitir edición
     updateEditingIndicator();
-    showAlert('success', 'La cotización se ha duplicado en el formulario. Al presionar Guardar se creará un nuevo registro.');
+    showAlert('success', 'La cotización se ha duplicado en el formulario. Al presionar "Generar Cotización" se creará un nuevo registro.');
 }
 window.duplicateCurrentQuote = duplicateCurrentQuote;
 
 function cancelEditingQuote() {
     currentQuoteId = null;
-    updateEditingIndicator();
+    enableFormEditing(true); // Habilitar formulario
     resetForm();
     showAlert('success', 'Formulario reiniciado. Modo de edición cancelado.');
 }
 window.cancelEditingQuote = cancelEditingQuote;
+
+function confirmEditQuote() {
+    showCustomConfirm({
+        title: '¿Habilitar edición de cotización?',
+        desc: 'Vas a modificar una cotización existente. Al presionar "Generar Cotización" se actualizará este registro (ID #' + currentQuoteId + ') en Supabase de forma permanente.',
+        btnText: 'Sí, Habilitar Edición',
+        confirmColorClass: 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20',
+        callback: () => {
+            enableFormEditing(true);
+            showAlert('success', 'Edición habilitada. Los cambios que realices se guardarán al generar la cotización.');
+        }
+    });
+}
+window.confirmEditQuote = confirmEditQuote;
 
 function updateEditingIndicator() {
     const indicator = document.getElementById('editing-indicator');
@@ -1946,12 +2076,278 @@ function updateEditingIndicator() {
     if (!indicator || !indicatorText) return;
     
     if (currentQuoteId) {
-        indicatorText.innerText = `Modo Edición: Editando cotización guardada (ID #${currentQuoteId})`;
         indicator.classList.remove('hidden');
         indicator.classList.add('flex');
+        
+        if (isReadOnlyMode) {
+            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando cotización guardada (ID #${currentQuoteId}) [Solo Lectura]</span>`;
+            
+            indicator.querySelector('.flex.gap-2').innerHTML = `
+                <button type="button" onclick="confirmEditQuote()" class="px-3 py-1 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-brand-primary/20">Editar Cotización</button>
+                <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
+                <button type="button" onclick="cancelEditingQuote()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cerrar</button>
+            `;
+        } else {
+            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Editando cotización guardada (ID #${currentQuoteId})</span>`;
+            
+            indicator.querySelector('.flex.gap-2').innerHTML = `
+                <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
+                <button type="button" onclick="cancelEditingQuote()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cancelar Edición</button>
+            `;
+        }
     } else {
         indicator.classList.add('hidden');
         indicator.classList.remove('flex');
     }
 }
 window.updateEditingIndicator = updateEditingIndicator;
+
+// ── Autenticación de Usuarios y Control de Sesión ────────────────────────────
+
+async function checkSession() {
+    // Intentar autorefrescar la sesión en base a la cookie HttpOnly del navegador
+    const success = await refreshSession();
+    if (!success) {
+        showLoginScreen();
+    }
+}
+
+async function refreshSession() {
+    try {
+        const res = await fetch('/api/auth/refresh', {
+            method: 'POST'
+        });
+        
+        if (!res.ok) return false;
+        
+        const data = await res.json();
+        loginSuccess(data.access_token, data.username);
+        return true;
+    } catch (err) {
+        console.warn("Fallo al refrescar sesión:", err);
+        return false;
+    }
+}
+
+function showLoginScreen() {
+    const loginScreen = document.getElementById('login-screen');
+    const appContent = document.getElementById('app-content');
+    
+    if (loginScreen) {
+        loginScreen.classList.remove('opacity-0', 'pointer-events-none');
+        loginScreen.classList.add('opacity-100', 'pointer-events-auto');
+    }
+    if (appContent) {
+        appContent.classList.add('hidden');
+        appContent.classList.remove('app-fade-in');
+    }
+    
+    // Iniciar slideshow de fondos de login
+    startLoginSlideshow();
+}
+
+function startLoginSlideshow() {
+    if (loginSlideshowInterval) clearInterval(loginSlideshowInterval);
+    
+    const layers = document.querySelectorAll('.login-bg-layer');
+    if (layers.length === 0) return;
+    
+    // Activar primera capa
+    let currentIdx = 0;
+    layers.forEach(l => l.classList.remove('active'));
+    layers[currentIdx].classList.add('active');
+    
+    loginSlideshowInterval = setInterval(() => {
+        layers[currentIdx].classList.remove('active');
+        currentIdx = (currentIdx + 1) % layers.length;
+        layers[currentIdx].classList.add('active');
+    }, 6000); // Rota cada 6 segundos
+}
+
+function stopLoginSlideshow() {
+    if (loginSlideshowInterval) {
+        clearInterval(loginSlideshowInterval);
+        loginSlideshowInterval = null;
+    }
+}
+
+async function handleLoginSubmit(e) {
+    if (e) e.preventDefault();
+    
+    const usernameInput = document.getElementById('login_username');
+    const passwordInput = document.getElementById('login_password');
+    const alertEl = document.getElementById('login-alert-message');
+    
+    if (!usernameInput || !passwordInput) return;
+    
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+    
+    if (alertEl) {
+        alertEl.classList.add('hidden');
+        alertEl.className = "hidden p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300";
+    }
+    
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Credenciales inválidas");
+        }
+        
+        const data = await res.json();
+        loginSuccess(data.access_token, data.username);
+        
+        // Limpiar formulario
+        usernameInput.value = '';
+        passwordInput.value = '';
+    } catch (err) {
+        if (alertEl) {
+            alertEl.innerText = "Error: " + err.message;
+            alertEl.classList.remove('hidden');
+            alertEl.classList.add('bg-rose-50', 'border-rose-100', 'text-rose-600');
+        }
+    }
+}
+
+function loginSuccess(token, username) {
+    authToken = token;
+    loggedInUser = username;
+    
+    stopLoginSlideshow();
+    
+    // Ocultar login y mostrar app con animación
+    const loginScreen = document.getElementById('login-screen');
+    const appContent = document.getElementById('app-content');
+    
+    if (loginScreen) {
+        loginScreen.classList.add('opacity-0', 'pointer-events-none');
+        loginScreen.classList.remove('opacity-100', 'pointer-events-auto');
+    }
+    if (appContent) {
+        appContent.classList.remove('hidden');
+        appContent.classList.add('app-fade-in');
+    }
+    
+    // Controlar UI según el rol (Invitado vs Agente)
+    const btnGenerar = document.getElementById('btn-generar-preview');
+    const navSavedQuotes = document.getElementById('nav-btn-saved-quotes');
+    const navConfig = document.getElementById('nav-btn-config');
+    const navTestData = document.getElementById('nav-btn-test-data');
+    
+    if (username === 'guest') {
+        if (navSavedQuotes) navSavedQuotes.classList.add('hidden');
+        if (navConfig) navConfig.classList.add('hidden');
+        if (navTestData) navTestData.classList.add('hidden');
+        
+        if (btnGenerar) {
+            btnGenerar.disabled = true;
+            btnGenerar.classList.add('opacity-50', 'pointer-events-none', 'cursor-not-allowed');
+            btnGenerar.innerHTML = `
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                GENERAR COTIZACIÓN (Solo Agentes)
+            `;
+        }
+    } else {
+        if (navSavedQuotes) navSavedQuotes.classList.remove('hidden');
+        if (navConfig) navConfig.classList.remove('hidden');
+        if (navTestData) navTestData.classList.remove('hidden');
+        
+        if (btnGenerar) {
+            btnGenerar.disabled = false;
+            btnGenerar.classList.remove('opacity-50', 'pointer-events-none', 'cursor-not-allowed');
+            btnGenerar.innerHTML = `
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                GENERAR COTIZACIÓN
+            `;
+        }
+    }
+    
+    // Cargar datos iniciales
+    loadConfig();
+    
+    // Asegurar que haya una tarjeta de hotel vacía si no hay hoteles cargados
+    const hotelsContainer = document.getElementById('hotels-container');
+    if (hotelsContainer && hotelsContainer.children.length === 0) {
+        addHotelCard();
+    }
+}
+
+function logoutAgent(notifyServer = true, reasonMessage = null) {
+    if (notifyServer) {
+        fetch('/api/auth/logout', {
+            method: 'POST'
+        }).catch(err => console.warn("Logout request failed:", err));
+    }
+    
+    authToken = null;
+    loggedInUser = null;
+    
+    // Reset form to blank
+    resetForm();
+    currentQuoteId = null;
+    updateEditingIndicator();
+    
+    // Ocultar resultados previos
+    const resultsPanel = document.getElementById('results-panel');
+    if (resultsPanel) {
+        resultsPanel.classList.add('hidden');
+        resultsPanel.classList.remove('block');
+    }
+    
+    showLoginScreen();
+    
+    // Mostrar mensaje de aviso en la UI si está definido
+    if (reasonMessage) {
+        const alertEl = document.getElementById('login-alert-message');
+        if (alertEl) {
+            alertEl.innerText = reasonMessage;
+            alertEl.classList.remove('hidden');
+            alertEl.className = "p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300 bg-rose-50 border-rose-100 text-rose-600";
+        }
+    }
+}
+
+async function loginAsGuest() {
+    const alertEl = document.getElementById('login-alert-message');
+    if (alertEl) {
+        alertEl.classList.add('hidden');
+        alertEl.className = "hidden p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300";
+    }
+    
+    try {
+        const res = await fetch('/api/auth/login-guest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "No se pudo ingresar como invitado");
+        }
+        
+        const data = await res.json();
+        loginSuccess(data.access_token, data.username);
+    } catch (err) {
+        if (alertEl) {
+            alertEl.innerText = "Error: " + err.message;
+            alertEl.classList.remove('hidden');
+            alertEl.classList.add('bg-rose-50', 'border-rose-100', 'text-rose-600');
+        }
+    }
+}
+
+window.logoutAgent = logoutAgent;
+window.handleLoginSubmit = handleLoginSubmit;
+window.checkSession = checkSession;
+window.loginAsGuest = loginAsGuest;

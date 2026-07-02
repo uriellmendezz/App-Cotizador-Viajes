@@ -72,6 +72,7 @@ def save_cotizacion(quote_data: dict) -> dict | None:
             
             "fecha_vuelo_ida": parse_date_to_iso(quote_data.get("fecha_vuelo_ida")),
             "fecha_vuelo_vuelta": parse_date_to_iso(quote_data.get("fecha_vuelo_vuelta")),
+            "validez_cotizacion": parse_date_to_iso(quote_data.get("validez_cotizacion")),
             
             "monto_vuelos": float(quote_data.get("monto_vuelos", 0.0)),
             "fee_aereo": float(quote_data.get("fee_aereo", 0.0)),
@@ -84,11 +85,11 @@ def save_cotizacion(quote_data: dict) -> dict | None:
             "base_habitacion": quote_data.get("base_habitacion", ""),
             "noches_alojamiento": quote_data.get("noches_alojamiento", ""),
             
-            "pdf_url": quote_data.get("pdf_url", ""),
-            "pptx_url": quote_data.get("pptx_url", ""),
-            "slides_url": quote_data.get("slides_url", ""),
+            "img_vuelo_ida": quote_data.get("img_vuelo_ida", ""),
+            "img_vuelo_vuelta": quote_data.get("img_vuelo_vuelta", ""),
+            "equipaje": quote_data.get("equipaje", []),
             
-            # Save hotels list as a JSON array
+            # Save hotels list as a JSON array (including base64 hotel images)
             "hoteles": quote_data.get("hoteles", [])
         }
         

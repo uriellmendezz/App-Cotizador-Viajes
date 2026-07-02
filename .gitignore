@@ -49,3 +49,5 @@ to-do/
 .vercelignore
 .vercel
 node_modules/
+
+*.md

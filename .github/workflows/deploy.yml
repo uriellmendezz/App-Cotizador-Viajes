@@ -1,0 +1,28 @@
+name: Deploy to Hugging Face Spaces
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Permite disparar el deploy manualmente desde GitHub
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to Hugging Face Spaces
+        env:
+          # NOTA: Reemplaza "tu-usuario/tu-space-name" con tus datos reales de Hugging Face
+          HF_SPACE_PATH: "urielmendez-edu/cotizador.onetrip"
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Agregar el remoto de Hugging Face utilizando el token seguro de los secretos
+          git remote add hf https://user:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE_PATH
+          # Empujar forzadamente la rama main al repositorio del Space
+          git push hf main --force
