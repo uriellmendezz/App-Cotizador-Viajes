@@ -2,7 +2,7 @@
 title: Cotizador OneTrip
 emoji: ✈️
 colorFrom: pink
-colorTo: orange
+colorTo: yellow
 sdk: docker
 app_port: 7860
 pinned: false
