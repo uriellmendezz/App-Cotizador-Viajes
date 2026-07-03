@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cotizador de viajes One Trip</title>
+    <title>Cotizador One Trip</title>
     <link rel="icon" type="image/png" href="/assets/favicon.png?v=2">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45,650 +45,732 @@
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen selection:bg-brand-primary selection:text-white">
     <div id="app-content" class="hidden">
 
-    <!-- Header Navigation -->
-    <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <img id="nav-logo" src="/assets/Banner%20letra%20O.png" alt="One Trip Giordano"
-                    class="h-16 w-auto object-contain transition-transform hover:scale-105">
-                <div id="logged-user-badge" class="hidden items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    <span>Agente: </span>
-                    <span id="logged-username-span" class="text-slate-700 font-extrabold">-</span>
+        <!-- Header Navigation -->
+        <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <img id="nav-logo" src="/assets/Banner%20letra%20O.png" alt="One Trip Giordano"
+                        class="h-12 sm:h-16 w-auto object-contain transition-transform hover:scale-105">
+                    <div id="logged-user-badge"
+                        class="hidden items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span>Agente: </span>
+                        <span id="logged-username-span" class="text-slate-700 font-extrabold">-</span>
+                    </div>
+                </div>
+                
+                <!-- Desktop Navigation Menu -->
+                <nav class="hidden lg:flex gap-2 items-center">
+                    <button id="nav-btn-new-quote"
+                        class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 active"
+                        onclick="confirmNewQuote()">Nueva Cotización</button>
+                    <button id="nav-btn-saved-quotes"
+                        class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                        onclick="switchTab('editar-tab'); loadSavedQuotesList();">Cotizaciones Guardadas</button>
+                    <button id="nav-btn-config"
+                        class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                        onclick="switchTab('config-tab')">Configuración</button>
+                    <button id="nav-btn-test-data"
+                        class="px-4 py-2 text-sm font-bold rounded-full bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-all duration-300 ml-2 cursor-pointer"
+                        onclick="fillTestData()">Cargar Datos de Prueba</button>
+                    <button
+                        class="px-4 py-2 text-sm font-bold rounded-full bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 shadow-sm transition-all duration-300 ml-2 cursor-pointer flex items-center gap-1.5"
+                        onclick="logoutAgent()">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Salir
+                    </button>
+                </nav>
+
+                <!-- Mobile Menu Button (Hamburger) -->
+                <div class="flex items-center lg:hidden">
+                    <button id="mobile-menu-btn" onclick="toggleMobileMenu()" class="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all cursor-pointer focus:outline-none">
+                        <svg id="hamburger-icon" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                        <svg id="close-icon" class="w-6 h-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
             </div>
-            <nav class="flex gap-2 items-center">
-                <button id="nav-btn-new-quote" class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 active"
-                    onclick="confirmNewQuote()">Nueva Cotización</button>
-                <button id="nav-btn-saved-quotes"
-                    class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                    onclick="switchTab('editar-tab'); loadSavedQuotesList();">Cotizaciones Guardadas</button>
-                <button id="nav-btn-config"
-                    class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                    onclick="switchTab('config-tab')">Configuración</button>
-                <button id="nav-btn-test-data"
-                    class="px-4 py-2 text-sm font-bold rounded-full bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-all duration-300 ml-2 cursor-pointer"
-                    onclick="fillTestData()">Cargar Datos de Prueba</button>
-                <button
-                    class="px-4 py-2 text-sm font-bold rounded-full bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 shadow-sm transition-all duration-300 ml-2 cursor-pointer flex items-center gap-1.5"
-                    onclick="logoutAgent()">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Salir
-                </button>
-            </nav>
+        </header>
+
+        <!-- Mobile Dropdown Menu -->
+        <div id="mobile-menu" class="hidden lg:hidden border-b border-slate-200 bg-white/95 backdrop-blur-md transition-all duration-300 py-4 px-4 space-y-2 shadow-md">
+            <button id="mobile-nav-btn-new-quote"
+                class="w-full text-left px-4 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 hover:bg-slate-100 text-slate-700"
+                onclick="confirmNewQuote(); toggleMobileMenu();">Nueva Cotización</button>
+            <button id="mobile-nav-btn-saved-quotes"
+                class="w-full text-left px-4 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 hover:bg-slate-100 text-slate-700"
+                onclick="switchTab('editar-tab'); loadSavedQuotesList(); toggleMobileMenu();">Cotizaciones Guardadas</button>
+            <button id="mobile-nav-btn-config"
+                class="w-full text-left px-4 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 hover:bg-slate-100 text-slate-700"
+                onclick="switchTab('config-tab'); toggleMobileMenu();">Configuración</button>
+            <button id="mobile-nav-btn-test-data"
+                class="w-full text-left px-4 py-2.5 text-sm font-bold rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-all duration-200"
+                onclick="fillTestData(); toggleMobileMenu();">Cargar Datos de Prueba</button>
+            <button id="mobile-nav-btn-logout"
+                class="w-full text-left px-4 py-2.5 text-sm font-bold rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all duration-200 flex items-center gap-1.5"
+                onclick="logoutAgent(); toggleMobileMenu();">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Salir
+            </button>
         </div>
-    </header>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-32 lg:pb-10">
-        <!-- Global Alert Message -->
-        <div id="alert-message"
-            class="alert hidden mb-6 p-4 rounded-xl font-semibold border text-sm transition-all duration-300"></div>
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-32 lg:pb-10">
+            <!-- Global Alert Message -->
+            <div id="alert-message"
+                class="alert hidden mb-6 p-4 rounded-xl font-semibold border text-sm transition-all duration-300"></div>
 
-        <!-- ==================== TAB 1: NUEVA COTIZACIÓN ==================== -->
-        <div id="cotizacion-tab" class="tab-content active block">
-            <form id="quote-form" onsubmit="generatePDFPreview(event)"
-                class="flex flex-col lg:flex-row gap-8 lg:gap-0 items-start w-full transition-all duration-500">
+            <!-- ==================== TAB 1: NUEVA COTIZACIÓN ==================== -->
+            <div id="cotizacion-tab" class="tab-content active block">
+                <form id="quote-form" onsubmit="generatePDFPreview(event)"
+                    class="flex flex-col lg:flex-row gap-8 lg:gap-0 items-start w-full transition-all duration-500">
 
-                <!-- Left Column - Form Sections -->
-                <div id="form-container" class="flex-1 w-full space-y-8 transition-all duration-500">
+                    <!-- Left Column - Form Sections -->
+                    <div id="form-container" class="flex-1 w-full space-y-8 transition-all duration-500">
 
-                    <!-- Active Editing Indicator -->
-                    <div id="editing-indicator" class="hidden p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
-                        <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-                            <span id="editing-indicator-text">Editando cotización guardada</span>
-                        </div>
-                        <div id="editing-indicator-actions" class="flex gap-2">
-                            <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer">Duplicar como Nueva</button>
-                            <button type="button" onclick="cancelEditingQuote()" class="px-3 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold transition-all cursor-pointer">Cancelar Edición</button>
-                        </div>
-                    </div>
-
-                    <!-- Section 1: Datos Generales -->
-                    <section
-                        class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
-                        <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-                            <span
-                                class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">1</span>
-                            <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">Datos
-                                generales del viaje</h2>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div class="flex flex-col gap-2">
-                                <label for="nombre_pax"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre
-                                    Pasajero</label>
-                                <input type="text" id="nombre_pax" required placeholder="Ej. Mariana López"
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                        <!-- Active Editing Indicator -->
+                        <div id="editing-indicator"
+                            class="hidden p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                <span id="editing-indicator-text">Editando cotización guardada</span>
                             </div>
-                            <div class="flex flex-col gap-2">
-                                <label for="destino"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Destino</label>
-                                <input type="text" id="destino" required placeholder="Ej. Punta Cana"
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
-                            </div>
-                            <div class="flex flex-col gap-2">
-                                <label for="cantidad_pasajeros"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cantidad de
-                                    Pasajeros</label>
-                                <input type="number" id="cantidad_pasajeros" min="1" value="" placeholder="2" required
-                                    onchange="updateBaseLabel(); updateRealTimeSummary();"
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                            <div id="editing-indicator-actions" class="flex gap-2">
+                                <button type="button" onclick="duplicateCurrentQuote()"
+                                    class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer">Duplicar
+                                    como Nueva</button>
+                                <button type="button" onclick="cancelEditingQuote()"
+                                    class="px-3 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold transition-all cursor-pointer">Cancelar
+                                    Edición</button>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                            <div class="flex flex-col gap-2">
-                                <label for="fecha_salida"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha
-                                    Salida</label>
-                                <input type="date" id="fecha_salida" required onchange="validateDates()"
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                        <!-- Section 1: Datos Generales -->
+                        <section
+                            class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                            <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                                <span
+                                    class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">1</span>
+                                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">Datos
+                                    generales del viaje</h2>
                             </div>
-                            <div class="flex flex-col gap-2">
-                                <label for="origen"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Origen</label>
-                                <input type="text" id="origen" value="Córdoba" required
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
-                            </div>
-                            <div class="flex flex-col gap-2">
-                                <label for="validez_cotizacion"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Validez
-                                    cotización</label>
-                                <input type="date" id="validez_cotizacion"
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
-                            </div>
-                            <input type="hidden" id="agente_nombre" value="Uriel">
-                        </div>
-                    </section>
 
-                    <!-- Section 2: Cronograma de Vuelos -->
-                    <section
-                        class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
-                        <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-                            <span
-                                class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">2</span>
-                            <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">Vuelos</h2>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Ida Card -->
-                            <div class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
-                                <span class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo
-                                    de Ida</span>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div class="flex flex-col gap-2">
-                                    <label for="fecha_vuelo_ida"
-                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</label>
-                                    <input type="date" id="fecha_vuelo_ida" required onchange="validateDates()"
-                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white">
+                                    <label for="nombre_pax"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre
+                                        Pasajero</label>
+                                    <input type="text" id="nombre_pax" required placeholder="Ej. Mariana López"
+                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                                 </div>
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura
-                                        Vuelo Ida</label>
-                                    <div class="dropzone relative overflow-hidden border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-6 bg-white flex flex-col items-center justify-center min-h-[140px] cursor-pointer transition-all duration-300 group"
-                                        id="dropzone-vuelo-ida" tabindex="0"
-                                        onclick="triggerFileInput('file-vuelo-ida')">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            class="w-8 h-8 text-slate-400 group-hover:text-brand-primary transition-colors mb-2">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-                                        </svg>
+                                    <label for="destino"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Destino</label>
+                                    <input type="text" id="destino" required placeholder="Ej. Punta Cana"
+                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <label for="cantidad_pasajeros"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cantidad de
+                                        Pasajeros</label>
+                                    <input type="number" id="cantidad_pasajeros" min="1" value="" placeholder="2"
+                                        required onchange="updateBaseLabel(); updateRealTimeSummary();"
+                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                                <div class="flex flex-col gap-2">
+                                    <label for="fecha_salida"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha
+                                        Salida</label>
+                                    <input type="date" id="fecha_salida" required onchange="validateDates()"
+                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <label for="origen"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Origen</label>
+                                    <input type="text" id="origen" value="Córdoba" required
+                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <label for="validez_cotizacion"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Validez
+                                        cotización</label>
+                                    <input type="date" id="validez_cotizacion"
+                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                                </div>
+                                <input type="hidden" id="agente_nombre" value="Uriel">
+                            </div>
+                        </section>
+
+                        <!-- Section 2: Cronograma de Vuelos -->
+                        <section
+                            class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                            <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                                <span
+                                    class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">2</span>
+                                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">Vuelos
+                                </h2>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Ida Card -->
+                                <div
+                                    class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
+                                    <span
+                                        class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo
+                                        de Ida</span>
+                                    <div class="flex flex-col gap-2">
+                                        <label for="fecha_vuelo_ida"
+                                            class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</label>
+                                        <input type="date" id="fecha_vuelo_ida" required onchange="validateDates()"
+                                            class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white">
+                                    </div>
+                                    <div class="flex flex-col gap-2">
+                                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura
+                                            Vuelo Ida</label>
+                                        <div class="dropzone relative overflow-hidden border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-6 bg-white flex flex-col items-center justify-center min-h-[140px] cursor-pointer transition-all duration-300 group"
+                                            id="dropzone-vuelo-ida" tabindex="0"
+                                            onclick="triggerFileInput('file-vuelo-ida')">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                class="w-8 h-8 text-slate-400 group-hover:text-brand-primary transition-colors mb-2">
+                                                <path
+                                                    d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                                            </svg>
+                                            <span
+                                                class="text-xs text-slate-500 font-semibold text-center leading-relaxed">Arrastra,
+                                                haz clic para subir<br><span
+                                                    class="text-[10px] text-brand-primary/80 font-bold">o pulsa Ctrl+V
+                                                    para
+                                                    pegar</span></span>
+                                            <input type="file" id="file-vuelo-ida" accept="image/*" class="hidden"
+                                                onchange="handleImageUpload(this, 'preview-vuelo-ida', 'data-vuelo-ida')">
+                                            <img id="preview-vuelo-ida"
+                                                class="dropzone-preview absolute inset-0 w-full h-full object-cover rounded-xl"
+                                                alt="">
+                                            <input type="hidden" id="data-vuelo-ida">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Vuelta Card -->
+                                <div
+                                    class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
+                                    <span
+                                        class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo
+                                        de Vuelta</span>
+                                    <div class="flex flex-col gap-2">
+                                        <label for="fecha_vuelo_vuelta"
+                                            class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</label>
+                                        <input type="date" id="fecha_vuelo_vuelta" required onchange="validateDates()"
+                                            class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white">
+                                    </div>
+                                    <div class="flex flex-col gap-2">
+                                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura
+                                            Vuelo Vuelta</label>
+                                        <div class="dropzone relative overflow-hidden border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-6 bg-white flex flex-col items-center justify-center min-h-[140px] cursor-pointer transition-all duration-300 group"
+                                            id="dropzone-vuelo-vuelta" tabindex="0"
+                                            onclick="triggerFileInput('file-vuelo-vuelta')">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                class="w-8 h-8 text-slate-400 group-hover:text-brand-primary transition-colors mb-2">
+                                                <path
+                                                    d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                                            </svg>
+                                            <span
+                                                class="text-xs text-slate-500 font-semibold text-center leading-relaxed">Arrastra,
+                                                haz clic para subir<br><span
+                                                    class="text-[10px] text-brand-primary/80 font-bold">o pulsa Ctrl+V
+                                                    para
+                                                    pegar</span></span>
+                                            <input type="file" id="file-vuelo-vuelta" accept="image/*" class="hidden"
+                                                onchange="handleImageUpload(this, 'preview-vuelo-vuelta', 'data-vuelo-vuelta')">
+                                            <img id="preview-vuelo-vuelta"
+                                                class="dropzone-preview absolute inset-0 w-full h-full object-cover rounded-xl"
+                                                alt="">
+                                            <input type="hidden" id="data-vuelo-vuelta">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Baggage Selector -->
+                            <div class="mt-6 pt-6 border-t border-slate-100 flex flex-col gap-3">
+                                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Equipaje
+                                    Incluido</label>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <!-- Option 1 -->
+                                    <button type="button" id="btn-bag-mano" onclick="toggleBaggage('mano')"
+                                        class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
+                                                <img src="/assets/iconos/equipaje-de-mano.svg"
+                                                    class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
+                                                    alt="Mano">
+                                            </div>
+                                            <span class="text-xs font-bold text-slate-600">Equipaje de mano</span>
+                                        </div>
+                                        <div
+                                            class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
+                                            <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
+                                        </div>
+                                    </button>
+
+                                    <!-- Option 2 -->
+                                    <button type="button" id="btn-bag-carry" onclick="toggleBaggage('carry')"
+                                        class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
+                                                <img src="/assets/iconos/carry-on.svg"
+                                                    class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
+                                                    alt="Carry">
+                                            </div>
+                                            <span class="text-xs font-bold text-slate-600">Carry-On 10kg</span>
+                                        </div>
+                                        <div
+                                            class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
+                                            <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
+                                        </div>
+                                    </button>
+
+                                    <!-- Option 3 -->
+                                    <button type="button" id="btn-bag-valija" onclick="toggleBaggage('valija')"
+                                        class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
+                                                <img src="/assets/iconos/valija-23kg.svg"
+                                                    class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
+                                                    alt="Valija">
+                                            </div>
+                                            <span class="text-xs font-bold text-slate-600">Valija 23kg</span>
+                                        </div>
+                                        <div
+                                            class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
+                                            <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
+                                        </div>
+                                    </button>
+                                </div>
+                                <input type="hidden" id="equipaje_seleccionado" value="[]">
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-100">
+                                <div class="flex flex-col gap-2">
+                                    <label for="monto_vuelos"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto
+                                        Vuelo</label>
+                                    <div class="relative flex items-center">
                                         <span
-                                            class="text-xs text-slate-500 font-semibold text-center leading-relaxed">Arrastra,
-                                            haz clic para subir<br><span
-                                                class="text-[10px] text-brand-primary/80 font-bold">o pulsa Ctrl+V para
-                                                pegar</span></span>
-                                        <input type="file" id="file-vuelo-ida" accept="image/*" class="hidden"
-                                            onchange="handleImageUpload(this, 'preview-vuelo-ida', 'data-vuelo-ida')">
-                                        <img id="preview-vuelo-ida"
-                                            class="dropzone-preview absolute inset-0 w-full h-full object-cover rounded-xl"
-                                            alt="">
-                                        <input type="hidden" id="data-vuelo-ida">
+                                            class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
+                                        <input type="number" id="monto_vuelos" min="0" step="0.01" value=""
+                                            placeholder="0.00" required
+                                            oninput="calculateAutoFee(); updateRealTimeSummary();"
+                                            class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                                     </div>
                                 </div>
-                            </div>
-
-                            <!-- Vuelta Card -->
-                            <div class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
-                                <span class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo
-                                    de Vuelta</span>
                                 <div class="flex flex-col gap-2">
-                                    <label for="fecha_vuelo_vuelta"
-                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</label>
-                                    <input type="date" id="fecha_vuelo_vuelta" required onchange="validateDates()"
-                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white">
+                                    <label for="fee_aereo_tipo"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fee
+                                        Aéreo</label>
+                                    <select id="fee_aereo_tipo" onchange="toggleFeeType(); updateRealTimeSummary();"
+                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                                        <option value="auto">Calculado (10%)</option>
+                                        <option value="fixed">Monto Fijo</option>
+                                    </select>
                                 </div>
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura
-                                        Vuelo Vuelta</label>
-                                    <div class="dropzone relative overflow-hidden border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-6 bg-white flex flex-col items-center justify-center min-h-[140px] cursor-pointer transition-all duration-300 group"
-                                        id="dropzone-vuelo-vuelta" tabindex="0"
-                                        onclick="triggerFileInput('file-vuelo-vuelta')">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            class="w-8 h-8 text-slate-400 group-hover:text-brand-primary transition-colors mb-2">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-                                        </svg>
+                                    <label for="fee_aereo_monto"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto
+                                        Fee</label>
+                                    <div class="relative flex items-center">
                                         <span
-                                            class="text-xs text-slate-500 font-semibold text-center leading-relaxed">Arrastra,
-                                            haz clic para subir<br><span
-                                                class="text-[10px] text-brand-primary/80 font-bold">o pulsa Ctrl+V para
-                                                pegar</span></span>
-                                        <input type="file" id="file-vuelo-vuelta" accept="image/*" class="hidden"
-                                            onchange="handleImageUpload(this, 'preview-vuelo-vuelta', 'data-vuelo-vuelta')">
-                                        <img id="preview-vuelo-vuelta"
-                                            class="dropzone-preview absolute inset-0 w-full h-full object-cover rounded-xl"
-                                            alt="">
-                                        <input type="hidden" id="data-vuelo-vuelta">
+                                            class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
+                                        <input type="number" id="fee_aereo_monto" min="0" step="0.01" value=""
+                                            placeholder="0.00" required oninput="updateRealTimeSummary();"
+                                            class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </section>
 
-                        <!-- Baggage Selector -->
-                        <div class="mt-6 pt-6 border-t border-slate-100 flex flex-col gap-3">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Equipaje
-                                Incluido</label>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <!-- Option 1 -->
-                                <button type="button" id="btn-bag-mano" onclick="toggleBaggage('mano')"
-                                    class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
-                                    <div class="flex items-center gap-3">
-                                        <div
-                                            class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
-                                            <img src="/assets/iconos/equipaje-de-mano.svg"
-                                                class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
-                                                alt="Mano">
-                                        </div>
-                                        <span class="text-xs font-bold text-slate-600">Equipaje de mano</span>
-                                    </div>
-                                    <div
-                                        class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
-                                        <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
-                                    </div>
-                                </button>
-
-                                <!-- Option 2 -->
-                                <button type="button" id="btn-bag-carry" onclick="toggleBaggage('carry')"
-                                    class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
-                                    <div class="flex items-center gap-3">
-                                        <div
-                                            class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
-                                            <img src="/assets/iconos/carry-on.svg"
-                                                class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
-                                                alt="Carry">
-                                        </div>
-                                        <span class="text-xs font-bold text-slate-600">Carry-On 10kg</span>
-                                    </div>
-                                    <div
-                                        class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
-                                        <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
-                                    </div>
-                                </button>
-
-                                <!-- Option 3 -->
-                                <button type="button" id="btn-bag-valija" onclick="toggleBaggage('valija')"
-                                    class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
-                                    <div class="flex items-center gap-3">
-                                        <div
-                                            class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
-                                            <img src="/assets/iconos/valija-23kg.svg"
-                                                class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
-                                                alt="Valija">
-                                        </div>
-                                        <span class="text-xs font-bold text-slate-600">Valija 23kg</span>
-                                    </div>
-                                    <div
-                                        class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
-                                        <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
-                                    </div>
-                                </button>
+                        <!-- Section 3: Opciones de Alojamiento -->
+                        <section
+                            class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                                <div class="flex items-center gap-3">
+                                    <span
+                                        class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">3</span>
+                                    <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">
+                                        Alojamiento</h2>
+                                </div>
+                                <button type="button"
+                                    class="px-4 py-2 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-full font-bold text-xs text-slate-600 uppercase tracking-wider transition-all duration-300"
+                                    onclick="addHotelCard()">+ Agregar Hotel</button>
                             </div>
-                            <input type="hidden" id="equipaje_seleccionado" value="[]">
-                        </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-100">
-                            <div class="flex flex-col gap-2">
-                                <label for="monto_vuelos"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto
-                                    Vuelo</label>
+                            <div class="hotel-options-container space-y-6" id="hotels-container">
+                                <!-- Hotel Cards will be generated dynamically here -->
+                            </div>
+                        </section>
+
+                        <!-- Section 4: Traslados -->
+                        <section
+                            class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                            <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                                <span
+                                    class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">4</span>
+                                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">Traslados
+                                </h2>
+                            </div>
+                            <div class="flex flex-col gap-2 max-w-sm">
+                                <label for="monto_traslados"
+                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Traslados
+                                    In/Out</label>
                                 <div class="relative flex items-center">
                                     <span
                                         class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
-                                    <input type="number" id="monto_vuelos" min="0" step="0.01" value=""
-                                        placeholder="0.00" required
-                                        oninput="calculateAutoFee(); updateRealTimeSummary();"
-                                        class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
-                                </div>
-                            </div>
-                            <div class="flex flex-col gap-2">
-                                <label for="fee_aereo_tipo"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fee Aéreo</label>
-                                <select id="fee_aereo_tipo" onchange="toggleFeeType(); updateRealTimeSummary();"
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
-                                    <option value="auto">Calculado (10%)</option>
-                                    <option value="fixed">Monto Fijo</option>
-                                </select>
-                            </div>
-                            <div class="flex flex-col gap-2">
-                                <label for="fee_aereo_monto"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Fee</label>
-                                <div class="relative flex items-center">
-                                    <span
-                                        class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
-                                    <input type="number" id="fee_aereo_monto" min="0" step="0.01" value=""
+                                    <input type="number" id="monto_traslados" min="0" step="0.01" value=""
                                         placeholder="0.00" required oninput="updateRealTimeSummary();"
                                         class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                                 </div>
                             </div>
-                        </div>
-                    </section>
+                        </section>
 
-                    <!-- Section 3: Opciones de Alojamiento -->
-                    <section
-                        class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
-                        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
-                            <div class="flex items-center gap-3">
-                                <span
-                                    class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">3</span>
-                                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">
-                                    Alojamiento</h2>
-                            </div>
-                            <button type="button"
-                                class="px-4 py-2 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-full font-bold text-xs text-slate-600 uppercase tracking-wider transition-all duration-300"
-                                onclick="addHotelCard()">+ Agregar Hotel</button>
-                        </div>
-
-                        <div class="hotel-options-container space-y-6" id="hotels-container">
-                            <!-- Hotel Cards will be generated dynamically here -->
-                        </div>
-                    </section>
-
-                    <!-- Section 4: Traslados -->
-                    <section
-                        class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
-                        <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-                            <span
-                                class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">4</span>
-                            <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">Traslados</h2>
-                        </div>
-                        <div class="flex flex-col gap-2 max-w-sm">
-                            <label for="monto_traslados"
-                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Traslados
-                                In/Out</label>
-                            <div class="relative flex items-center">
-                                <span
-                                    class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
-                                <input type="number" id="monto_traslados" min="0" step="0.01" value=""
-                                    placeholder="0.00" required oninput="updateRealTimeSummary();"
-                                    class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Section 5: Gtos Administrativos (Solo lectura) -->
-                    <section class="bg-slate-100/80 border border-slate-200/60 rounded-xl p-4 text-slate-500">
-                        <h3
-                            class="font-display font-bold text-xs text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24"
-                                stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                            Gastos Administrativos
-                        </h3>
-                        <p class="text-[11px] text-slate-500 leading-relaxed font-medium">Se sumará automáticamente un
-                            cargo fijo del <strong class="text-slate-700 font-bold">5%</strong> sobre los servicios
-                            terrestres (Alojamiento + Traslados) en el cálculo final.</p>
-                    </section>
-
-                    <!-- Submit Buttons Container: PDF Preview -->
-                    <div class="flex flex-col sm:flex-row justify-start gap-3 pt-4">
-                        <button type="submit" id="btn-generar-preview"
-                            class="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-brand-primary hover:bg-brand-primary/95 text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            GENERAR COTIZACIÓN
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Resizer Bar (Desktop only) -->
-                <div id="layout-resizer"
-                    class="hidden lg:flex w-8 cursor-col-resize self-stretch items-center justify-center z-40 select-none group">
-                    <div
-                        class="resizer-line w-[2px] h-full bg-slate-200/80 group-hover:bg-brand-primary/80 transition-colors duration-200">
-                    </div>
-                </div>
-
-                <!-- Right Column - Floating Real-time Cost Breakdown -->
-                <div id="sidebar-container"
-                    class="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-28 z-40 transition-all duration-500">
-                    <div id="realtime-card"
-                        class="bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl p-6 shadow-xl shadow-slate-200/50 lg:shadow-md lg:shadow-slate-100 fixed bottom-4 left-4 right-4 z-50 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:z-0 max-h-[85vh] overflow-hidden transition-all duration-500 w-[calc(100%-2rem)] lg:w-full">
-
-                        <!-- Toggle Button (positioned absolutely on the left margin, sticking out) -->
-                        <button type="button" id="toggle-sidebar-btn"
-                            class="absolute top-5 right-5 w-7 h-7 bg-slate-100 hover:bg-brand-primary hover:text-white text-slate-500 rounded-full flex items-center justify-center shadow-sm border border-slate-200/60 cursor-pointer z-50 transition-all duration-300 hover:scale-105 active:scale-95"
-                            onclick="toggleRealTimeBreakdown()" title="Colapsar / Expandir Resumen">
-                            <svg id="sidebar-arrow-icon" class="w-4 h-4 transition-transform duration-500 transform"
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-
-                        <!-- Card Content wrapper -->
-                        <div id="realtime-card-content"
-                            class="transition-all duration-500 opacity-100 h-full overflow-y-auto">
+                        <!-- Section 5: Gtos Administrativos (Solo lectura) -->
+                        <section class="bg-slate-100/80 border border-slate-200/60 rounded-xl p-4 text-slate-500">
                             <h3
-                                class="font-display font-extrabold text-base text-slate-800 border-b border-slate-100 pb-3 mb-4 flex items-center gap-2">
-                                <svg class="w-5 h-5 text-brand-primary" fill="none" viewBox="0 0 24 24"
+                                class="font-display font-bold text-xs text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24"
                                     stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
-                                Resumen en tiempo real
+                                Gastos Administrativos
                             </h3>
+                            <p class="text-[11px] text-slate-500 leading-relaxed font-medium">Se sumará automáticamente
+                                un
+                                cargo fijo del <strong class="text-slate-700 font-bold">5%</strong> sobre los servicios
+                                terrestres (Alojamiento + Traslados) en el cálculo final.</p>
+                        </section>
 
-
-
-                            <div id="realtime-breakdown-container" class="space-y-6">
-                                <!-- Populated in real-time by JS -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </form>
-
-            <!-- ==================== RESULTS PANEL ==================== -->
-            <div id="results-panel"
-                class="results-container hidden mt-12 bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-xl">
-                <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-                    <span
-                        class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center font-bold text-sm">✓</span>
-                    <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight">¡Vista Previa de la
-                        Cotización!</h2>
-                </div>
-
-                <div class="w-full space-y-8">
-                    <!-- Left: details & actions -->
-                    <div class="w-full space-y-6">
-                        <p class="text-sm text-slate-500 leading-relaxed">Visualizá cómo quedó la cotización en PDF a
-                            continuación. Podés descargar el archivo oficial presionando el botón de descarga.</p>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div id="res-total-card"
-                                class="bg-slate-50 rounded-2xl p-4 border border-slate-200/50 flex flex-col justify-center">
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo
-                                    Total</span>
-                                <span id="res-total-price" class="text-xl font-extrabold text-slate-800">USD 0.00</span>
-                            </div>
-                            <div id="res-pax-card"
-                                class="bg-brand-primary/5 rounded-2xl p-4 border border-brand-primary/10 flex flex-col justify-center">
-                                <span class="text-[10px] font-bold text-brand-primary uppercase tracking-wider"
-                                    id="res-basis-label">Base Doble</span>
-                                <span id="res-pax-price" class="text-xl font-extrabold text-brand-primary">USD 0.00 /
-                                    Pax</span>
-                            </div>
-                        </div>
-
-                        <!-- CTA Download PDF -->
-                        <button id="btn-download-pdf" onclick="downloadPDFBlob()"
-                            class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-brand-primary to-brand-accent text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all duration-300 hover:-translate-y-0.5">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            Descargar Cotización en PDF
-                        </button>
-
-                        <!-- Live PDF Embedded Preview -->
-                        <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-lg bg-white mt-8">
-                            <div
-                                class="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
-                                <span
-                                    class="text-xs font-extrabold uppercase text-slate-500 tracking-wider flex items-center gap-2">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-brand-primary animate-pulse"></span>
-                                    Previsualización del PDF
-                                </span>
-                                <div class="flex items-center gap-3">
-                                    <button type="button" onclick="openPDFInNewTab()"
-                                        class="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-extrabold uppercase tracking-wider shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]">
-                                        <svg class="w-3.5 h-3.5 text-brand-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                        </svg>
-                                        Abrir en nueva pestaña
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="relative pb-[141%] h-0 w-full bg-slate-100">
-                                <iframe id="pdf-preview-iframe" class="absolute top-0 left-0 w-full h-full border-0"
-                                    src="" allowfullscreen="true"></iframe>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-        </div>
-
-
-
-        <!-- ==================== TAB 3: CONFIGURACIÓN ==================== -->
-        <div id="config-tab" class="tab-content hidden">
-            <div class="bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-sm">
-                <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight mb-6">Configuración de
-                    Marca y Sincronización</h2>
-
-                <form id="config-form" onsubmit="saveConfig(event)" class="space-y-8">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <!-- Branding and colors -->
-                        <div class="space-y-6">
-                            <h3
-                                class="font-display font-bold text-sm uppercase text-slate-500 tracking-wider border-b border-slate-100 pb-2">
-                                Identidad Visual</h3>
-
-                            <div class="flex flex-col gap-2">
-                                <label for="config_nombre_agencia"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre Comercial
-                                    de la Agencia</label>
-                                <input type="text" id="config_nombre_agencia" required
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
-                            </div>
-
-                            <div class="flex flex-col gap-2">
-                                <label for="config_nombre_agencia_legal"
-                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre Legal
-                                    (Razón Social)</label>
-                                <input type="text" id="config_nombre_agencia_legal" required
-                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
-                            </div>
-
-                            <div class="flex flex-col gap-2">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Colores de
-                                    Marca</label>
-                                <div class="grid grid-cols-3 gap-4">
-                                    <div
-                                        class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 bg-white">
-                                        <input type="color" id="color_primary"
-                                            class="w-8 h-8 rounded-full border-0 cursor-pointer">
-                                        <span class="text-xs font-bold text-slate-600">Primario</span>
-                                    </div>
-                                    <div
-                                        class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 bg-white">
-                                        <input type="color" id="color_secondary"
-                                            class="w-8 h-8 rounded-full border-0 cursor-pointer">
-                                        <span class="text-xs font-bold text-slate-600">Secundario</span>
-                                    </div>
-                                    <div
-                                        class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 bg-white">
-                                        <input type="color" id="color_neutral"
-                                            class="w-8 h-8 rounded-full border-0 cursor-pointer">
-                                        <span class="text-xs font-bold text-slate-600">Neutro</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Logo integration -->
-                        <div class="space-y-6">
-                            <h3
-                                class="font-display font-bold text-sm uppercase text-slate-500 tracking-wider border-b border-slate-100 pb-2">
-                                Logo de Agencia</h3>
-
-                            <div class="flex flex-col gap-2">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Logo de la
-                                    Agencia</label>
-                                <div class="flex items-center gap-4">
-                                    <div class="flex-1 dropzone border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-4 text-center cursor-pointer min-h-[90px] flex flex-col items-center justify-center transition-all"
-                                        onclick="triggerFileInput('config_logo')">
-                                        <span class="text-xs text-slate-500 font-bold">Subir nuevo logo</span>
-                                        <input type="file" id="config_logo" accept="image/*" class="hidden"
-                                            onchange="handleImageUpload(this, 'preview-logo', 'data-logo')">
-                                        <input type="hidden" id="data-logo">
-                                    </div>
-                                    <div
-                                        class="w-20 h-20 border border-slate-200 rounded-xl p-2 flex items-center justify-center bg-slate-50">
-                                        <img id="preview-logo" class="max-w-full max-h-full object-contain hidden"
-                                            alt="">
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Submit Buttons Container: PDF Preview -->
+                        <div class="flex flex-col sm:flex-row justify-start gap-3 pt-4">
+                            <button type="submit" id="btn-generar-preview"
+                                class="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-brand-primary hover:bg-brand-primary/95 text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                GENERAR COTIZACIÓN
+                            </button>
                         </div>
                     </div>
 
-                    <div class="flex justify-end pt-4 border-t border-slate-100">
-                        <button type="submit"
-                            class="px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-300">Guardar
-                            Configuración</button>
+                    <!-- Resizer Bar (Desktop only) -->
+                    <div id="layout-resizer"
+                        class="hidden lg:flex w-8 cursor-col-resize self-stretch items-center justify-center z-40 select-none group">
+                        <div
+                            class="resizer-line w-[2px] h-full bg-slate-200/80 group-hover:bg-brand-primary/80 transition-colors duration-200">
+                        </div>
+                    </div>
+
+                    <!-- Right Column - Floating Real-time Cost Breakdown -->
+                    <div id="sidebar-container"
+                        class="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-28 z-40 transition-all duration-500">
+                        <div id="realtime-card"
+                            class="bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl p-6 shadow-xl shadow-slate-200/50 lg:shadow-md lg:shadow-slate-100 fixed bottom-4 left-4 right-4 z-50 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:z-0 max-h-[85vh] overflow-hidden transition-all duration-500 w-[calc(100%-2rem)] lg:w-full">
+
+                            <!-- Toggle Button (positioned absolutely on the left margin, sticking out) -->
+                            <button type="button" id="toggle-sidebar-btn"
+                                class="absolute top-5 right-5 w-7 h-7 bg-slate-100 hover:bg-brand-primary hover:text-white text-slate-500 rounded-full flex items-center justify-center shadow-sm border border-slate-200/60 cursor-pointer z-50 transition-all duration-300 hover:scale-105 active:scale-95"
+                                onclick="toggleRealTimeBreakdown()" title="Colapsar / Expandir Resumen">
+                                <svg id="sidebar-arrow-icon" class="w-4 h-4 transition-transform duration-500 transform"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+
+                            <!-- Card Content wrapper -->
+                            <div id="realtime-card-content"
+                                class="transition-all duration-500 opacity-100 h-full overflow-y-auto">
+                                <h3
+                                    class="font-display font-extrabold text-base text-slate-800 border-b border-slate-100 pb-3 mb-4 flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-brand-primary" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    </svg>
+                                    Resumen en tiempo real
+                                </h3>
+
+
+
+                                <div id="realtime-breakdown-container" class="space-y-6">
+                                    <!-- Populated in real-time by JS -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </form>
-            </div>
-        </div>
 
-        <!-- ==================== TAB 4: COTIZACIONES GUARDADAS ==================== -->
-        <div id="editar-tab" class="tab-content hidden">
-            <div class="bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-sm">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6 mb-6">
-                    <div>
-                        <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight">Cotizaciones Guardadas</h2>
-                        <p class="text-xs text-slate-500 leading-relaxed mt-1">Listado de propuestas guardadas en la base de datos de Supabase. Puedes abrirlas para editarlas o eliminarlas.</p>
+                <!-- ==================== RESULTS PANEL ==================== -->
+                <div id="results-panel"
+                    class="results-container hidden mt-12 bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-xl">
+                    <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                        <span
+                            class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center font-bold text-sm">✓</span>
+                        <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight">¡Vista Previa de
+                            la
+                            Cotización!</h2>
                     </div>
-                    <button onclick="loadSavedQuotesList()" class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all flex items-center gap-1.5 self-start sm:self-center cursor-pointer">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18" />
-                        </svg>
-                        Actualizar Lista
-                    </button>
-                </div>
 
-                <!-- Search Bar -->
-                <div class="mt-4 mb-6 relative max-w-md">
-                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                        <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+                    <div class="w-full space-y-8">
+                        <!-- Left: details & actions -->
+                        <div class="w-full space-y-6">
+                            <p class="text-sm text-slate-500 leading-relaxed">Visualizá cómo quedó la cotización en PDF
+                                a
+                                continuación. Podés descargar el archivo oficial presionando el botón de descarga.</p>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div id="res-total-card"
+                                    class="bg-slate-50 rounded-2xl p-4 border border-slate-200/50 flex flex-col justify-center">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo
+                                        Total</span>
+                                    <span id="res-total-price" class="text-xl font-extrabold text-slate-800">USD
+                                        0.00</span>
+                                </div>
+                                <div id="res-pax-card"
+                                    class="bg-brand-primary/5 rounded-2xl p-4 border border-brand-primary/10 flex flex-col justify-center">
+                                    <span class="text-[10px] font-bold text-brand-primary uppercase tracking-wider"
+                                        id="res-basis-label">Base Doble</span>
+                                    <span id="res-pax-price" class="text-xl font-extrabold text-brand-primary">USD 0.00
+                                        /
+                                        Pax</span>
+                                </div>
+                            </div>
+
+                            <!-- CTA Download PDF -->
+                            <button id="btn-download-pdf" onclick="downloadPDFBlob()"
+                                class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-brand-primary to-brand-accent text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all duration-300 hover:-translate-y-0.5">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Descargar Cotización en PDF
+                            </button>
+
+                            <!-- Live PDF Embedded Preview -->
+                            <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-lg bg-white mt-8">
+                                <div
+                                    class="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
+                                    <span
+                                        class="text-xs font-extrabold uppercase text-slate-500 tracking-wider flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-brand-primary animate-pulse"></span>
+                                        Previsualización del PDF
+                                    </span>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" onclick="openPDFInNewTab()"
+                                            class="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-extrabold uppercase tracking-wider shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]">
+                                            <svg class="w-3.5 h-3.5 text-brand-primary" fill="none" viewBox="0 0 24 24"
+                                                stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                            Abrir en nueva pestaña
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="relative pb-[141%] h-0 w-full bg-slate-100">
+                                    <iframe id="pdf-preview-iframe" class="absolute top-0 left-0 w-full h-full border-0"
+                                        src="" allowfullscreen="true"></iframe>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <input type="text" id="quote-search-input" oninput="filterSavedQuotes()" placeholder="Buscar por pasajero o destino..." 
-                        class="block w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-brand-primary transition-all">
                 </div>
 
-                <!-- Database Quotes List -->
-                <div class="overflow-x-auto w-full mb-10">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                                <th class="p-3">Fecha Creado</th>
-                                <th class="p-3">Pasajero</th>
-                                <th class="p-3">Destino</th>
-                                <th class="p-3">Agente</th>
-                                <th class="p-3">Fecha Salida</th>
-                                <th class="p-3 text-right">Costo Total</th>
-                                <th class="p-3 text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="db-quotes-table-body" class="divide-y divide-slate-100 text-slate-600 font-medium">
-                            <tr>
-                                <td colspan="7" class="p-8 text-center text-slate-400">
-                                    Cargando cotizaciones desde Supabase...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+
+            </div>
+
+
+
+            <!-- ==================== TAB 3: CONFIGURACIÓN ==================== -->
+            <div id="config-tab" class="tab-content hidden">
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-sm">
+                    <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight mb-6">Configuración de
+                        Marca y Sincronización</h2>
+
+                    <form id="config-form" onsubmit="saveConfig(event)" class="space-y-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <!-- Branding and colors -->
+                            <div class="space-y-6">
+                                <h3
+                                    class="font-display font-bold text-sm uppercase text-slate-500 tracking-wider border-b border-slate-100 pb-2">
+                                    Identidad Visual</h3>
+
+                                <div class="flex flex-col gap-2">
+                                    <label for="config_nombre_agencia"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre
+                                        Comercial
+                                        de la Agencia</label>
+                                    <input type="text" id="config_nombre_agencia" required
+                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
+                                </div>
+
+                                <div class="flex flex-col gap-2">
+                                    <label for="config_nombre_agencia_legal"
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre Legal
+                                        (Razón Social)</label>
+                                    <input type="text" id="config_nombre_agencia_legal" required
+                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
+                                </div>
+
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Colores de
+                                        Marca</label>
+                                    <div class="grid grid-cols-3 gap-4">
+                                        <div
+                                            class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 bg-white">
+                                            <input type="color" id="color_primary"
+                                                class="w-8 h-8 rounded-full border-0 cursor-pointer">
+                                            <span class="text-xs font-bold text-slate-600">Primario</span>
+                                        </div>
+                                        <div
+                                            class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 bg-white">
+                                            <input type="color" id="color_secondary"
+                                                class="w-8 h-8 rounded-full border-0 cursor-pointer">
+                                            <span class="text-xs font-bold text-slate-600">Secundario</span>
+                                        </div>
+                                        <div
+                                            class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 bg-white">
+                                            <input type="color" id="color_neutral"
+                                                class="w-8 h-8 rounded-full border-0 cursor-pointer">
+                                            <span class="text-xs font-bold text-slate-600">Neutro</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Logo integration -->
+                            <div class="space-y-6">
+                                <h3
+                                    class="font-display font-bold text-sm uppercase text-slate-500 tracking-wider border-b border-slate-100 pb-2">
+                                    Logo de Agencia</h3>
+
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Logo de la
+                                        Agencia</label>
+                                    <div class="flex items-center gap-4">
+                                        <div class="flex-1 dropzone border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-4 text-center cursor-pointer min-h-[90px] flex flex-col items-center justify-center transition-all"
+                                            onclick="triggerFileInput('config_logo')">
+                                            <span class="text-xs text-slate-500 font-bold">Subir nuevo logo</span>
+                                            <input type="file" id="config_logo" accept="image/*" class="hidden"
+                                                onchange="handleImageUpload(this, 'preview-logo', 'data-logo')">
+                                            <input type="hidden" id="data-logo">
+                                        </div>
+                                        <div
+                                            class="w-20 h-20 border border-slate-200 rounded-xl p-2 flex items-center justify-center bg-slate-50">
+                                            <img id="preview-logo" class="max-w-full max-h-full object-contain hidden"
+                                                alt="">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-4 border-t border-slate-100">
+                            <button type="submit"
+                                class="px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-300">Guardar
+                                Configuración</button>
+                        </div>
+                    </form>
                 </div>
             </div>
-        </div>
-    </main>
+
+            <!-- ==================== TAB 4: COTIZACIONES GUARDADAS ==================== -->
+            <div id="editar-tab" class="tab-content hidden">
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-sm">
+                    <div
+                        class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6 mb-6">
+                        <div>
+                            <h2 class="font-display font-extrabold text-xl text-slate-800 tracking-tight">Cotizaciones
+                                Guardadas</h2>
+                            <p class="text-xs text-slate-500 leading-relaxed mt-1">Listado de propuestas guardadas en la
+                                base de datos de Supabase. Puedes abrirlas para editarlas o eliminarlas.</p>
+                        </div>
+                        <button onclick="loadSavedQuotesList()"
+                            class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all flex items-center gap-1.5 self-start sm:self-center cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18" />
+                            </svg>
+                            Actualizar Lista
+                        </button>
+                    </div>
+
+                    <!-- Search Bar -->
+                    <div class="mt-4 mb-6 relative max-w-md">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                            <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <input type="text" id="quote-search-input" oninput="filterSavedQuotes()"
+                            placeholder="Buscar por pasajero o destino..."
+                            class="block w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-brand-primary transition-all">
+                    </div>
+
+                    <!-- Database Quotes List -->
+                    <div class="overflow-x-auto w-full mb-10">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr
+                                    class="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                                    <th class="p-3 hidden sm:table-cell">Fecha Creado</th>
+                                    <th class="p-3">Pasajero</th>
+                                    <th class="p-3">Destino</th>
+                                    <th class="p-3 hidden md:table-cell">Agente</th>
+                                    <th class="p-3 hidden sm:table-cell">Fecha Salida</th>
+                                    <th class="p-3 text-right">Costo Total</th>
+                                    <th class="p-3 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="db-quotes-table-body"
+                                class="divide-y divide-slate-100 text-slate-600 font-medium">
+                                <tr>
+                                    <td colspan="7" class="p-8 text-center text-slate-400">
+                                        Cargando cotizaciones desde Supabase...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div> <!-- Fin de app-content -->
 
     <!-- ==================== PANTALLA DE LOGIN ==================== -->
-    <div id="login-screen" class="fixed inset-0 z-[3000] bg-slate-50 flex items-center justify-center transition-all duration-500 overflow-hidden">
+    <div id="login-screen"
+        class="fixed inset-0 z-[3000] bg-slate-50 flex items-center justify-center transition-all duration-500 overflow-hidden">
         <!-- Slideshow de fondo -->
         <div id="login-background-slideshow" class="absolute inset-0 z-0">
             <div class="login-bg-layer" style="background-image: url('/assets/fondos/fondo-1.jpg');"></div>
@@ -703,40 +785,51 @@
         <div class="absolute inset-0 bg-white/50 z-[5] backdrop-blur-[2px]"></div>
 
         <!-- Panel de login con Glassmorphism -->
-        <div class="glass-login-panel z-10 w-[90%] max-w-md rounded-3xl p-8 lg:p-10 text-center relative border border-white/20 shadow-2xl flex flex-col gap-6">
+        <div
+            class="glass-login-panel z-10 w-[90%] max-w-md rounded-3xl p-8 lg:p-10 text-center relative border border-white/20 shadow-2xl flex flex-col gap-6">
             <div class="flex justify-center mb-2">
                 <img src="/assets/Banner%20letra%20O.png" alt="One Trip Giordano" class="h-20 w-auto object-contain">
             </div>
-            
-            <div class="space-y-1">
+
+            <div id="login-welcome-section" class="space-y-1">
                 <h2 class="font-display font-extrabold text-2xl text-slate-800 tracking-tight">Acceso de Agentes</h2>
-                <p class="text-xs text-slate-500 font-medium">Ingrese sus credenciales para acceder al cotizador de viajes.</p>
+                <p class="text-xs text-slate-500 font-medium">Ingrese sus credenciales para acceder al cotizador de
+                    viajes.</p>
             </div>
 
             <!-- Login Alert Message -->
-            <div id="login-alert-message" class="hidden p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300"></div>
+            <div id="login-alert-message"
+                class="hidden p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300">
+            </div>
 
             <form id="login-form" onsubmit="handleLoginSubmit(event)" class="text-left space-y-5">
                 <div class="flex flex-col gap-1.5">
-                    <label for="login_username" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Usuario</label>
+                    <label for="login_username"
+                        class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Usuario</label>
                     <input type="text" id="login_username" required placeholder="Ej. uriel"
                         class="border border-slate-200/80 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/70">
                 </div>
                 <div class="flex flex-col gap-1.5">
-                    <label for="login_password" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contraseña</label>
+                    <label for="login_password"
+                        class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contraseña</label>
                     <div class="relative w-full">
                         <input type="password" id="login_password" required placeholder="••••••••"
                             class="w-full border border-slate-200/80 rounded-xl pl-4 pr-11 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/70">
                         <button type="button" onclick="toggleLoginPassword()" id="btn-toggle-password"
                             class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer">
                             <!-- SVG Ojo Abierto -->
-                            <svg id="svg-eye-open" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            <svg id="svg-eye-open" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                             <!-- SVG Ojo Cerrado -->
-                            <svg id="svg-eye-closed" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                            <svg id="svg-eye-closed" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
                             </svg>
                         </button>
                     </div>
@@ -750,7 +843,27 @@
                     Ingresar como Invitado
                 </button>
             </form>
-            
+
+            <!-- Contenedor de Sesión Activa -->
+            <div id="session-active-container" class="hidden flex flex-col gap-5 text-left">
+                <div class="text-center space-y-2">
+                    <h2 class="font-display font-extrabold text-2xl text-slate-800 tracking-tight">Sesión Activa</h2>
+                    <p class="text-xs text-slate-500 font-medium">Se detectó una sesión iniciada en este navegador.</p>
+                </div>
+                <div class="p-4 bg-brand-primary/5 border border-brand-primary/10 rounded-2xl flex items-center justify-center gap-3">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Agente: <strong id="session-active-username" class="text-brand-primary font-extrabold text-sm ml-1 select-none">-</strong></span>
+                </div>
+                <button type="button" id="btn-continue-session"
+                    class="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-brand-primary hover:bg-brand-primary/95 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all duration-300 hover:-translate-y-0.5 cursor-pointer">
+                    Continuar como <span id="session-active-btn-name" class="uppercase">Agente</span>
+                </button>
+                <button type="button" id="btn-logout-session"
+                    class="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-100 hover:bg-slate-200/80 text-slate-600 font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all duration-300 cursor-pointer">
+                    Iniciar sesión con otra cuenta
+                </button>
+            </div>
+
             <div class="text-[10px] text-slate-400 font-medium">
                 © 2026 One Trip Giordano S.R.L. · Todos los derechos reservados
             </div>
@@ -778,8 +891,10 @@
                 </svg>
             </div>
             <div class="space-y-2">
-                <h3 id="confirm-modal-title" class="font-display font-extrabold text-lg text-slate-800">¿Crear nueva cotización?</h3>
-                <p id="confirm-modal-desc" class="text-xs text-slate-500 leading-relaxed">Se borrarán todos los datos cargados en el formulario actual. Esta acción no se puede deshacer.</p>
+                <h3 id="confirm-modal-title" class="font-display font-extrabold text-lg text-slate-800">¿Crear nueva
+                    cotización?</h3>
+                <p id="confirm-modal-desc" class="text-xs text-slate-500 leading-relaxed">Se borrarán todos los datos
+                    cargados en el formulario actual. Esta acción no se puede deshacer.</p>
             </div>
             <div class="flex gap-3 mt-2">
                 <button type="button" id="confirm-modal-btn-cancel" onclick="closeConfirmModal(false)"

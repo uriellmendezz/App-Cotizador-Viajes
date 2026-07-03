@@ -48,6 +48,29 @@ function formatPriceES(val) {
     return val.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function formatHabitacionValue(value) {
+    if (!value) return "";
+    const trimmed = value.trim();
+    if (trimmed === "") return "";
+
+    const normalized = trimmed.toLowerCase();
+    if (normalized.includes("habitacion") || normalized.includes("habitación")) {
+        return trimmed;
+    }
+    return "Habitación " + trimmed;
+}
+window.formatHabitacionValue = formatHabitacionValue;
+
+function formatHabitacionInput(inputEl) {
+    if (!inputEl) return;
+    const currentVal = inputEl.value;
+    const formatted = formatHabitacionValue(currentVal);
+    if (formatted !== currentVal) {
+        inputEl.value = formatted;
+    }
+}
+window.formatHabitacionInput = formatHabitacionInput;
+
 // On window load
 window.addEventListener('load', () => {
     // Set flatpickr Spanish translation globally
@@ -99,6 +122,9 @@ window.addEventListener('load', () => {
     updateRealTimeSummary();
 
     // Validar sesión inicial
+    if (window.innerWidth < 1024) {
+        toggleRealTimeBreakdown();
+    }
     checkSession();
 });
 
@@ -405,6 +431,11 @@ function addHotelCard(data = null) {
         regimenOptionsHtml += `<option value="${regimenVal}" selected>${regimenVal}</option>`;
     }
 
+    let habitacionVal = data ? (data.hotel_habitacion || data.habitacion || '') : '';
+    if (habitacionVal) {
+        habitacionVal = formatHabitacionValue(habitacionVal);
+    }
+
     card.innerHTML = `
         <button type="button" class="remove-hotel-btn absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 bg-rose-50 border border-rose-100 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all" onclick="removeHotelCard('${cardId}')">Eliminar Opción</button>
         
@@ -433,7 +464,7 @@ function addHotelCard(data = null) {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div class="flex flex-col gap-1">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Habitación</label>
-                <input type="text" class="hotel-habitacion-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Estándar Vista Mar" value="${data ? (data.hotel_habitacion || data.habitacion || '') : ''}">
+                <input type="text" class="hotel-habitacion-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Estándar Vista Mar" value="${habitacionVal}" onblur="formatHabitacionInput(this)">
             </div>
             <div class="flex flex-col gap-1">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Costo</label>
@@ -890,7 +921,7 @@ async function generatePDFPreview(e) {
         console.log("Form is in Read-only mode. Skipping auto-save to Supabase.");
     }
 
-    document.getElementById('loading-text').innerText = `Compilando PDF para ${paxNameForLoading}...`;
+    document.getElementById('loading-text').innerText = `Generando cotización para ${paxNameForLoading}...`;
 
     try {
         const res = await authenticatedFetch('/api/cotizar-pdf', {
@@ -1015,7 +1046,7 @@ function _buildPayload() {
             nombre: card.querySelector('.hotel-nombre-val').value,
             estrellas: card.querySelector('.hotel-estrellas-val').value,
             regimen: card.querySelector('.hotel-regimen-val').value,
-            habitacion: card.querySelector('.hotel-habitacion-val').value,
+            habitacion: formatHabitacionValue(card.querySelector('.hotel-habitacion-val').value),
             costo: parseFloat(card.querySelector('.hotel-costo-val').value),
             descripcion: card.querySelector('.hotel-descripcion-val').value,
             imagen1: card.querySelector('.hotel-imagen-val-1').value,
@@ -1833,11 +1864,11 @@ function renderQuotesTable(quotesList) {
         const fechaCreadoFormatted = formatCreatedAt(q.created_at);
 
         tr.innerHTML = `
-            <td class="p-3 font-semibold text-slate-500">${fechaCreadoFormatted}</td>
+            <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
             <td class="p-3 font-semibold text-slate-800">${q.nombre_pax || 'Sin Nombre'}</td>
             <td class="p-3">${q.destino || 'Sin Destino'}</td>
-            <td class="p-3">${q.agente_nombre || '-'}</td>
-            <td class="p-3">${fechaSalidaFormatted}</td>
+            <td class="p-3 hidden md:table-cell">${q.agente_nombre || '-'}</td>
+            <td class="p-3 hidden sm:table-cell">${fechaSalidaFormatted}</td>
             <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
             <td class="p-3 flex justify-center gap-2">
                 <button type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="loadSavedQuoteIntoForm('${q.id}')">Ver</button>
@@ -2186,13 +2217,13 @@ window.updateEditingIndicator = updateEditingIndicator;
 
 async function checkSession() {
     // Intentar autorefrescar la sesión en base a la cookie HttpOnly del navegador
-    const success = await refreshSession();
+    const success = await refreshSession(true);
     if (!success) {
         showLoginScreen();
     }
 }
 
-async function refreshSession() {
+async function refreshSession(isInitialCheck = false) {
     try {
         const res = await fetch('/api/auth/refresh', {
             method: 'POST'
@@ -2201,13 +2232,56 @@ async function refreshSession() {
         if (!res.ok) return false;
 
         const data = await res.json();
-        loginSuccess(data.access_token, data.username);
+        if (isInitialCheck) {
+            showSessionPrompt(data.access_token, data.username);
+        } else {
+            loginSuccess(data.access_token, data.username);
+        }
         return true;
     } catch (err) {
         console.warn("Fallo al refrescar sesión:", err);
         return false;
     }
 }
+
+function showSessionPrompt(token, username) {
+    showLoginScreen();
+
+    // Ocultar formulario estándar y bienvenida
+    const welcomeSection = document.getElementById('login-welcome-section');
+    const loginForm = document.getElementById('login-form');
+    if (welcomeSection) welcomeSection.classList.add('hidden');
+    if (loginForm) loginForm.classList.add('hidden');
+
+    // Mostrar sección de sesión activa
+    const sessionActiveContainer = document.getElementById('session-active-container');
+    const sessionActiveUsername = document.getElementById('session-active-username');
+    const sessionActiveBtnName = document.getElementById('session-active-btn-name');
+    
+    if (sessionActiveContainer) sessionActiveContainer.classList.remove('hidden');
+    if (sessionActiveUsername) {
+        sessionActiveUsername.innerText = username === 'guest' ? 'Invitado' : username;
+    }
+    if (sessionActiveBtnName) {
+        sessionActiveBtnName.innerText = username === 'guest' ? 'Invitado' : username;
+    }
+
+    // Configurar botones
+    const btnContinue = document.getElementById('btn-continue-session');
+    if (btnContinue) {
+        btnContinue.onclick = function() {
+            loginSuccess(token, username);
+        };
+    }
+
+    const btnLogout = document.getElementById('btn-logout-session');
+    if (btnLogout) {
+        btnLogout.onclick = function() {
+            logoutAgent(true);
+        };
+    }
+}
+window.showSessionPrompt = showSessionPrompt;
 
 function showLoginScreen() {
     const loginScreen = document.getElementById('login-screen');
@@ -2221,6 +2295,14 @@ function showLoginScreen() {
         appContent.classList.add('hidden');
         appContent.classList.remove('app-fade-in');
     }
+
+    // Restablecer visibilidad estándar
+    const welcomeSection = document.getElementById('login-welcome-section');
+    const loginForm = document.getElementById('login-form');
+    const sessionActiveContainer = document.getElementById('session-active-container');
+    if (welcomeSection) welcomeSection.classList.remove('hidden');
+    if (loginForm) loginForm.classList.remove('hidden');
+    if (sessionActiveContainer) sessionActiveContainer.classList.add('hidden');
 
     // Iniciar slideshow de fondos de login
     startLoginSlideshow();
@@ -2320,10 +2402,18 @@ function loginSuccess(token, username) {
     const navConfig = document.getElementById('nav-btn-config');
     const navTestData = document.getElementById('nav-btn-test-data');
 
+    const mobileSavedQuotes = document.getElementById('mobile-nav-btn-saved-quotes');
+    const mobileConfig = document.getElementById('mobile-nav-btn-config');
+    const mobileTestData = document.getElementById('mobile-nav-btn-test-data');
+
     if (username === 'guest') {
         if (navSavedQuotes) navSavedQuotes.classList.add('hidden');
         if (navConfig) navConfig.classList.add('hidden');
         if (navTestData) navTestData.classList.add('hidden');
+
+        if (mobileSavedQuotes) mobileSavedQuotes.classList.add('hidden');
+        if (mobileConfig) mobileConfig.classList.add('hidden');
+        if (mobileTestData) mobileTestData.classList.add('hidden');
 
         if (btnGenerar) {
             btnGenerar.disabled = true;
@@ -2339,6 +2429,10 @@ function loginSuccess(token, username) {
         if (navSavedQuotes) navSavedQuotes.classList.remove('hidden');
         if (navConfig) navConfig.classList.remove('hidden');
         if (navTestData) navTestData.classList.remove('hidden');
+
+        if (mobileSavedQuotes) mobileSavedQuotes.classList.remove('hidden');
+        if (mobileConfig) mobileConfig.classList.remove('hidden');
+        if (mobileTestData) mobileTestData.classList.remove('hidden');
 
         if (btnGenerar) {
             btnGenerar.disabled = false;
@@ -2479,9 +2573,27 @@ function toggleLoginPassword() {
     }
 }
 
+function toggleMobileMenu() {
+    const mobileMenu = document.getElementById('mobile-menu');
+    const hamburgerIcon = document.getElementById('hamburger-icon');
+    const closeIcon = document.getElementById('close-icon');
+    if (!mobileMenu) return;
+
+    if (mobileMenu.classList.contains('hidden')) {
+        mobileMenu.classList.remove('hidden');
+        if (hamburgerIcon) hamburgerIcon.classList.add('hidden');
+        if (closeIcon) closeIcon.classList.remove('hidden');
+    } else {
+        mobileMenu.classList.add('hidden');
+        if (hamburgerIcon) hamburgerIcon.classList.remove('hidden');
+        if (closeIcon) closeIcon.classList.add('hidden');
+    }
+}
+
 window.logoutAgent = logoutAgent;
 window.handleLoginSubmit = handleLoginSubmit;
 window.checkSession = checkSession;
 window.loginAsGuest = loginAsGuest;
 window.openPDFInNewTab = openPDFInNewTab;
 window.toggleLoginPassword = toggleLoginPassword;
+window.toggleMobileMenu = toggleMobileMenu;
