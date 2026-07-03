@@ -69,9 +69,18 @@ body {
     }
 }
 
+.dropzone {
+    border: 1px dashed rgba(203, 213, 225, 0.85) !important;
+    border-radius: 14px !important;
+    background-color: rgba(255, 255, 255, 0.6) !important;
+    transition: all 0.3s ease;
+}
+
 .dropzone:hover,
 .dropzone.dragover {
+    border-style: dashed !important;
     animation: pulse-border 1.5s infinite;
+    background-color: rgba(255, 84, 93, 0.02) !important;
 }
 
 /* Responsive Iframe Portrait aspect ratio helper */
@@ -223,6 +232,12 @@ textarea:focus {
     background: rgba(255, 84, 93, 0.1) !important;
 }
 
+.flatpickr-day.inRange {
+    background: rgba(255, 84, 93, 0.12) !important;
+    border-color: transparent !important;
+    color: #ff545d !important;
+}
+
 .flatpickr-months .flatpickr-month {
     color: #343434 !important;
 }
@@ -284,7 +299,7 @@ textarea:focus {
     background-position: center;
     opacity: 0;
     z-index: 1;
-    filter: blur(1.5px) saturate(110%);
+    filter: blur(0px) saturate(110%);
     transition: opacity 2s ease-in-out;
     transform: scale(1.08);
 }
@@ -303,7 +318,7 @@ textarea:focus {
 }
 
 .login-bg-layer.active {
-    opacity: 0.75; /* 75% opacity for crisp background visualization */
+    opacity: 0.88; /* Increased opacity for background visualization */
     z-index: 2;
     animation: kenburns 25s infinite ease-in-out alternate;
 }

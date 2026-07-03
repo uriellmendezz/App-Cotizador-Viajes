@@ -78,24 +78,143 @@ window.addEventListener('load', () => {
         flatpickr.localize(flatpickr.l10ns.es);
     }
 
-    // Initialize custom date pickers (Flatpickr)
-    flatpickr("#fecha_salida", {
-        dateFormat: "Y-m-d",
-        altInput: true,
-        altFormat: "d/m/Y",
-        disableMobile: "true"
+    // Hidden developer shortcut to load mock test data (Control + 9)
+    window.addEventListener('keydown', async (e) => {
+        if (e.ctrlKey && e.key === '9') {
+            e.preventDefault();
+            await fillTestData();
+        }
     });
+
+    // Initialize custom date pickers (Flatpickr)
     flatpickr("#fecha_vuelo_ida", {
         dateFormat: "Y-m-d",
         altInput: true,
         altFormat: "d/m/Y",
-        disableMobile: "true"
+        disableMobile: "true",
+        onChange: function (selectedDates, dateStr, instance) {
+            const returnPicker = document.getElementById('fecha_vuelo_vuelta')._flatpickr;
+            if (returnPicker) {
+                if (selectedDates[0]) {
+                    returnPicker.set('minDate', selectedDates[0]);
+                } else {
+                    returnPicker.set('minDate', null);
+                }
+            }
+            validateDates();
+        }
     });
     flatpickr("#fecha_vuelo_vuelta", {
         dateFormat: "Y-m-d",
         altInput: true,
         altFormat: "d/m/Y",
-        disableMobile: "true"
+        disableMobile: "true",
+        onOpen: function (selectedDates, dateStr, instance) {
+            const departureVal = getDatePickerValue('fecha_vuelo_ida');
+            if (departureVal && !instance.selectedDates.length) {
+                instance.jumpToDate(departureVal);
+            }
+        },
+        onReady: function (selectedDates, dateStr, instance) {
+            const calendarContainer = instance.calendarContainer;
+
+            calendarContainer.addEventListener('mouseover', function (e) {
+                const dayElem = e.target.closest('.flatpickr-day');
+                if (!dayElem || dayElem.classList.contains('disabled')) return;
+
+                const departureVal = getDatePickerValue('fecha_vuelo_ida');
+                if (!departureVal) return;
+
+                const depTime = new Date(departureVal + 'T00:00:00').getTime();
+
+                const hoverDate = dayElem.dateObj;
+                if (!hoverDate) return;
+                const hoverTime = new Date(hoverDate.getFullYear(), hoverDate.getMonth(), hoverDate.getDate()).getTime();
+
+                if (hoverTime < depTime) return;
+
+                const days = calendarContainer.querySelectorAll('.flatpickr-day');
+                days.forEach(day => {
+                    const thisDate = day.dateObj;
+                    if (!thisDate || day.classList.contains('disabled')) return;
+                    const thisTime = new Date(thisDate.getFullYear(), thisDate.getMonth(), thisDate.getDate()).getTime();
+
+                    if (thisTime > depTime && thisTime < hoverTime) {
+                        day.classList.add('inRange');
+                        day.classList.remove('startRange', 'endRange');
+                    } else if (thisTime === depTime) {
+                        day.classList.add('startRange');
+                        day.classList.remove('inRange', 'endRange');
+                    } else if (thisTime === hoverTime) {
+                        day.classList.add('endRange');
+                        day.classList.remove('inRange', 'startRange');
+                    } else {
+                        day.classList.remove('inRange', 'startRange', 'endRange');
+                    }
+                });
+            });
+
+            calendarContainer.addEventListener('mouseleave', function () {
+                const departureVal = getDatePickerValue('fecha_vuelo_ida');
+                const returnVal = getDatePickerValue('fecha_vuelo_vuelta');
+
+                const depTime = departureVal ? new Date(departureVal + 'T00:00:00').getTime() : null;
+                const retTime = returnVal ? new Date(returnVal + 'T00:00:00').getTime() : null;
+
+                const days = calendarContainer.querySelectorAll('.flatpickr-day');
+                days.forEach(day => {
+                    const thisDate = day.dateObj;
+                    if (!thisDate) return;
+                    const thisTime = new Date(thisDate.getFullYear(), thisDate.getMonth(), thisDate.getDate()).getTime();
+
+                    if (depTime && retTime) {
+                        if (thisTime > depTime && thisTime < retTime) {
+                            day.classList.add('inRange');
+                            day.classList.remove('startRange', 'endRange');
+                        } else if (thisTime === depTime) {
+                            day.classList.add('startRange');
+                            day.classList.remove('inRange', 'endRange');
+                        } else if (thisTime === retTime) {
+                            day.classList.add('endRange');
+                            day.classList.remove('inRange', 'startRange');
+                        } else {
+                            day.classList.remove('inRange', 'startRange', 'endRange');
+                        }
+                    } else {
+                        // Keep startRange visible even if return date is not selected yet
+                        if (depTime && thisTime === depTime) {
+                            day.classList.add('startRange');
+                            day.classList.remove('inRange', 'endRange');
+                        } else {
+                            day.classList.remove('inRange', 'startRange', 'endRange');
+                        }
+                    }
+                });
+            });
+        },
+        onDayCreate: function (dObj, dStr, fp, dayElem) {
+            const departureVal = getDatePickerValue('fecha_vuelo_ida');
+            const returnVal = getDatePickerValue('fecha_vuelo_vuelta');
+            if (departureVal) {
+                const depTime = new Date(departureVal + 'T00:00:00').getTime();
+                const thisTime = new Date(dayElem.dateObj.getFullYear(), dayElem.dateObj.getMonth(), dayElem.dateObj.getDate()).getTime();
+
+                if (returnVal) {
+                    const retTime = new Date(returnVal + 'T00:00:00').getTime();
+                    if (thisTime > depTime && thisTime < retTime) {
+                        dayElem.classList.add('inRange');
+                    } else if (thisTime === depTime) {
+                        dayElem.classList.add('startRange');
+                    } else if (thisTime === retTime) {
+                        dayElem.classList.add('endRange');
+                    }
+                } else {
+                    if (thisTime === depTime) {
+                        dayElem.classList.add('startRange');
+                    }
+                }
+            }
+        }
     });
     flatpickr("#validez_cotizacion", {
         dateFormat: "Y-m-d",
@@ -702,16 +821,8 @@ document.addEventListener('paste', e => {
 
 // Validation rules: Date checks
 function validateDates() {
-    const generalDeparture = getDatePickerValue('fecha_salida');
     const flightIda = getDatePickerValue('fecha_vuelo_ida');
     const flightVuelta = getDatePickerValue('fecha_vuelo_vuelta');
-
-    if (generalDeparture && flightIda) {
-        if (new Date(flightIda) < new Date(generalDeparture)) {
-            showAlert('warning', 'La fecha del vuelo de ida no puede ser anterior a la fecha de salida general.');
-            return false;
-        }
-    }
 
     if (flightIda && flightVuelta) {
         if (new Date(flightVuelta) < new Date(flightIda)) {
@@ -891,7 +1002,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
 
     document.getElementById('loading-overlay').style.display = 'flex';
     const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
-    
+
     if (isViewingSavedQuote) {
         document.getElementById('loading-text').innerText = `Mostrando cotización para ${paxNameForLoading}`;
     } else {
@@ -904,7 +1015,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
     // ONLY if the form is NOT in read-only mode (which means it has been edited or is a new quote)
     if (!isReadOnlyMode) {
         try {
-            document.getElementById('loading-text').innerText = `Guardando cotización en Supabase...`;
+            document.getElementById('loading-text').innerText = `Guardando en la base de datos...`;
             const saveRes = await authenticatedFetch('/api/cotizaciones', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1029,7 +1140,7 @@ function _buildPayload() {
         nombre_pax: document.getElementById('nombre_pax').value,
         destino: document.getElementById('destino').value,
         cantidad_pasajeros: parseInt(document.getElementById('cantidad_pasajeros').value),
-        fecha_salida: formatDatePickerDate(getDatePickerValue('fecha_salida')),
+        fecha_salida: formatDatePickerDate(getDatePickerValue('fecha_vuelo_ida')),
         origen: document.getElementById('origen').value,
         agente_nombre: document.getElementById('agente_nombre').value,
         fecha_vuelo_ida: formatDatePickerDate(getDatePickerValue('fecha_vuelo_ida')),
@@ -1608,8 +1719,11 @@ async function handlePDFEditImport(inputEl) {
         };
 
         // Update Flatpickr date fields
-        document.getElementById('fecha_salida')._flatpickr.setDate(formatToPicker(data.fecha_salida));
-        document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(formatToPicker(data.fecha_vuelo_ida));
+        const flightIdaStr = formatToPicker(data.fecha_vuelo_ida);
+        document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(flightIdaStr);
+        if (flightIdaStr && document.getElementById('fecha_vuelo_vuelta')._flatpickr) {
+            document.getElementById('fecha_vuelo_vuelta')._flatpickr.set('minDate', flightIdaStr);
+        }
         document.getElementById('fecha_vuelo_vuelta')._flatpickr.setDate(formatToPicker(data.fecha_vuelo_vuelta));
         if (document.getElementById('validez_cotizacion') && document.getElementById('validez_cotizacion')._flatpickr) {
             document.getElementById('validez_cotizacion')._flatpickr.setDate(formatToPicker(data.validez_cotizacion || ''));
@@ -1690,7 +1804,7 @@ async function handlePDFEditImport(inputEl) {
 }
 window.handlePDFEditImport = handlePDFEditImport;
 
-function fillTestData() {
+async function fillTestData() {
     // 1. Reset form
     resetForm();
 
@@ -1725,8 +1839,11 @@ function fillTestData() {
     };
 
     // Set dates in Flatpickr instances
-    document.getElementById('fecha_salida')._flatpickr.setDate(toYMD(departureDate));
-    document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(toYMD(departureDate));
+    const depDateStr = toYMD(departureDate);
+    document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(depDateStr);
+    if (depDateStr && document.getElementById('fecha_vuelo_vuelta')._flatpickr) {
+        document.getElementById('fecha_vuelo_vuelta')._flatpickr.set('minDate', depDateStr);
+    }
     document.getElementById('fecha_vuelo_vuelta')._flatpickr.setDate(toYMD(returnDate));
     document.getElementById('validez_cotizacion')._flatpickr.setDate(toYMD(validityDate));
 
@@ -1739,17 +1856,39 @@ function fillTestData() {
     // 4. Select baggage
     setBaggageSelection(['mano', 'carry']);
 
-    // 5. Load mock base64 images for flight screenshots to make the PDF compiler happy
-    const mockImageBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    // 5. Fetch mock base64 images from assets/test
+    const getBase64FromUrl = async (url) => {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            const blob = await res.blob();
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+        } catch (err) {
+            console.error("Error loading test image:", url, err);
+            return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; // Fallback
+        }
+    };
 
-    const setMockFlightImage = (previewId, dataId, dropzoneId) => {
+    // Fetch images in parallel
+    const [imgIdaB64, imgVueltaB64, hotel1B64, hotel2B64] = await Promise.all([
+        getBase64FromUrl('/assets/test/tramo-ida.png'),
+        getBase64FromUrl('/assets/test/tramo-vuelta.png'),
+        getBase64FromUrl('/assets/test/hotel-test-1.jpg'),
+        getBase64FromUrl('/assets/test/hotel-test-2.avif')
+    ]);
+
+    const setMockFlightImage = (previewId, dataId, dropzoneId, b64) => {
         const preview = document.getElementById(previewId);
         if (preview) {
-            preview.src = mockImageBase64;
+            preview.src = b64;
             preview.style.display = 'block';
         }
         const dataEl = document.getElementById(dataId);
-        if (dataEl) dataEl.value = mockImageBase64;
+        if (dataEl) dataEl.value = b64;
 
         const dz = document.getElementById(dropzoneId);
         if (dz) {
@@ -1760,8 +1899,8 @@ function fillTestData() {
         }
     };
 
-    setMockFlightImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida');
-    setMockFlightImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta');
+    setMockFlightImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida', imgIdaB64);
+    setMockFlightImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta', imgVueltaB64);
 
     // 6. Clear and load mock hotels
     const hotelsContainer = document.getElementById('hotels-container');
@@ -1770,12 +1909,13 @@ function fillTestData() {
 
     // Add Hotel 1 (Nuestra recomendación)
     addHotelCard({
-        nombre: 'Lopesan Costa Bávaro Resort',
+        nombre: 'Lopesan Costa Bávaro',
         estrellas: '5',
         habitacion: 'Junior Suite Tropical',
         regimen: 'Todo Incluido',
         costo: 2450.00,
-        descripcion: 'Espectacular resort de 5 estrellas con infinitas piscinas frente a la playa de arena blanca, múltiples restaurantes gourmet y actividades todo el día.'
+        descripcion: 'Espectacular resort de 5 estrellas con infinitas piscinas frente a la playa de arena blanca, múltiples restaurantes gourmet y actividades todo el día.',
+        imagen1: hotel1B64
     });
 
     // Add Hotel 2
@@ -1785,14 +1925,15 @@ function fillTestData() {
         habitacion: 'Superior Room',
         regimen: 'Todo Incluido',
         costo: 2100.00,
-        descripcion: 'Resort ideal con campo de golf, parque acuático, spa de primer nivel y acceso directo a una de las 10 mejores playas del mundo.'
+        descripcion: 'Resort ideal con campo de golf, parque acuático, spa de primer nivel y acceso directo a una de las 10 mejores playas del mundo.',
+        imagen1: hotel2B64
     });
 
     // 7. Update base label & real-time summary
     updateBaseLabel();
     updateRealTimeSummary();
 
-    showAlert('success', '✔ Datos de prueba cargados correctamente.');
+    showAlert('success', '✔ Datos de prueba cargados correctamente con fotos de prueba.');
 }
 window.fillTestData = fillTestData;
 
@@ -1949,7 +2090,7 @@ function enableFormEditing(enabled) {
     });
 
     // Deshabilitar flatpickrs
-    const dateInputs = ['fecha_salida', 'fecha_vuelo_ida', 'fecha_vuelo_vuelta', 'validez_cotizacion'];
+    const dateInputs = ['fecha_vuelo_ida', 'fecha_vuelo_vuelta', 'validez_cotizacion'];
     dateInputs.forEach(id => {
         const el = document.getElementById(id);
         if (el && el._flatpickr) {
@@ -2031,8 +2172,11 @@ async function loadSavedQuoteIntoForm(quoteId) {
         };
 
         // Set dates
-        document.getElementById('fecha_salida')._flatpickr.setDate(formatToPicker(q.fecha_salida));
-        document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(formatToPicker(q.fecha_vuelo_ida));
+        const dateIda = formatToPicker(q.fecha_vuelo_ida);
+        document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(dateIda);
+        if (dateIda && document.getElementById('fecha_vuelo_vuelta')._flatpickr) {
+            document.getElementById('fecha_vuelo_vuelta')._flatpickr.set('minDate', dateIda);
+        }
         document.getElementById('fecha_vuelo_vuelta')._flatpickr.setDate(formatToPicker(q.fecha_vuelo_vuelta));
         if (document.getElementById('validez_cotizacion') && document.getElementById('validez_cotizacion')._flatpickr) {
             document.getElementById('validez_cotizacion')._flatpickr.setDate(formatToPicker(q.validez_cotizacion || ''));
@@ -2231,7 +2375,6 @@ async function checkSession() {
         showLoginScreen();
     }
 }
-
 async function refreshSession(isInitialCheck = false) {
     try {
         const res = await fetch('/api/auth/refresh', {
@@ -2241,11 +2384,7 @@ async function refreshSession(isInitialCheck = false) {
         if (!res.ok) return false;
 
         const data = await res.json();
-        if (isInitialCheck) {
-            showSessionPrompt(data.access_token, data.username);
-        } else {
-            loginSuccess(data.access_token, data.username);
-        }
+        loginSuccess(data.access_token, data.username);
         return true;
     } catch (err) {
         console.warn("Fallo al refrescar sesión:", err);
@@ -2266,7 +2405,7 @@ function showSessionPrompt(token, username) {
     const sessionActiveContainer = document.getElementById('session-active-container');
     const sessionActiveUsername = document.getElementById('session-active-username');
     const sessionActiveBtnName = document.getElementById('session-active-btn-name');
-    
+
     if (sessionActiveContainer) sessionActiveContainer.classList.remove('hidden');
     if (sessionActiveUsername) {
         sessionActiveUsername.innerText = username === 'guest' ? 'Invitado' : username;
@@ -2278,14 +2417,14 @@ function showSessionPrompt(token, username) {
     // Configurar botones
     const btnContinue = document.getElementById('btn-continue-session');
     if (btnContinue) {
-        btnContinue.onclick = function() {
+        btnContinue.onclick = function () {
             loginSuccess(token, username);
         };
     }
 
     const btnLogout = document.getElementById('btn-logout-session');
     if (btnLogout) {
-        btnLogout.onclick = function() {
+        btnLogout.onclick = function () {
             logoutAgent(true);
         };
     }

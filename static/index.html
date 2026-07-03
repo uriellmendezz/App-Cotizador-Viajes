@@ -47,7 +47,7 @@
 
         <!-- Header Navigation -->
         <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="max-w-[95%] mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
                 <div class="flex items-center gap-4">
                     <img id="nav-logo" src="/assets/Banner%20letra%20O.png" alt="One Trip Giordano"
                         class="h-12 sm:h-16 w-auto object-contain transition-transform hover:scale-105">
@@ -70,9 +70,6 @@
                     <button id="nav-btn-config"
                         class="tab-btn px-4 py-2 text-sm font-bold rounded-full transition-all duration-300 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                         onclick="switchTab('config-tab')">Configuración</button>
-                    <button id="nav-btn-test-data"
-                        class="px-4 py-2 text-sm font-bold rounded-full bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-all duration-300 ml-2 cursor-pointer"
-                        onclick="fillTestData()">Cargar Datos de Prueba</button>
                     <button
                         class="px-4 py-2 text-sm font-bold rounded-full bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 shadow-sm transition-all duration-300 ml-2 cursor-pointer flex items-center gap-1.5"
                         onclick="logoutAgent()">
@@ -110,9 +107,6 @@
             <button id="mobile-nav-btn-config"
                 class="w-full text-left px-4 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 hover:bg-slate-100 text-slate-700"
                 onclick="switchTab('config-tab'); toggleMobileMenu();">Configuración</button>
-            <button id="mobile-nav-btn-test-data"
-                class="w-full text-left px-4 py-2.5 text-sm font-bold rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-all duration-200"
-                onclick="fillTestData(); toggleMobileMenu();">Cargar Datos de Prueba</button>
             <button id="mobile-nav-btn-logout"
                 class="w-full text-left px-4 py-2.5 text-sm font-bold rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all duration-200 flex items-center gap-1.5"
                 onclick="logoutAgent(); toggleMobileMenu();">
@@ -124,7 +118,7 @@
             </button>
         </div>
 
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-32 lg:pb-10">
+        <main class="max-w-[95%] mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-32 lg:pb-10">
             <!-- Global Alert Message -->
             <div id="alert-message"
                 class="alert hidden mb-6 p-4 rounded-xl font-semibold border text-sm transition-all duration-300"></div>
@@ -160,8 +154,7 @@
                             <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                                 <span
                                     class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">1</span>
-                                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">Datos
-                                    generales del viaje</h2>
+                                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight uppercase">Datos generales del viaje</h2>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -188,14 +181,7 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                                <div class="flex flex-col gap-2">
-                                    <label for="fecha_salida"
-                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha
-                                        Salida</label>
-                                    <input type="date" id="fecha_salida" required onchange="validateDates()"
-                                        class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
-                                </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                                 <div class="flex flex-col gap-2">
                                     <label for="origen"
                                         class="text-xs font-bold text-slate-500 uppercase tracking-wider">Origen</label>
@@ -219,8 +205,7 @@
                             <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                                 <span
                                     class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">2</span>
-                                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">Vuelos
-                                </h2>
+                                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight uppercase">Vuelos</h2>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -256,7 +241,7 @@
                                             <input type="file" id="file-vuelo-ida" accept="image/*" class="hidden"
                                                 onchange="handleImageUpload(this, 'preview-vuelo-ida', 'data-vuelo-ida')">
                                             <img id="preview-vuelo-ida"
-                                                class="dropzone-preview absolute inset-0 w-full h-full object-cover rounded-xl"
+                                                class="dropzone-preview absolute inset-0 w-full h-full object-contain bg-slate-50 rounded-xl"
                                                 alt="">
                                             <input type="hidden" id="data-vuelo-ida">
                                         </div>
@@ -295,7 +280,7 @@
                                             <input type="file" id="file-vuelo-vuelta" accept="image/*" class="hidden"
                                                 onchange="handleImageUpload(this, 'preview-vuelo-vuelta', 'data-vuelo-vuelta')">
                                             <img id="preview-vuelo-vuelta"
-                                                class="dropzone-preview absolute inset-0 w-full h-full object-cover rounded-xl"
+                                                class="dropzone-preview absolute inset-0 w-full h-full object-contain bg-slate-50 rounded-xl"
                                                 alt="">
                                             <input type="hidden" id="data-vuelo-vuelta">
                                         </div>
@@ -411,8 +396,7 @@
                                 <div class="flex items-center gap-3">
                                     <span
                                         class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">3</span>
-                                    <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">
-                                        Alojamiento</h2>
+                                    <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight uppercase">Alojamiento</h2>
                                 </div>
                                 <button type="button"
                                     class="px-4 py-2 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-full font-bold text-xs text-slate-600 uppercase tracking-wider transition-all duration-300"
@@ -430,8 +414,7 @@
                             <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                                 <span
                                     class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">4</span>
-                                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight">Traslados
-                                </h2>
+                                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight uppercase">Traslados</h2>
                             </div>
                             <div class="flex flex-col gap-2 max-w-sm">
                                 <label for="monto_traslados"
@@ -508,7 +491,7 @@
                             <div id="realtime-card-content"
                                 class="transition-all duration-500 opacity-100 h-full overflow-y-auto">
                                 <h3
-                                    class="font-display font-extrabold text-base text-slate-800 border-b border-slate-100 pb-3 mb-4 flex items-center gap-2">
+                                    class="font-display font-extrabold text-xs tracking-wider text-slate-800 border-b border-slate-100 pb-3 mb-4 flex items-center gap-2 uppercase">
                                     <svg class="w-5 h-5 text-brand-primary" fill="none" viewBox="0 0 24 24"
                                         stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round"
