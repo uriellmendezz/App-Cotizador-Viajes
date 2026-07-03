@@ -201,7 +201,7 @@ def generate_pdf(data: dict) -> bytes:
             font_uris[key] = ""
 
     # ── Resolve banner ─────────────────────────────────────────────────────
-    banner_path = ASSETS_DIR / "Letras Rosas fondo transparente.png"
+    banner_path = ASSETS_DIR / "Banner ONE TRIP cotizacion.png"
     banner_uri = _path_to_file_uri(banner_path) if banner_path.exists() else ""
 
     # ── Resolve SVG inlines ────────────────────────────────────────────────

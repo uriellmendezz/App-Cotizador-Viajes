@@ -878,7 +878,7 @@ window.updateRealTimeSummary = updateRealTimeSummary;
 let currentPdfBlob = null;
 let currentPdfFileName = '';
 
-async function generatePDFPreview(e) {
+async function generatePDFPreview(e, isViewingSavedQuote = false) {
     if (e) e.preventDefault();
     if (!validateDates()) return;
 
@@ -891,7 +891,12 @@ async function generatePDFPreview(e) {
 
     document.getElementById('loading-overlay').style.display = 'flex';
     const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
-    document.getElementById('loading-text').innerText = `Creando la cotización para ${paxNameForLoading}`;
+    
+    if (isViewingSavedQuote) {
+        document.getElementById('loading-text').innerText = `Mostrando cotización para ${paxNameForLoading}`;
+    } else {
+        document.getElementById('loading-text').innerText = `Creando la cotización para ${paxNameForLoading}`;
+    }
 
     let payload = _buildPayload();
 
@@ -921,7 +926,11 @@ async function generatePDFPreview(e) {
         console.log("Form is in Read-only mode. Skipping auto-save to Supabase.");
     }
 
-    document.getElementById('loading-text').innerText = `Generando cotización para ${paxNameForLoading}...`;
+    if (isViewingSavedQuote) {
+        document.getElementById('loading-text').innerText = `Mostrando cotización para ${paxNameForLoading}`;
+    } else {
+        document.getElementById('loading-text').innerText = `Generando cotización para ${paxNameForLoading}...`;
+    }
 
     try {
         const res = await authenticatedFetch('/api/cotizar-pdf', {
@@ -1991,8 +2000,11 @@ function enableFormEditing(enabled) {
 window.enableFormEditing = enableFormEditing;
 
 async function loadSavedQuoteIntoForm(quoteId) {
+    const cachedQuote = allSavedQuotes.find(item => item.id === quoteId);
+    const passengerName = cachedQuote ? cachedQuote.nombre_pax : 'Pasajero';
+
     document.getElementById('loading-overlay').style.display = 'flex';
-    document.getElementById('loading-text').innerText = 'Cargando cotización desde Supabase...';
+    document.getElementById('loading-text').innerText = `Mostrando cotización para ${passengerName}`;
 
     try {
         const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`);
@@ -2093,19 +2105,16 @@ async function loadSavedQuoteIntoForm(quoteId) {
         // Update breakdown
         updateRealTimeSummary();
 
-        // Hide preview results if they were open from previous generations
-        const results = document.getElementById('results-panel');
-        if (results) {
-            results.classList.add('hidden');
-            results.classList.remove('block');
-        }
+        // Ensure the correct passenger name is used in the loading text for generation
+        const exactPassengerName = q.nombre_pax || 'Pasajero';
+        document.getElementById('loading-text').innerText = `Mostrando cotización para ${exactPassengerName}`;
 
-        showAlert('success', `Cotización de ${q.nombre_pax} cargada correctamente en modo Solo Lectura.`);
+        // Auto-generate the PDF preview
+        await generatePDFPreview(null, true);
 
     } catch (err) {
-        showAlert('warning', 'Error al cargar la cotización: ' + err.message);
-    } finally {
         document.getElementById('loading-overlay').style.display = 'none';
+        showAlert('warning', 'Error al cargar la cotización: ' + err.message);
     }
 }
 window.loadSavedQuoteIntoForm = loadSavedQuoteIntoForm;
