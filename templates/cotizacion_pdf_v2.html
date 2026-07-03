@@ -92,6 +92,14 @@
             margin-bottom: 20px;
         }
 
+        .header-bar {
+            height: 3px;
+            background-color: #ff545d;
+            border-radius: 2px;
+            margin-top: 4px;
+            margin-bottom: 12px;
+        }
+
         .header-banner {
             width: 100%;
         }
@@ -103,13 +111,12 @@
         }
 
         .header-date {
-            font-size: 7.5pt;
-            color: #64748b;
-            font-weight: 600;
-            margin-bottom: 5px;
+            font-size: 6pt;
+            color: #94a3b8;
+            font-weight: 500;
+            margin: 0;
             text-align: left;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            line-height: 1;
         }
 
         /* ══════════════════════════════════════════════════════════════════
@@ -117,12 +124,12 @@
            ══════════════════════════════════════════════════════════════════ */
         .title-section {
             text-align: center;
-            margin: 22px 0 22px 0;
+            margin: 45px 0 60px 0;
         }
 
         .destination-title {
             font-weight: 900;
-            font-size: 43pt;
+            font-size: 40pt;
             text-transform: uppercase;
             color: #343434;
             letter-spacing: -0.03em;
@@ -132,7 +139,7 @@
 
         .proposal-subtitle {
             font-size: 9.5pt;
-            font-weight: 600;
+            font-weight: 500;
             color: #64748b;
             margin-top: 6px;
             letter-spacing: 0.02em;
@@ -218,7 +225,7 @@
             margin-right: -1.5px !important;
             letter-spacing: -4px !important;
             /* Más juntas */
-            margin-top: 0.5px !important;
+            margin-top: 0.4px !important;
             /* Alineación vertical con la tipografía del hotel (bajada 3px) */
         }
 
@@ -544,7 +551,7 @@
         }
 
         body.single-hotel-layout .title-section {
-            margin: 14px 0 14px 0;
+            margin: 50px 0 50px 0;
         }
 
         body.single-hotel-layout .destination-title {
@@ -556,7 +563,7 @@
             margin-bottom: 10px;
         }
 
-        body.single-hotel-layout > .section-heading {
+        body.single-hotel-layout>.section-heading {
             margin-top: 14px;
         }
 
@@ -598,7 +605,7 @@
 
         body.two-hotels-layout .title-section,
         body.three-hotels-layout .title-section {
-            margin: 10px 0 10px 0;
+            margin: 30px 0 30px 0;
         }
 
         body.two-hotels-layout .section-heading,
@@ -607,8 +614,8 @@
             margin-bottom: 8px;
         }
 
-        body.two-hotels-layout > .section-heading,
-        body.three-hotels-layout > .section-heading {
+        body.two-hotels-layout>.section-heading,
+        body.three-hotels-layout>.section-heading {
             margin-top: 12px;
         }
 
@@ -629,13 +636,13 @@
     </style>
 </head>
 
-<body class="{% if hoteles|length == 1 %}single-hotel-layout{% elif hoteles|length == 2 %}two-hotels-layout{% elif hoteles|length == 3 %}three-hotels-layout{% endif %}">
+<body
+    class="{% if hoteles|length == 1 %}single-hotel-layout{% elif hoteles|length == 2 %}two-hotels-layout{% elif hoteles|length == 3 %}three-hotels-layout{% endif %}">
 
     <!-- ═══════════════ 1. CABECERA ═══════════════ -->
     <div class="header">
-        <div class="header-date">
-            Fecha de cotización: {{ fecha_generacion }}
-        </div>
+        <div class="header-date">{{ fecha_generacion }}</div>
+        <div class="header-bar"></div>
         <div class="header-banner">
             {% if banner_path %}
             <img src="{{ banner_path }}" alt="One Trip">
