@@ -78,9 +78,9 @@ window.addEventListener('load', () => {
         flatpickr.localize(flatpickr.l10ns.es);
     }
 
-    // Hidden developer shortcut to load mock test data (Control + 9)
+    // Hidden developer shortcut to load mock test data (Control + Alt + 9)
     window.addEventListener('keydown', async (e) => {
-        if (e.ctrlKey && e.key === '9') {
+        if (e.ctrlKey && e.altKey && e.key === '9') {
             e.preventDefault();
             await fillTestData();
         }
@@ -412,6 +412,10 @@ window.switchTab = switchTab;
 
 // Show Alerts
 function showAlert(type, message, preventScroll = false) {
+    // Evitar mostrar avisos informativos o de éxito
+    if (type === 'success' || type === 'info') {
+        return;
+    }
     const el = document.getElementById('alert-message');
     el.className = `alert p-4 rounded-xl font-semibold border text-sm mb-6 transition-all duration-300`;
 
@@ -597,7 +601,7 @@ function addHotelCard(data = null) {
         <div class="flex flex-col gap-1 w-full">
             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Descripción</label>
             <div class="relative flex flex-col w-full">
-                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[80px] pr-28 resize w-full" required placeholder="Ej. Frente al mar..." style="line-height: 1.3;">${data ? (data.hotel_descripcion || data.descripcion || '') : ''}</textarea>
+                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[80px] pr-28 resize-y w-full" required placeholder="Ej. Frente al mar..." style="line-height: 1.3;">${data ? (data.hotel_descripcion || data.descripcion || '') : ''}</textarea>
                 <button type="button" class="btn-ia-optimize absolute bottom-1.5 right-1.5 text-[9px] px-2 py-1 bg-gradient-to-r from-brand-primary to-brand-accent text-white font-bold rounded-lg hover:shadow-sm active:scale-95 transition-all" onclick="optimizeDescription(this)">
                     IA Optimizar
                 </button>
@@ -612,7 +616,7 @@ function addHotelCard(data = null) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-slate-400 group-hover:text-brand-primary mb-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
                     <span class="text-xs text-slate-500 font-semibold text-center leading-tight">Seleccionar imagen<br><span class="text-[10px] text-brand-primary/80">Ctrl+V para pegar</span></span>
                     <input type="file" id="file-${cardId}-1" accept="image/*" class="hidden" onchange="handleImageUpload(this, 'preview-${cardId}-1', 'data-${cardId}-1')">
-                    <img id="preview-${cardId}-1" class="dropzone-preview absolute inset-0 w-full h-full object-cover rounded-xl" alt="">
+                    <img id="preview-${cardId}-1" class="dropzone-preview absolute inset-0 w-full h-full object-cover rounded-xl" style="display: none;" alt="">
                     <input type="hidden" id="data-${cardId}-1" class="hotel-imagen-val-1">
                 </div>
             </div>
@@ -986,6 +990,14 @@ function updateRealTimeSummary() {
 }
 window.updateRealTimeSummary = updateRealTimeSummary;
 
+function scrollToPreview() {
+    const resultsPanel = document.getElementById('results-panel');
+    if (resultsPanel) {
+        resultsPanel.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+window.scrollToPreview = scrollToPreview;
+
 let currentPdfBlob = null;
 let currentPdfFileName = '';
 
@@ -1095,8 +1107,10 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         const total = aereosTotal + hotelCost + transfersCost + adminFee;
         const perPerson = total / cantPax;
 
-        document.getElementById('res-total-price').innerText = `USD ${formatPriceES(total)}`;
-        document.getElementById('res-pax-price').innerText = `USD ${formatPriceES(perPerson)} / Pax`;
+        const elTotal = document.getElementById('res-total-price');
+        if (elTotal) elTotal.innerText = `USD ${formatPriceES(total)}`;
+        const elPax = document.getElementById('res-pax-price');
+        if (elPax) elPax.innerText = `USD ${formatPriceES(perPerson)} / Pax`;
         updateBaseLabel();
 
         // Show results panel
@@ -1104,6 +1118,11 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         resultsPanel.classList.remove('hidden');
         resultsPanel.classList.add('block');
         resultsPanel.scrollIntoView({ behavior: 'smooth' });
+
+        const btnScroll = document.getElementById('btn-scroll-to-preview');
+        if (btnScroll) {
+            btnScroll.style.display = 'flex';
+        }
 
         showAlert('success', '✔ Vista previa de PDF generada correctamente.', true);
     } catch (err) {
@@ -1497,6 +1516,10 @@ function resetForm() {
     if (results) {
         results.classList.add('hidden');
         results.classList.remove('block');
+    }
+    const btnScroll = document.getElementById('btn-scroll-to-preview');
+    if (btnScroll) {
+        btnScroll.style.display = 'none';
     }
 
     // Reset baggage selection
@@ -2050,11 +2073,32 @@ function formatCreatedAt(isoStr) {
     try {
         const d = new Date(isoStr);
         if (isNaN(d.getTime())) return '-';
-        const dd = String(d.getDate()).padStart(2, '0');
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const yyyy = d.getFullYear();
+        
         const hh = String(d.getHours()).padStart(2, '0');
         const min = String(d.getMinutes()).padStart(2, '0');
+        
+        const today = new Date();
+        const todayYear = today.getFullYear();
+        const todayMonth = today.getMonth();
+        const todayDay = today.getDate();
+        
+        const targetYear = d.getFullYear();
+        const targetMonth = d.getMonth();
+        const targetDay = d.getDate();
+        
+        if (todayYear === targetYear && todayMonth === targetMonth && todayDay === targetDay) {
+            return `Hoy, ${hh}:${min}`;
+        }
+        
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        if (yesterday.getFullYear() === targetYear && yesterday.getMonth() === targetMonth && yesterday.getDate() === targetDay) {
+            return `Ayer, ${hh}:${min}`;
+        }
+        
+        const dd = String(targetDay).padStart(2, '0');
+        const mm = String(targetMonth + 1).padStart(2, '0');
+        const yyyy = targetYear;
         return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
     } catch (e) {
         return '-';
@@ -2384,7 +2428,7 @@ async function refreshSession(isInitialCheck = false) {
         if (!res.ok) return false;
 
         const data = await res.json();
-        loginSuccess(data.access_token, data.username);
+        loginSuccess(data.access_token, data.username, isInitialCheck);
         return true;
     } catch (err) {
         console.warn("Fallo al refrescar sesión:", err);
@@ -2525,23 +2569,22 @@ async function handleLoginSubmit(e) {
     }
 }
 
-function loginSuccess(token, username) {
+function loginSuccess(token, username, isInitialCheck = false) {
     authToken = token;
     loggedInUser = username;
 
     stopLoginSlideshow();
 
-    // Ocultar login y mostrar app con animación
-    const loginScreen = document.getElementById('login-screen');
-    const appContent = document.getElementById('app-content');
+    const overlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
 
-    if (loginScreen) {
-        loginScreen.classList.add('opacity-0', 'pointer-events-none');
-        loginScreen.classList.remove('opacity-100', 'pointer-events-auto');
-    }
-    if (appContent) {
-        appContent.classList.remove('hidden');
-        appContent.classList.add('app-fade-in');
+    if (!isInitialCheck) {
+        // Mostrar overlay de carga con mensaje personalizado
+        if (overlay) {
+            if (loadingText) loadingText.innerText = "Cargando aplicación...";
+            overlay.style.display = 'flex';
+            overlay.classList.remove('hidden');
+        }
     }
 
     // Controlar UI según el rol (Invitado vs Agente)
@@ -2612,7 +2655,7 @@ function loginSuccess(token, username) {
             const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
             spanUsername.innerText = formattedName;
             const dot = badge.querySelector('span');
-            if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+            if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
         }
         badge.classList.remove('hidden');
         badge.classList.add('flex');
@@ -2622,6 +2665,45 @@ function loginSuccess(token, username) {
     const hotelsContainer = document.getElementById('hotels-container');
     if (hotelsContainer && hotelsContainer.children.length === 0) {
         addHotelCard();
+    }
+
+    if (!isInitialCheck) {
+        // Ocultar login y mostrar app con animación tras una breve demora
+        setTimeout(() => {
+            const loginScreen = document.getElementById('login-screen');
+            const appContent = document.getElementById('app-content');
+
+            if (loginScreen) {
+                loginScreen.classList.add('opacity-0', 'pointer-events-none');
+                loginScreen.classList.remove('opacity-100', 'pointer-events-auto');
+            }
+            if (appContent) {
+                appContent.classList.remove('hidden');
+                appContent.classList.add('app-fade-in');
+            }
+
+            // Ocultar overlay de carga y restablecer texto
+            if (overlay) {
+                overlay.style.display = 'none';
+                overlay.classList.add('hidden');
+            }
+            if (loadingText) {
+                loadingText.innerText = "Generando cotización...";
+            }
+        }, 2000);
+    } else {
+        // Carga inicial: transición inmediata
+        const loginScreen = document.getElementById('login-screen');
+        const appContent = document.getElementById('app-content');
+
+        if (loginScreen) {
+            loginScreen.classList.add('opacity-0', 'pointer-events-none');
+            loginScreen.classList.remove('opacity-100', 'pointer-events-auto');
+        }
+        if (appContent) {
+            appContent.classList.remove('hidden');
+            appContent.classList.add('app-fade-in');
+        }
     }
 }
 
