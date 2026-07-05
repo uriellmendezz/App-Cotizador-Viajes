@@ -39,7 +39,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-    <link rel="stylesheet" href="/static/css/style.css?v=16">
+    <link rel="stylesheet" href="/static/css/style.css?v=18">
 </head>
 
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen selection:bg-brand-primary selection:text-white">
@@ -194,13 +194,13 @@
                                     <label for="nombre_pax"
                                         class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre
                                         Pasajero</label>
-                                    <input type="text" id="nombre_pax" required placeholder="Ej. Mariana López"
+                                    <input type="text" id="nombre_pax" required placeholder="Ej. Mariana López" onblur="handleCapitalizationBlur(this)"
                                         class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                                 </div>
                                 <div class="flex flex-col gap-2">
                                     <label for="destino"
                                         class="text-xs font-bold text-slate-500 uppercase tracking-wider">Destino</label>
-                                    <input type="text" id="destino" required placeholder="Ej. Punta Cana"
+                                    <input type="text" id="destino" required placeholder="Ej. Punta Cana" onblur="handleCapitalizationBlur(this)"
                                         class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                                 </div>
                                 <div class="flex flex-col gap-2">
@@ -216,14 +216,35 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                                 <div class="flex flex-col gap-2">
                                     <label for="origen"
-                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Origen</label>
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                        <span>Origen</span>
+                                        <div class="relative group inline-block">
+                                            <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
+                                                Ciudad de salida del vuelo (ej. Córdoba, Buenos Aires).
+                                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                            </div>
+                                        </div>
+                                    </label>
                                     <input type="text" id="origen" value="Córdoba" required
                                         class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                                 </div>
                                 <div class="flex flex-col gap-2">
                                     <label for="validez_cotizacion"
-                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider">Validez
-                                        cotización</label>
+                                        class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                        <span>Validez cotización</span>
+                                        <div class="relative group inline-block">
+                                            <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
+                                                Fecha límite en la que el cliente puede reservar con estos precios.
+                                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                            </div>
+                                        </div>
+                                    </label>
                                     <input type="date" id="validez_cotizacion"
                                         class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                                 </div>
@@ -942,7 +963,7 @@
     </div>
 
     <!-- Javascript links -->
-    <script src="/static/js/main.js?v=16"></script>
+    <script src="/static/js/main.js?v=18"></script>
 </body>
 
 </html>

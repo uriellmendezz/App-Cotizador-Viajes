@@ -48,13 +48,58 @@ function formatPriceES(val) {
     return val.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function formatCapitalization(value) {
+    if (!value) return '';
+    const minorWords = ['de', 'la', 'el', 'en', 'y', 'a', 'del', 'los', 'las', 'con', 'por', 'para', 'o'];
+    
+    // Split the value into words, preserving spaces
+    const words = value.trim().split(/\s+/);
+    const formattedWords = words.map((word, index) => {
+        if (!word) return '';
+        
+        const lowerWord = word.toLowerCase();
+        
+        // If it's a minor word and NOT the first word, keep it in lowercase
+        if (minorWords.includes(lowerWord) && index > 0) {
+            return lowerWord;
+        }
+        
+        // Otherwise, capitalize the first letter and keep the rest as lowercase
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    });
+    
+    return formattedWords.join(' ');
+}
+window.formatCapitalization = formatCapitalization;
+
+function handleCapitalizationBlur(input) {
+    if (!input) return;
+    const oldVal = input.value;
+    const newVal = formatCapitalization(oldVal);
+    if (newVal !== oldVal) {
+        input.value = newVal;
+        // Trigger input event to update real-time breakdown
+        const event = new Event('input', { bubbles: true });
+        input.dispatchEvent(event);
+    }
+}
+window.handleCapitalizationBlur = handleCapitalizationBlur;
+
 function formatHabitacionValue(value) {
     if (!value) return "";
-    const trimmed = value.trim();
+    let trimmed = value.trim();
     if (trimmed === "") return "";
+
+    // Capitalize using the new helper
+    trimmed = formatCapitalization(trimmed);
 
     const normalized = trimmed.toLowerCase();
     if (normalized.includes("habitacion") || normalized.includes("habitación")) {
+        if (trimmed.startsWith("Habitacion ")) {
+            trimmed = "Habitación " + trimmed.substring(11);
+        } else if (trimmed === "Habitacion") {
+            trimmed = "Habitación";
+        }
         return trimmed;
     }
     return "Habitación " + trimmed;
@@ -67,6 +112,7 @@ function formatHabitacionInput(inputEl) {
     const formatted = formatHabitacionValue(currentVal);
     if (formatted !== currentVal) {
         inputEl.value = formatted;
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 window.formatHabitacionInput = formatHabitacionInput;
@@ -572,7 +618,7 @@ function addHotelCard(data = null) {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
             <div class="flex flex-col gap-1">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre del Hotel</label>
-                <input type="text" class="hotel-nombre-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Bahia Principe" value="${data ? (data.hotel_nombre || data.nombre || '') : ''}" oninput="updateRealTimeSummary()">
+                <input type="text" class="hotel-nombre-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Bahia Principe" value="${data ? (data.hotel_nombre || data.nombre || '') : ''}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
             </div>
             <div class="flex flex-col gap-1">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Categoría</label>
@@ -593,7 +639,18 @@ function addHotelCard(data = null) {
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Habitación</label>
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <span>Habitación</span>
+                    <div class="relative group inline-block">
+                        <svg class="w-3 h-3 text-slate-400 hover:text-slate-600 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
+                            Tipo de habitación cotizada (ej. Estándar, Vista al Mar, Suite).
+                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                        </div>
+                    </div>
+                </label>
                 <input type="text" class="hotel-habitacion-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Estándar Vista Mar" value="${habitacionVal}" onblur="formatHabitacionInput(this)">
             </div>
             <div class="flex flex-col gap-1">
