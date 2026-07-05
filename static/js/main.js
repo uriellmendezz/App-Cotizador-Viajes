@@ -234,6 +234,13 @@ window.addEventListener('load', () => {
     document.getElementById('fee_aereo_monto').addEventListener('input', updateRealTimeSummary);
     document.getElementById('monto_traslados').addEventListener('input', updateRealTimeSummary);
     document.getElementById('cantidad_pasajeros').addEventListener('change', updateRealTimeSummary);
+    document.getElementById('nombre_pax').addEventListener('input', updateRealTimeSummary);
+    document.getElementById('destino').addEventListener('input', updateRealTimeSummary);
+    document.getElementById('fecha_vuelo_ida').addEventListener('change', updateRealTimeSummary);
+    document.getElementById('fecha_vuelo_vuelta').addEventListener('change', updateRealTimeSummary);
+    if (document.getElementById('validez_cotizacion')) {
+        document.getElementById('validez_cotizacion').addEventListener('change', updateRealTimeSummary);
+    }
 
     // Setup cost input focus/blur helpers
     setupCostInputHelpers();
@@ -632,27 +639,25 @@ function addHotelCard(data = null) {
     });
 
     // Populate previews if data has images
-    setTimeout(() => {
-        if (data) {
-            const img1 = data.imagen1 || data.imagen;
-            if (img1) {
-                const previewEl = document.getElementById(`preview-${cardId}-1`);
-                if (previewEl) {
-                    previewEl.src = img1;
-                    previewEl.style.display = 'block';
-                }
-                const dataEl = document.getElementById(`data-${cardId}-1`);
-                if (dataEl) dataEl.value = img1;
-                const dz1 = document.getElementById(`dropzone-${cardId}-1`);
-                if (dz1) {
-                    const spanEl = dz1.querySelector('span');
-                    if (spanEl) spanEl.style.display = 'none';
-                    const svgEl = dz1.querySelector('svg');
-                    if (svgEl) svgEl.style.display = 'none';
-                }
+    if (data) {
+        const img1 = data.imagen1 || data.imagen;
+        if (img1) {
+            const previewEl = document.getElementById(`preview-${cardId}-1`);
+            if (previewEl) {
+                previewEl.src = img1;
+                previewEl.style.display = 'block';
+            }
+            const dataEl = document.getElementById(`data-${cardId}-1`);
+            if (dataEl) dataEl.value = img1;
+            const dz1 = document.getElementById(`dropzone-${cardId}-1`);
+            if (dz1) {
+                const spanEl = dz1.querySelector('span');
+                if (spanEl) spanEl.style.display = 'none';
+                const svgEl = dz1.querySelector('svg');
+                if (svgEl) svgEl.style.display = 'none';
             }
         }
-    }, 0);
+    }
 
     // Bind helper to the cost input of this new card
     const costInput = card.querySelector('.hotel-costo-val');
@@ -851,12 +856,52 @@ function updateBaseLabel() {
 }
 window.updateBaseLabel = updateBaseLabel;
 
+function checkIfFormHasData() {
+    if (isReadOnlyMode) {
+        return false;
+    }
+    const pax = document.getElementById('nombre_pax')?.value || '';
+    const dest = document.getElementById('destino')?.value || '';
+    const flights = document.getElementById('monto_vuelos')?.value || '';
+    const transfers = document.getElementById('monto_traslados')?.value || '';
+    const dateIda = document.getElementById('fecha_vuelo_ida')?.value || '';
+    const dateVuelta = document.getElementById('fecha_vuelo_vuelta')?.value || '';
+    
+    if (pax.trim() !== '' || dest.trim() !== '' || flights.trim() !== '' || transfers.trim() !== '' || dateIda.trim() !== '' || dateVuelta.trim() !== '') {
+        return true;
+    }
+    
+    const hotelCards = document.querySelectorAll('.hotel-option-card');
+    for (let card of hotelCards) {
+        const hName = card.querySelector('.hotel-nombre-val')?.value || '';
+        const hCost = card.querySelector('.hotel-costo-val')?.value || '';
+        const hDesc = card.querySelector('.hotel-descripcion-val')?.value || '';
+        if (hName.trim() !== '' || hCost.trim() !== '' || hDesc.trim() !== '') {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 // Real-time Cost Calculation and Sidebar Updates
 function updateRealTimeSummary() {
     const cantPax = parseInt(document.getElementById('cantidad_pasajeros').value) || 1;
     const flightsCost = parseFloat(document.getElementById('monto_vuelos').value) || 0;
     const flightsFee = parseFloat(document.getElementById('fee_aereo_monto').value) || 0;
     const transfersCost = parseFloat(document.getElementById('monto_traslados').value) || 0;
+
+    // Toggle "Limpiar Formulario" button visibility with smooth transitions
+    const clearBtn = document.getElementById('btn-clear-form');
+    if (clearBtn) {
+        if (checkIfFormHasData()) {
+            clearBtn.classList.remove('opacity-0', 'max-h-0', 'pointer-events-none', 'mt-0');
+            clearBtn.classList.add('opacity-100', 'max-h-[100px]', 'pointer-events-auto', 'mt-2');
+        } else {
+            clearBtn.classList.remove('opacity-100', 'max-h-[100px]', 'pointer-events-auto', 'mt-2');
+            clearBtn.classList.add('opacity-0', 'max-h-0', 'pointer-events-none', 'mt-0');
+        }
+    }
 
     const container = document.getElementById('realtime-breakdown-container');
     if (!container) return;
@@ -964,8 +1009,8 @@ function updateRealTimeSummary() {
                     </tr>
                     <tr>
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
-                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Gtos Admin">
-                            <span class="truncate">Gtos Admin (5%)</span>
+                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Gastos Admin">
+                            <span class="truncate">Gastos Admin (5%)</span>
                         </td>
                         ${adminFeesHtml}
                     </tr>
@@ -1016,7 +1061,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
     const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
 
     if (isViewingSavedQuote) {
-        document.getElementById('loading-text').innerText = `Mostrando cotización para ${paxNameForLoading}`;
+        document.getElementById('loading-text').innerText = `Cargando cotización para ${paxNameForLoading}`;
     } else {
         document.getElementById('loading-text').innerText = `Creando la cotización para ${paxNameForLoading}`;
     }
@@ -1050,7 +1095,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
     }
 
     if (isViewingSavedQuote) {
-        document.getElementById('loading-text').innerText = `Mostrando cotización para ${paxNameForLoading}`;
+        document.getElementById('loading-text').innerText = `Cargando cotización para ${paxNameForLoading}`;
     } else {
         document.getElementById('loading-text').innerText = `Generando cotización para ${paxNameForLoading}...`;
     }
@@ -1417,9 +1462,9 @@ window.showCustomConfirm = showCustomConfirm;
 
 function confirmNewQuote() {
     showCustomConfirm({
-        title: '¿Crear nueva cotización?',
-        desc: 'Se borrarán todos los datos cargados en el formulario actual. Esta acción no se puede deshacer.',
-        btnText: 'Sí, Empezar Nueva',
+        title: '¿Limpiar formulario?',
+        desc: 'Se borrarán todos los datos cargados en el formulario actual para iniciar una nueva cotización. Esta acción no se puede deshacer.',
+        btnText: 'Sí, Limpiar',
         callback: () => {
             currentQuoteId = null;
             enableFormEditing(true); // Habilitar formulario para la nueva cotización
@@ -2073,29 +2118,29 @@ function formatCreatedAt(isoStr) {
     try {
         const d = new Date(isoStr);
         if (isNaN(d.getTime())) return '-';
-        
+
         const hh = String(d.getHours()).padStart(2, '0');
         const min = String(d.getMinutes()).padStart(2, '0');
-        
+
         const today = new Date();
         const todayYear = today.getFullYear();
         const todayMonth = today.getMonth();
         const todayDay = today.getDate();
-        
+
         const targetYear = d.getFullYear();
         const targetMonth = d.getMonth();
         const targetDay = d.getDate();
-        
+
         if (todayYear === targetYear && todayMonth === targetMonth && todayDay === targetDay) {
             return `Hoy, ${hh}:${min}`;
         }
-        
+
         const yesterday = new Date(today);
         yesterday.setDate(today.getDate() - 1);
         if (yesterday.getFullYear() === targetYear && yesterday.getMonth() === targetMonth && yesterday.getDate() === targetDay) {
             return `Ayer, ${hh}:${min}`;
         }
-        
+
         const dd = String(targetDay).padStart(2, '0');
         const mm = String(targetMonth + 1).padStart(2, '0');
         const yyyy = targetYear;
@@ -2181,6 +2226,9 @@ function enableFormEditing(enabled) {
 
     // Actualizar indicador de edición
     updateEditingIndicator();
+
+    // Actualizar el resumen en tiempo real y la visibilidad de los controles
+    updateRealTimeSummary();
 }
 window.enableFormEditing = enableFormEditing;
 
@@ -2189,7 +2237,7 @@ async function loadSavedQuoteIntoForm(quoteId) {
     const passengerName = cachedQuote ? cachedQuote.nombre_pax : 'Pasajero';
 
     document.getElementById('loading-overlay').style.display = 'flex';
-    document.getElementById('loading-text').innerText = `Mostrando cotización para ${passengerName}`;
+    document.getElementById('loading-text').innerText = `Cargando cotización para ${passengerName}`;
 
     try {
         const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`);
@@ -2295,7 +2343,7 @@ async function loadSavedQuoteIntoForm(quoteId) {
 
         // Ensure the correct passenger name is used in the loading text for generation
         const exactPassengerName = q.nombre_pax || 'Pasajero';
-        document.getElementById('loading-text').innerText = `Mostrando cotización para ${exactPassengerName}`;
+        document.getElementById('loading-text').innerText = `Cargando cotización para ${exactPassengerName}`;
 
         // Auto-generate the PDF preview
         await generatePDFPreview(null, true);
@@ -2388,7 +2436,7 @@ function updateEditingIndicator() {
         indicator.classList.add('flex');
 
         if (isReadOnlyMode) {
-            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando cotización guardada (ID #${currentQuoteId}) [Solo Lectura]</span>`;
+            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando cotización guardada (ID #${currentQuoteId})</span>`;
 
             actionsContainer.innerHTML = `
                 <button type="button" onclick="confirmEditQuote()" class="px-3 py-1 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-brand-primary/20">Editar Cotización</button>

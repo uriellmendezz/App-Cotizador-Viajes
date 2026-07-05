@@ -202,7 +202,7 @@
             width: 13.5px !important;
             height: 13.5px !important;
             display: inline-block !important;
-            fill: currentColor !important;
+            fill: #475569 !important;
             vertical-align: middle !important;
         }
 
@@ -693,7 +693,7 @@
         <div class="flights-row {% if hoteles|length == 1 %}flights-stacked{% endif %}">
             <div class="flight-col">
                 <div class="flight-label">
-                    <span class="flight-icon">{{ svg_avion_despegando }}</span>
+                    <span class="flight-icon">{{ svg_avion_despegando.replace('<svg', '<svg fill="#334155"')|safe }}</span>
                     <span>SALIDA - {{ fecha_vuelo_ida }}</span>
                 </div>
                 <div class="flight-img-container">
@@ -704,7 +704,7 @@
             </div>
             <div class="flight-col">
                 <div class="flight-label">
-                    <span class="flight-icon">{{ svg_avion_aterrizando }}</span>
+                    <span class="flight-icon">{{ svg_avion_aterrizando.replace('<svg', '<svg fill="#334155"')|safe }}</span>
                     <span>REGRESO - {{ fecha_vuelo_vuelta }}</span>
                 </div>
                 <div class="flight-img-container">
@@ -718,7 +718,11 @@
 
     <!-- ═══════════════ 5. ALOJAMIENTO ═══════════════ -->
     <div class="hotels-section">
+        {% if hoteles|length == 1 %}
+        <div class="section-heading">Alojamiento</div>
+        {% else %}
         <div class="section-heading">Opciones de Alojamiento</div>
+        {% endif %}
 
         {% for hotel in hoteles %}
         <div class="hotel-card">
@@ -754,15 +758,15 @@
                     <!-- Service Badges -->
                     <div class="hotel-services">
                         <span class="hotel-svc-badge">
-                            <span class="badge-icon">{{ svg_noches }}</span>
+                            <span class="badge-icon">{{ svg_noches.replace('<svg', '<svg fill="#475569"')|safe }}</span>
                             {{ noches_alojamiento }}
                         </span>
                         <span class="hotel-svc-badge">
-                            <span class="badge-icon">{{ svg_dormitorios }}</span>
+                            <span class="badge-icon">{{ svg_dormitorios.replace('<svg', '<svg fill="#475569"')|safe }}</span>
                             {{ hotel.habitacion }}
                         </span>
                         <span class="hotel-svc-badge">
-                            <span class="badge-icon">{{ svg_regimen }}</span>
+                            <span class="badge-icon">{{ svg_regimen.replace('<svg', '<svg fill="#475569"')|safe }}</span>
                             {{ hotel.regimen }}
                         </span>
                     </div>
