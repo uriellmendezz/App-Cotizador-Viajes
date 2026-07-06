@@ -1,0 +1,342 @@
+/* Premium Refinements for One Trip Giordano System - Base overrides and animations */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+:root {
+    --primary-color: #ff545d;
+    --secondary-color: #343434;
+    --accent-color: #f79646;
+}
+
+/* Luxury Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f8fafc;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+body {
+    background-image:
+        radial-gradient(circle at 0% 0%, rgba(255, 84, 93, 0.04) 0%, transparent 45%),
+        radial-gradient(circle at 100% 100%, rgba(247, 150, 70, 0.04) 0%, transparent 45%);
+    background-attachment: fixed;
+}
+
+/* Micro-animations and transitions */
+.tab-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background-color: white;
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+}
+
+.tab-btn.active::after {
+    width: 30%;
+}
+
+/* Pulsing hover border animation for dropzones */
+@keyframes pulse-border {
+    0%,
+    100% {
+        border-color: rgba(255, 84, 93, 0.3);
+    }
+    50% {
+        border-color: rgba(255, 84, 93, 1);
+        box-shadow: 0 0 0 4px rgba(255, 84, 93, 0.1);
+    }
+}
+
+.dropzone {
+    border: 1px dashed rgba(203, 213, 225, 0.85) !important;
+    border-radius: 14px !important;
+    background-color: rgba(255, 255, 255, 0.6) !important;
+    transition: all 0.3s ease;
+}
+
+.dropzone:hover,
+.dropzone.dragover {
+    border-style: dashed !important;
+    animation: pulse-border 1.5s infinite;
+    background-color: rgba(255, 84, 93, 0.02) !important;
+}
+
+/* Responsive Iframe Portrait aspect ratio helper */
+.aspect-w-16 {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+}
+
+.aspect-w-16 iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Slow spinner for AI optimizer button */
+@keyframes spin-slow {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.spin-slow {
+    animation: spin-slow 1.5s linear infinite;
+}
+
+/* Bento Grid & Glassmorphism helpers */
+.bento-box {
+    background: rgba(255, 255, 255, 0.45) !important;
+    backdrop-filter: blur(15px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04) !important;
+    transition: all 0.3s ease;
+}
+
+.bento-box:hover {
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.35) !important;
+    background: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Glass inputs */
+.glass-input,
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
+    background: rgba(255, 255, 255, 0.5) !important;
+    border-radius: 12px !important;
+    transition: all 0.3s ease !important;
+}
+
+.glass-input:focus,
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+select:focus,
+textarea:focus {
+    border-color: #ff545d !important;
+    box-shadow: 0 0 0 4px rgba(255, 84, 93, 0.1) !important;
+    background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Glassmorphism Active State (Green) for Baggage Selector */
+.baggage-opt-btn {
+    transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease !important;
+}
+
+.baggage-opt-btn:hover {
+    background-color: rgba(255, 255, 255, 0.8) !important;
+    border-color: rgba(203, 213, 225, 0.9) !important;
+    transform: translateY(-1px);
+}
+
+.baggage-opt-btn.active {
+    background-color: rgba(16, 185, 129, 0.06) !important;
+    border-color: rgba(16, 185, 129, 0.3) !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.04) !important;
+    transform: translateY(0);
+}
+
+.baggage-opt-btn.active:hover {
+    background-color: rgba(16, 185, 129, 0.09) !important;
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    transform: translateY(-1px);
+}
+
+.baggage-opt-btn.active span {
+    color: #047857 !important;
+}
+
+.baggage-opt-btn.active .checkbox-indicator {
+    border-color: #10b981 !important;
+}
+
+.baggage-opt-btn.active .icon-container {
+    background: rgba(16, 185, 129, 0.18) !important;
+    color: #10b981 !important;
+}
+
+.baggage-opt-btn.active img {
+    opacity: 1 !important;
+    filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(130deg) brightness(95%) contrast(92%) !important;
+}
+
+/* Custom Flatpickr Theme overrides */
+.flatpickr-calendar {
+    font-family: 'Montserrat', sans-serif !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(15px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06) !important;
+    border-radius: 20px !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.selected.inRange,
+.flatpickr-day.startRange.inRange,
+.flatpickr-day.endRange.inRange,
+.flatpickr-day.selected:focus,
+.flatpickr-day.startRange:focus,
+.flatpickr-day.endRange:focus,
+.flatpickr-day.selected:hover,
+.flatpickr-day.startRange:hover,
+.flatpickr-day.endRange:hover,
+.flatpickr-day.selected.prevMonthDay,
+.flatpickr-day.selected.nextMonthDay {
+    background: #ff545d !important;
+    border-color: #ff545d !important;
+    color: #fff !important;
+}
+
+.flatpickr-day:hover {
+    background: rgba(255, 84, 93, 0.1) !important;
+}
+
+.flatpickr-day.inRange {
+    background: rgba(255, 84, 93, 0.12) !important;
+    border-color: transparent !important;
+    color: #ff545d !important;
+}
+
+.flatpickr-months .flatpickr-month {
+    color: #343434 !important;
+}
+
+.flatpickr-current-month .numInputWrapper span.arrowUp:after {
+    border-bottom-color: #343434 !important;
+}
+
+.flatpickr-current-month .numInputWrapper span.arrowDown:after {
+    border-top-color: #343434 !important;
+}
+
+/* Resizer drag border and utilities */
+#layout-resizer {
+    transition: background-color 0.2s, opacity 0.2s;
+}
+#layout-resizer:hover .resizer-line,
+#layout-resizer.is-dragging .resizer-line {
+    background-color: var(--primary-color) !important;
+}
+.is-resizing {
+    cursor: col-resize !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+.is-resizing * {
+    transition: none !important;
+}
+
+/* Custom SVG filters for summary icons */
+.icon-slate {
+    filter: brightness(0) saturate(100%) invert(49%) sepia(13%) saturate(919%) hue-rotate(178deg) brightness(93%) contrast(88%);
+}
+.icon-brand {
+    filter: brightness(0) saturate(100%) invert(56%) sepia(87%) saturate(2256%) hue-rotate(328deg) brightness(101%) contrast(102%);
+}
+.icon-dark {
+    filter: brightness(0) saturate(100%) invert(12%) sepia(21%) saturate(1518%) hue-rotate(185deg) brightness(94%) contrast(92%);
+}
+.is-resizing iframe {
+    pointer-events: none !important;
+}
+
+/* ── Login screen visual effects ── */
+#login-screen {
+    background-image:
+        radial-gradient(circle at 0% 0%, rgba(255, 84, 93, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 100% 100%, rgba(247, 150, 70, 0.08) 0%, transparent 45%);
+    background-color: #f8fafc;
+}
+
+.login-bg-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    z-index: 1;
+    filter: blur(0px) saturate(110%);
+    transition: opacity 2s ease-in-out;
+    transform: scale(1.08);
+}
+
+@keyframes kenburns {
+    0% {
+        transform: scale(1.04) translate(0, 0);
+    }
+    50% {
+        transform: scale(1.10) translate(-0.8%, 0.4%);
+    }
+    100% {
+        transform: scale(1.04) translate(0, 0);
+    }
+}
+
+.login-bg-layer.active {
+    opacity: 0.88;
+    z-index: 2;
+    animation: kenburns 25s infinite ease-in-out alternate;
+}
+
+/* Frost glassmorphism design for the login container */
+.glass-login-panel {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+}
+
+.app-fade-in {
+    animation: fadeInApp 0.6s forwards ease-out;
+}
+
+@keyframes fadeInApp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -164,3 +164,37 @@ def delete_cotizacion(quote_id) -> bool:
     except Exception as e:
         print(f"Supabase Client: Failed to delete quote {quote_id}. Details: {e}")
         return False
+
+def save_cotizacion_rapida(quote_data: dict) -> dict | None:
+    """
+    Formats and inserts a quick quote into Supabase.
+    """
+    client = get_supabase_client()
+    if not client:
+        print("Supabase Client: Client not configured. Skipping quick save operation.")
+        return None
+        
+    try:
+        payload = {
+            "pasajero_nombre": quote_data.get("pasajero_nombre", ""),
+            "cantidad_pasajeros": int(quote_data.get("cantidad_pasajeros", 1)),
+            "vuelos": quote_data.get("vuelos", []),
+            "hoteles": quote_data.get("hoteles", []),
+            "gastos_iva": float(quote_data.get("gastos_iva", 0.0)),
+            "total_cotizacion": float(quote_data.get("total_cotizacion", 0.0)),
+            "agente_id": quote_data.get("agente_id", "")
+        }
+        
+        print(f"Supabase Client: Inserting new quick quote for '{payload['pasajero_nombre']}'...")
+        response = client.table("cotizaciones_rapidas").insert(payload).execute()
+        
+        if response and hasattr(response, 'data') and response.data:
+            print("Supabase Client: Quick quote saved successfully!")
+            return response.data[0]
+        else:
+            print(f"Supabase Client: Operation did not return data. Response: {response}")
+            return None
+    except Exception as e:
+        print(f"Supabase Client: Operation failed. Error: {e}")
+        return None
+
