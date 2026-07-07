@@ -191,24 +191,30 @@ export function initPresupuestar() {
     const btnReset = document.getElementById('btn-reset-quick-budget');
     if (btnReset) {
         btnReset.onclick = () => {
-            if (confirm('¿Estás seguro de que deseas restablecer el presupuesto rápido a los valores por defecto? Se perderán los cambios no guardados.')) {
-                window.savedQuickQuoteState = null;
-                currentQuickQuoteId = null;
-                isQuickFeeLocked = true;
-                const passengerInput = document.getElementById('rapido-pasajero');
-                if (passengerInput) passengerInput.value = '';
-                const paxCountInput = document.getElementById('rapido-pax-count');
-                if (paxCountInput) paxCountInput.value = 2;
-                const destInput = document.getElementById('rapido-destino');
-                if (destInput) destInput.value = '';
-                const depPickerInput = document.getElementById('rapido-fecha-salida');
-                if (depPickerInput && depPickerInput._flatpickr) depPickerInput._flatpickr.clear();
-                const retPickerInput = document.getElementById('rapido-fecha-regreso');
-                if (retPickerInput && retPickerInput._flatpickr) retPickerInput._flatpickr.clear();
-                loadDefaultQuickQuoteRows();
-                calculateQuickQuote();
-                saveQuickQuoteFormState();
-            }
+            window.showCustomConfirm({
+                title: '¿Limpiar tabla?',
+                desc: '¿Estás seguro de que deseas restablecer el presupuesto rápido a los valores por defecto? Se perderán todos los cambios no guardados.',
+                btnText: 'Sí, Limpiar',
+                confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
+                callback: () => {
+                    window.savedQuickQuoteState = null;
+                    currentQuickQuoteId = null;
+                    isQuickFeeLocked = true;
+                    const passengerInput = document.getElementById('rapido-pasajero');
+                    if (passengerInput) passengerInput.value = '';
+                    const paxCountInput = document.getElementById('rapido-pax-count');
+                    if (paxCountInput) paxCountInput.value = 2;
+                    const destInput = document.getElementById('rapido-destino');
+                    if (destInput) destInput.value = '';
+                    const depPickerInput = document.getElementById('rapido-fecha-salida');
+                    if (depPickerInput && depPickerInput._flatpickr) depPickerInput._flatpickr.clear();
+                    const retPickerInput = document.getElementById('rapido-fecha-regreso');
+                    if (retPickerInput && retPickerInput._flatpickr) retPickerInput._flatpickr.clear();
+                    loadDefaultQuickQuoteRows();
+                    calculateQuickQuote();
+                    saveQuickQuoteFormState();
+                }
+            });
         };
     }
 
@@ -744,9 +750,13 @@ function renderQuickBudgetsTable(budgetsList) {
 
 async function deleteQuickBudget(quoteId, event) {
     if (event) event.stopPropagation();
-    if (confirm("¿Estás seguro de que deseas eliminar este presupuesto rápido?")) {
-        await executeDeleteQuickBudget(quoteId);
-    }
+    window.showCustomConfirm({
+        title: '¿Eliminar presupuesto?',
+        desc: '¿Estás seguro de que deseas eliminar este presupuesto rápido? Esta acción no se puede deshacer.',
+        btnText: 'Sí, Eliminar',
+        confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
+        callback: () => executeDeleteQuickBudget(quoteId)
+    });
 }
 window.deleteQuickBudget = deleteQuickBudget;
 

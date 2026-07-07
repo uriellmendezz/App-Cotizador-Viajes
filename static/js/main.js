@@ -458,3 +458,58 @@ function stopLoaderIconCycling() {
 
 window.showLoader = showLoader;
 window.hideLoader = hideLoader;
+
+let currentConfirmCallback = null;
+let currentCancelCallback = null;
+
+function showCustomConfirm({ title, desc, btnText, confirmColorClass, callback, cancelCallback }) {
+    const titleEl = document.getElementById('confirm-modal-title');
+    const descEl = document.getElementById('confirm-modal-desc');
+    const confirmBtn = document.getElementById('confirm-modal-btn-confirm');
+
+    if (titleEl) titleEl.innerText = title;
+    if (descEl) descEl.innerText = desc;
+    if (confirmBtn) {
+        confirmBtn.innerText = btnText || 'Confirmar';
+        // Reset classes
+        confirmBtn.className = "flex-1 px-4 py-2.5 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer";
+        if (confirmColorClass) {
+            confirmBtn.className += " " + confirmColorClass;
+        } else {
+            confirmBtn.className += " bg-brand-primary hover:bg-brand-primary/95 shadow-brand-primary/20";
+        }
+    }
+
+    currentConfirmCallback = callback;
+    currentCancelCallback = cancelCallback || null;
+
+    const modal = document.getElementById('confirm-modal');
+    const box = document.getElementById('confirm-modal-box');
+    if (modal && box) {
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        modal.classList.add('opacity-100', 'pointer-events-auto');
+        box.classList.remove('scale-90');
+        box.classList.add('scale-100');
+    }
+}
+window.showCustomConfirm = showCustomConfirm;
+
+function closeConfirmModal(confirmAction) {
+    const modal = document.getElementById('confirm-modal');
+    const box = document.getElementById('confirm-modal-box');
+    if (modal && box) {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        modal.classList.remove('opacity-100', 'pointer-events-auto');
+        box.classList.add('scale-90');
+        box.classList.remove('scale-100');
+    }
+
+    if (confirmAction) {
+        if (currentConfirmCallback) currentConfirmCallback();
+    } else {
+        if (currentCancelCallback) currentCancelCallback();
+    }
+    currentConfirmCallback = null;
+    currentCancelCallback = null;
+}
+window.closeConfirmModal = closeConfirmModal;
