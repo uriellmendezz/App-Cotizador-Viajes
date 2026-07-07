@@ -1,4 +1,5 @@
 let isQuickFeeLocked = true;
+let currentQuickQuoteId = null;
 
 const conceptTypes = {
     'vuelo': {
@@ -37,6 +38,7 @@ const typeOrder = {
 };
 
 export function initPresupuestar() {
+    currentQuickQuoteId = null;
     // Bind main events
     const paxCountInput = document.getElementById('rapido-pax-count');
     if (paxCountInput) {
@@ -450,13 +452,11 @@ async function saveQuickQuote(andRedirect = false) {
         total_cotizacion: totalFinal
     };
     
-    const overlay = document.getElementById('loading-overlay');
-    const loadingText = document.getElementById('loading-text');
-    if (overlay) {
-        if (loadingText) loadingText.innerText = "Guardando presupuesto rápido...";
-        overlay.style.display = 'flex';
-        overlay.classList.remove('hidden');
+    if (currentQuickQuoteId) {
+        payload.id = currentQuickQuoteId;
     }
+    
+    window.showLoader("Guardando presupuesto rápido...");
     
     try {
         const res = await window.authenticatedFetch('/api/presupuestos', {
@@ -469,6 +469,9 @@ async function saveQuickQuote(andRedirect = false) {
             const errData = await res.json();
             throw new Error(errData.detail || "Error al guardar");
         }
+        
+        const saved = await res.json();
+        currentQuickQuoteId = saved.id;
         
         window.showAlert('success', 'Presupuesto rápido guardado correctamente.');
         
@@ -484,6 +487,7 @@ async function saveQuickQuote(andRedirect = false) {
             };
             window.navigateTo('/cotizar');
         } else {
+            currentQuickQuoteId = null;
             document.getElementById('rapido-pasajero').value = '';
             document.getElementById('rapido-pax-count').value = '2';
             loadDefaultQuickQuoteRows();
@@ -491,10 +495,7 @@ async function saveQuickQuote(andRedirect = false) {
     } catch (err) {
         window.showAlert('warning', 'Error al procesar: ' + err.message);
     } finally {
-        if (overlay) {
-            overlay.style.display = 'none';
-            overlay.classList.add('hidden');
-        }
+        window.hideLoader();
     }
 }
 
@@ -627,18 +628,13 @@ async function loadQuickBudgetIntoForm(quoteId) {
         return;
     }
     
-    const overlay = document.getElementById('loading-overlay');
-    const loadingText = document.getElementById('loading-text');
-    if (overlay) {
-        if (loadingText) loadingText.innerText = "Cargando presupuesto rápido...";
-        overlay.style.display = 'flex';
-        overlay.classList.remove('hidden');
-    }
+    window.showLoader("Cargando presupuesto rápido...");
     
     try {
         const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`);
         if (!res.ok) throw new Error("No se pudo cargar el presupuesto rápido.");
         const q = await res.json();
+        currentQuickQuoteId = q.id;
         
         document.getElementById('rapido-pasajero').value = q.pasajero_nombre || '';
         document.getElementById('rapido-pax-count').value = q.cantidad_pasajeros || 2;
@@ -713,10 +709,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
     } catch (err) {
         window.showAlert('warning', 'Error al cargar: ' + err.message);
     } finally {
-        if (overlay) {
-            overlay.style.display = 'none';
-            overlay.classList.add('hidden');
-        }
+        window.hideLoader();
     }
 }
 window.loadQuickBudgetIntoForm = loadQuickBudgetIntoForm;

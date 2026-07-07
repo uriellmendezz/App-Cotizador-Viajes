@@ -1081,13 +1081,12 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         return;
     }
 
-    document.getElementById('loading-overlay').style.display = 'flex';
     const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
 
     if (isViewingSavedQuote) {
-        document.getElementById('loading-text').innerText = `Cargando cotización para ${paxNameForLoading}`;
+        window.showLoader(`Cargando cotización para ${paxNameForLoading}`);
     } else {
-        document.getElementById('loading-text').innerText = `Creando la cotización para ${paxNameForLoading}`;
+        window.showLoader(`Creando la cotización para ${paxNameForLoading}`);
     }
 
     let payload = _buildPayload();
@@ -1096,7 +1095,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
     // ONLY if the form is NOT in read-only mode (which means it has been edited or is a new quote)
     if (!isReadOnlyMode) {
         try {
-            document.getElementById('loading-text').innerText = `Guardando en la base de datos...`;
+            window.showLoader(`Guardando en la base de datos...`);
             const saveRes = await authenticatedFetch('/api/cotizaciones', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1119,9 +1118,9 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
     }
 
     if (isViewingSavedQuote) {
-        document.getElementById('loading-text').innerText = `Cargando cotización para ${paxNameForLoading}`;
+        window.showLoader(`Cargando cotización para ${paxNameForLoading}`);
     } else {
-        document.getElementById('loading-text').innerText = `Generando cotización para ${paxNameForLoading}...`;
+        window.showLoader(`Generando cotización para ${paxNameForLoading}...`);
     }
 
     try {
@@ -1139,7 +1138,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         const blob = await res.blob();
         currentPdfBlob = blob;
 
-        document.getElementById('loading-overlay').style.display = 'none';
+        window.hideLoader();
 
         // Update PDF iframe preview source
         const url = window.URL.createObjectURL(blob);
@@ -1195,7 +1194,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
 
         showAlert('success', '✔ Vista previa de PDF generada correctamente.', true);
     } catch (err) {
-        document.getElementById('loading-overlay').style.display = 'none';
+        window.hideLoader();
         showAlert('warning', 'Error al generar el PDF: ' + err.message);
     }
 }
@@ -1301,8 +1300,7 @@ async function handleExcelImport(inputEl) {
     const file = inputEl.files[0];
     if (!file) return;
 
-    document.getElementById('loading-overlay').style.display = 'flex';
-    document.getElementById('loading-text').innerText = 'Analizando archivo Excel / CSV...';
+    window.showLoader('Analizando archivo Excel / CSV...');
 
     const formData = new FormData();
     formData.append('file', file);
@@ -1320,7 +1318,7 @@ async function handleExcelImport(inputEl) {
 
         const quotes = await res.json();
         importedQuotes = quotes;
-        document.getElementById('loading-overlay').style.display = 'none';
+        window.hideLoader();
 
         // Populate results table
         const tbody = document.getElementById('import-table-body');
@@ -1347,7 +1345,7 @@ async function handleExcelImport(inputEl) {
         document.getElementById('import-results-panel').classList.remove('hidden');
         document.getElementById('import-results-panel').classList.add('block');
     } catch (err) {
-        document.getElementById('loading-overlay').style.display = 'none';
+        window.hideLoader();
         alert('Error: ' + err.message);
     }
 }
@@ -1769,8 +1767,7 @@ async function handlePDFEditImport(inputEl) {
     const file = inputEl.files[0];
     if (!file) return;
 
-    document.getElementById('loading-overlay').style.display = 'flex';
-    document.getElementById('loading-text').innerText = 'Extrayendo metadatos del PDF...';
+    window.showLoader('Extrayendo metadatos del PDF...');
 
     try {
         const formData = new FormData();
@@ -1890,7 +1887,7 @@ async function handlePDFEditImport(inputEl) {
         console.error(e);
         showAlert('error', e.message || 'Error al importar la cotización.');
     } finally {
-        document.getElementById('loading-overlay').style.display = 'none';
+        window.hideLoader();
         inputEl.value = ''; // Reset file input
     }
 }
@@ -2031,111 +2028,269 @@ window.fillTestData = fillTestData;
 
 // ── CRUD Functions for Supabase ──
 
+let allSavedQuickQuotes = [];
+let savedQuotesActiveTab = 'detalladas';
+
 async function loadSavedQuotesList() {
     const tbody = document.getElementById('db-quotes-table-body');
     if (!tbody) return;
 
-    // Limpiar input de búsqueda cuando se recarga la lista
     const searchInput = document.getElementById('quote-search-input');
     if (searchInput) searchInput.value = '';
+
+    updateTabButtonsUI();
 
     tbody.innerHTML = `
         <tr>
             <td colspan="7" class="p-8 text-center text-slate-400">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" class="spin-slow animate-spin inline mr-2 text-brand-primary"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-                Cargando cotizaciones desde Supabase...
+                Cargando propuestas desde Supabase...
             </td>
         </tr>
     `;
 
     try {
-        const res = await authenticatedFetch('/api/cotizaciones');
-        if (!res.ok) throw new Error("Error al obtener las cotizaciones de la base de datos.");
-        const quotes = await res.json();
+        // Fetch detailed and quick budgets in parallel
+        const [resQuotes, resQuick] = await Promise.all([
+            authenticatedFetch('/api/cotizaciones'),
+            authenticatedFetch('/api/presupuestos')
+        ]);
 
-        // Almacenar en la variable global
-        allSavedQuotes = quotes;
+        if (!resQuotes.ok) throw new Error("Error al obtener las cotizaciones detalladas.");
+        if (!resQuick.ok) throw new Error("Error al obtener los presupuestos rápidos.");
 
-        // Renderizar cotizaciones (por defecto, todas filtradas pero limitadas a 10)
-        renderQuotesTable(allSavedQuotes);
+        allSavedQuotes = await resQuotes.json();
+        allSavedQuickQuotes = await resQuick.json();
 
+        renderActiveTabTable();
     } catch (err) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="7" class="p-8 text-center text-rose-500 font-bold">
-                    Error al cargar las cotizaciones: ${err.message}
+                    Error al cargar los datos: ${err.message}
                 </td>
             </tr>
         `;
     }
 }
 
-function renderQuotesTable(quotesList) {
-    const tbody = document.getElementById('db-quotes-table-body');
-    if (!tbody) return;
+function updateTabButtonsUI() {
+    const tabDetalladas = document.getElementById('tab-detalladas');
+    const tabRapidos = document.getElementById('tab-rapidos');
+    const searchInput = document.getElementById('quote-search-input');
+    if (!tabDetalladas || !tabRapidos) return;
 
-    tbody.innerHTML = '';
-    if (quotesList.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="7" class="p-8 text-center text-slate-400 font-semibold">
-                    No se encontraron cotizaciones.
-                </td>
-            </tr>
-        `;
-        return;
+    if (savedQuotesActiveTab === 'detalladas') {
+        tabDetalladas.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-slate-200 bg-white text-slate-800 -mb-[1px] relative z-20 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        tabRapidos.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mb-[1px] relative z-10 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        if (searchInput) searchInput.placeholder = "Buscar por pasajero o destino...";
+    } else {
+        tabDetalladas.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mb-[1px] relative z-10 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        tabRapidos.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-slate-200 bg-white text-slate-800 -mb-[1px] relative z-20 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        if (searchInput) searchInput.placeholder = "Buscar por pasajero...";
+    }
+}
+
+function switchSavedQuotesTab(tabName) {
+    if (savedQuotesActiveTab === tabName) return;
+
+    const wrapper = document.getElementById('db-quotes-table-wrapper');
+    if (wrapper) {
+        wrapper.classList.add('tab-transition-hidden');
     }
 
-    // Limitar visualización a un máximo de 10 elementos (ya ordenados de Supabase)
-    const quotesToDisplay = quotesList.slice(0, 10);
+    setTimeout(() => {
+        savedQuotesActiveTab = tabName;
+        
+        // Clear search bar
+        const searchInput = document.getElementById('quote-search-input');
+        if (searchInput) searchInput.value = '';
+        
+        updateTabButtonsUI();
+        renderActiveTabTable();
+        
+        if (wrapper) {
+            // Force reflow
+            wrapper.offsetHeight;
+            wrapper.classList.remove('tab-transition-hidden');
+        }
+    }, 200);
+}
+window.switchSavedQuotesTab = switchSavedQuotesTab;
 
-    quotesToDisplay.forEach(q => {
-        const tr = document.createElement('tr');
-        tr.className = 'border-b border-slate-100 hover:bg-rose-50/30 transition-colors duration-150';
+function renderActiveTabTable(customFilteredList = null) {
+    const thead = document.getElementById('db-quotes-table-header');
+    const tbody = document.getElementById('db-quotes-table-body');
+    if (!thead || !tbody) return;
 
-        // Format date YYYY-MM-DD to DD/MM/YYYY
-        let fechaSalidaFormatted = q.fecha_salida || '';
-        if (fechaSalidaFormatted.includes('-')) {
-            const parts = fechaSalidaFormatted.split('-');
-            if (parts.length === 3) {
-                fechaSalidaFormatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
-            }
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    if (savedQuotesActiveTab === 'detalladas') {
+        // Detailed headers (no text for delete column header)
+        thead.innerHTML = `
+            <tr class="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                <th class="p-3 hidden sm:table-cell">Fecha Creado</th>
+                <th class="p-3">Pasajero</th>
+                <th class="p-3">Destino</th>
+                <th class="p-3 hidden md:table-cell">Agente</th>
+                <th class="p-3 hidden sm:table-cell">Fecha Salida</th>
+                <th class="p-3 text-right">Costo Total</th>
+                <th class="w-12 p-3"></th>
+            </tr>
+        `;
+
+        const list = customFilteredList || allSavedQuotes;
+        if (list.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="p-8 text-center text-slate-400 font-semibold">
+                        No se encontraron cotizaciones detalladas.
+                    </td>
+                </tr>
+            `;
+            return;
         }
 
-        const totalUSD = q.costo_total || 0;
-        const fechaCreadoFormatted = formatCreatedAt(q.created_at);
+        const displayList = list.slice(0, 10);
+        displayList.forEach(q => {
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-slate-100 hover:bg-rose-50/40 transition-colors duration-150 cursor-pointer';
+            tr.setAttribute('onclick', `loadSavedQuoteIntoForm('${q.id}')`);
 
-        tr.innerHTML = `
-            <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
-            <td class="p-3 font-semibold text-slate-800">${q.nombre_pax || 'Sin Nombre'}</td>
-            <td class="p-3">${q.destino || 'Sin Destino'}</td>
-            <td class="p-3 hidden md:table-cell">${q.agente_nombre || '-'}</td>
-            <td class="p-3 hidden sm:table-cell">${fechaSalidaFormatted}</td>
-            <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
-            <td class="p-3 flex justify-center gap-2">
-                <button type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="loadSavedQuoteIntoForm('${q.id}')">Ver</button>
-                <button type="button" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-500 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="deleteSavedQuote('${q.id}')">Borrar</button>
-            </td>
+            let fechaSalidaFormatted = q.fecha_salida || '';
+            if (fechaSalidaFormatted.includes('-')) {
+                const parts = fechaSalidaFormatted.split('-');
+                if (parts.length === 3) fechaSalidaFormatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+
+            const totalUSD = q.costo_total || 0;
+            const fechaCreadoFormatted = formatCreatedAt(q.created_at);
+
+            tr.innerHTML = `
+                <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
+                <td class="p-3 font-semibold text-slate-800">${q.nombre_pax || 'Sin Nombre'}</td>
+                <td class="p-3">${q.destino || 'Sin Destino'}</td>
+                <td class="p-3 hidden md:table-cell">${q.agente_nombre || '-'}</td>
+                <td class="p-3 hidden sm:table-cell">${fechaSalidaFormatted}</td>
+                <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
+                <td class="p-3 flex justify-center">
+                    <button type="button" 
+                            class="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" 
+                            onclick="event.stopPropagation(); deleteSavedQuote('${q.id}')"
+                            title="Eliminar Cotización">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } else {
+        // Quick Budgets headers (no text for delete column header)
+        thead.innerHTML = `
+            <tr class="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                <th class="p-3 hidden sm:table-cell">Fecha Creado</th>
+                <th class="p-3">Pasajero</th>
+                <th class="p-3 hidden md:table-cell">Agente</th>
+                <th class="p-3 text-right">Costo Total</th>
+                <th class="w-12 p-3"></th>
+            </tr>
         `;
-        tbody.appendChild(tr);
-    });
+
+        const list = customFilteredList || allSavedQuickQuotes;
+        if (list.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="p-8 text-center text-slate-400 font-semibold">
+                        No se encontraron presupuestos rápidos.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const displayList = list.slice(0, 10);
+        displayList.forEach(q => {
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-slate-100 hover:bg-rose-50/40 transition-colors duration-150 cursor-pointer';
+            tr.setAttribute('onclick', `window.loadQuickBudgetIntoForm('${q.id}')`);
+
+            const totalUSD = q.total_cotizacion || 0;
+            const fechaCreadoFormatted = formatCreatedAt(q.created_at);
+
+            tr.innerHTML = `
+                <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
+                <td class="p-3 font-semibold text-slate-800">${q.pasajero_nombre || 'Sin Nombre'}</td>
+                <td class="p-3 hidden md:table-cell">${q.agente_id || '-'}</td>
+                <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
+                <td class="p-3 flex justify-center">
+                    <button type="button" 
+                            class="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" 
+                            onclick="event.stopPropagation(); deleteSavedQuickQuote('${q.id}')"
+                            title="Eliminar Presupuesto">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
 }
+window.renderActiveTabTable = renderActiveTabTable;
 
 function filterSavedQuotes() {
     const query = document.getElementById('quote-search-input').value.toLowerCase().trim();
-    if (!query) {
-        renderQuotesTable(allSavedQuotes);
-        return;
+    
+    if (savedQuotesActiveTab === 'detalladas') {
+        if (!query) {
+            renderActiveTabTable(allSavedQuotes);
+            return;
+        }
+        const filtered = allSavedQuotes.filter(q => {
+            const name = (q.nombre_pax || '').toLowerCase();
+            const dest = (q.destino || '').toLowerCase();
+            return name.includes(query) || dest.includes(query);
+        });
+        renderActiveTabTable(filtered);
+    } else {
+        if (!query) {
+            renderActiveTabTable(allSavedQuickQuotes);
+            return;
+        }
+        const filtered = allSavedQuickQuotes.filter(q => {
+            const name = (q.pasajero_nombre || '').toLowerCase();
+            return name.includes(query);
+        });
+        renderActiveTabTable(filtered);
     }
-
-    const filtered = allSavedQuotes.filter(q => {
-        const name = (q.nombre_pax || '').toLowerCase();
-        const dest = (q.destino || '').toLowerCase();
-        return name.includes(query) || dest.includes(query);
-    });
-
-    renderQuotesTable(filtered);
 }
+
+async function deleteSavedQuickQuote(quoteId) {
+    showCustomConfirm({
+        title: '¿Eliminar presupuesto rápido?',
+        desc: 'Esta acción borrará el registro de Supabase de forma definitiva. No se puede deshacer.',
+        btnText: 'Sí, Eliminar',
+        confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
+        callback: async () => {
+            try {
+                const res = await authenticatedFetch(`/api/presupuestos/${quoteId}`, {
+                    method: 'DELETE'
+                });
+                if (!res.ok) throw new Error("No se pudo eliminar el presupuesto rápido.");
+                showAlert('success', 'Presupuesto rápido eliminado con éxito.');
+                loadSavedQuotesList();
+            } catch (e) {
+                showAlert('warning', 'Error al eliminar: ' + e.message);
+            }
+        }
+    });
+}
+window.deleteSavedQuickQuote = deleteSavedQuickQuote;
 
 function formatCreatedAt(isoStr) {
     if (!isoStr) return '-';
@@ -2267,8 +2422,7 @@ async function loadSavedQuoteIntoForm(quoteId) {
     const cachedQuote = allSavedQuotes.find(item => item.id === quoteId);
     const passengerName = cachedQuote ? cachedQuote.nombre_pax : 'Pasajero';
 
-    document.getElementById('loading-overlay').style.display = 'flex';
-    document.getElementById('loading-text').innerText = `Cargando cotización para ${passengerName}`;
+    window.showLoader(`Cargando cotización para ${passengerName}`);
 
     try {
         const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`);
@@ -2374,13 +2528,13 @@ async function loadSavedQuoteIntoForm(quoteId) {
 
         // Ensure the correct passenger name is used in the loading text for generation
         const exactPassengerName = q.nombre_pax || 'Pasajero';
-        document.getElementById('loading-text').innerText = `Cargando cotización para ${exactPassengerName}`;
+        window.showLoader(`Cargando cotización para ${exactPassengerName}`);
 
         // Auto-generate the PDF preview
         await generatePDFPreview(null, true);
 
     } catch (err) {
-        document.getElementById('loading-overlay').style.display = 'none';
+        window.hideLoader();
         showAlert('warning', 'Error al cargar la cotización: ' + err.message);
     }
 }
@@ -2589,6 +2743,13 @@ export function initCotizar() {
 }
 
 export function initSavedQuotes() {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam === 'rapidos') {
+        savedQuotesActiveTab = 'rapidos';
+    } else {
+        savedQuotesActiveTab = 'detalladas';
+    }
     loadSavedQuotesList();
 }
 

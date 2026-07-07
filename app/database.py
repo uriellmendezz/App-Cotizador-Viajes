@@ -114,7 +114,7 @@ def save_cotizacion(quote_data: dict) -> dict | None:
 
 def get_cotizaciones() -> list:
     """
-    Retrieves all saved quotes metadata from Supabase.
+    Retrieves all saved detailed quotes metadata from Supabase.
     """
     client = get_supabase_client()
     if not client:
@@ -122,11 +122,12 @@ def get_cotizaciones() -> list:
         return []
     try:
         response = client.table("cotizaciones").select(
-            "id, nombre_pax, destino, cantidad_pasajeros, fecha_salida, origen, agente_nombre, costo_total, precio_persona, created_at"
+            "id, nombre_pax, destino, cantidad_pasajeros, fecha_salida, origen, agente_nombre, costo_total, precio_persona, created_at, base_habitacion"
         ).order("created_at", desc=True).execute()
         
-        if response and hasattr(response, 'data'):
-            return response.data
+        if response and hasattr(response, 'data') and response.data:
+            # Filter out quick budgets
+            return [q for q in response.data if q.get("base_habitacion") != "PRESUPUESTO_RAPIDO"]
         return []
     except Exception as e:
         print(f"Supabase Client: Failed to retrieve quotes. Details: {e}")
@@ -167,7 +168,7 @@ def delete_cotizacion(quote_id) -> bool:
 
 def save_cotizacion_rapida(quote_data: dict) -> dict | None:
     """
-    Formats and inserts a quick quote into Supabase.
+    Formats and inserts or updates a quick quote in the main cotizaciones table of Supabase.
     """
     client = get_supabase_client()
     if not client:
@@ -175,22 +176,58 @@ def save_cotizacion_rapida(quote_data: dict) -> dict | None:
         return None
         
     try:
+        # Map quick quote to detailed quote schema
         payload = {
-            "pasajero_nombre": quote_data.get("pasajero_nombre", ""),
+            "nombre_pax": quote_data.get("pasajero_nombre", ""),
             "cantidad_pasajeros": int(quote_data.get("cantidad_pasajeros", 1)),
-            "vuelos": quote_data.get("vuelos", []),
-            "hoteles": quote_data.get("hoteles", []),
+            "costo_total": float(quote_data.get("total_cotizacion", 0.0)),
+            "precio_persona": float(quote_data.get("total_cotizacion", 0.0)) / max(1, int(quote_data.get("cantidad_pasajeros", 1))),
+            "agente_nombre": quote_data.get("agente_id", ""),
+            "base_habitacion": "PRESUPUESTO_RAPIDO",
+            
+            # Store lists as JSON arrays in standard fields
+            "equipaje": quote_data.get("vuelos", []), # Store quick flights list in equipaje JSONB field
+            "hoteles": quote_data.get("hoteles", []),   # Store quick hotels list in hoteles JSONB field
+            
+            # Defaults for compatibility
+            "destino": "",
+            "origen": "",
+            "fecha_salida": None,
+            "fecha_vuelo_ida": None,
+            "fecha_vuelo_vuelta": None,
+            "validez_cotizacion": None,
+            "monto_vuelos": 0.0,
+            "fee_aereo": 0.0,
+            "monto_traslados": 0.0,
             "gastos_iva": float(quote_data.get("gastos_iva", 0.0)),
-            "total_cotizacion": float(quote_data.get("total_cotizacion", 0.0)),
-            "agente_id": quote_data.get("agente_id", "")
+            "noches_alojamiento": "",
+            "img_vuelo_ida": "",
+            "img_vuelo_vuelta": ""
         }
         
-        print(f"Supabase Client: Inserting new quick quote for '{payload['pasajero_nombre']}'...")
-        response = client.table("cotizaciones_rapidas").insert(payload).execute()
+        quote_id = quote_data.get("id")
+        if quote_id:
+            print(f"Supabase Client: Updating quick quote #{quote_id} for '{payload['nombre_pax']}'...")
+            response = client.table("cotizaciones").update(payload).eq("id", quote_id).execute()
+        else:
+            print(f"Supabase Client: Inserting new quick quote for '{payload['nombre_pax']}'...")
+            response = client.table("cotizaciones").insert(payload).execute()
         
         if response and hasattr(response, 'data') and response.data:
+            # Map back to quick quote response format
+            row = response.data[0]
             print("Supabase Client: Quick quote saved successfully!")
-            return response.data[0]
+            return {
+                "id": row["id"],
+                "pasajero_nombre": row["nombre_pax"],
+                "cantidad_pasajeros": row["cantidad_pasajeros"],
+                "vuelos": row["equipaje"],
+                "hoteles": row["hoteles"],
+                "gastos_iva": row["gastos_iva"],
+                "total_cotizacion": row["costo_total"],
+                "agente_id": row["agente_nombre"],
+                "created_at": row["created_at"]
+            }
         else:
             print(f"Supabase Client: Operation did not return data. Response: {response}")
             return None
@@ -200,19 +237,30 @@ def save_cotizacion_rapida(quote_data: dict) -> dict | None:
 
 def get_cotizaciones_rapidas() -> list:
     """
-    Retrieves all saved quick quotes metadata from Supabase.
+    Retrieves all saved quick quotes metadata from the cotizaciones Supabase table.
     """
     client = get_supabase_client()
     if not client:
         print("Supabase Client: Client not configured. Skipping get operation.")
         return []
     try:
-        response = client.table("cotizaciones_rapidas").select(
-            "id, pasajero_nombre, cantidad_pasajeros, total_cotizacion, agente_id, created_at"
-        ).order("created_at", desc=True).execute()
+        response = client.table("cotizaciones").select(
+            "id, nombre_pax, cantidad_pasajeros, costo_total, agente_nombre, base_habitacion, created_at"
+        ).eq("base_habitacion", "PRESUPUESTO_RAPIDO").order("created_at", desc=True).execute()
         
         if response and hasattr(response, 'data'):
-            return response.data
+            # Map schema to match quick quote list structure
+            mapped = []
+            for row in response.data:
+                mapped.append({
+                    "id": row["id"],
+                    "pasajero_nombre": row["nombre_pax"],
+                    "cantidad_pasajeros": row["cantidad_pasajeros"],
+                    "total_cotizacion": row["costo_total"],
+                    "agente_id": row["agente_nombre"],
+                    "created_at": row["created_at"]
+                })
+            return mapped
         return []
     except Exception as e:
         print(f"Supabase Client: Failed to retrieve quick quotes. Details: {e}")
@@ -220,16 +268,27 @@ def get_cotizaciones_rapidas() -> list:
 
 def get_cotizacion_rapida_by_id(quote_id) -> dict | None:
     """
-    Retrieves a single quick quote by its ID.
+    Retrieves a single quick quote by its ID from the cotizaciones Supabase table.
     """
     client = get_supabase_client()
     if not client:
         print("Supabase Client: Client not configured. Skipping get by ID operation.")
         return None
     try:
-        response = client.table("cotizaciones_rapidas").select("*").eq("id", quote_id).execute()
+        response = client.table("cotizaciones").select("*").eq("id", quote_id).eq("base_habitacion", "PRESUPUESTO_RAPIDO").execute()
         if response and hasattr(response, 'data') and response.data:
-            return response.data[0]
+            row = response.data[0]
+            return {
+                "id": row["id"],
+                "pasajero_nombre": row["nombre_pax"],
+                "cantidad_pasajeros": row["cantidad_pasajeros"],
+                "vuelos": row["equipaje"],  # mapped back from equipaje
+                "hoteles": row["hoteles"],
+                "gastos_iva": row["gastos_iva"],
+                "total_cotizacion": row["costo_total"],
+                "agente_id": row["agente_nombre"],
+                "created_at": row["created_at"]
+            }
         return None
     except Exception as e:
         print(f"Supabase Client: Failed to retrieve quick quote {quote_id}. Details: {e}")
@@ -237,14 +296,14 @@ def get_cotizacion_rapida_by_id(quote_id) -> dict | None:
 
 def delete_cotizacion_rapida(quote_id) -> bool:
     """
-    Deletes a quick quote from the database.
+    Deletes a quick quote from the cotizaciones table.
     """
     client = get_supabase_client()
     if not client:
         print("Supabase Client: Client not configured. Skipping delete operation.")
         return False
     try:
-        response = client.table("cotizaciones_rapidas").delete().eq("id", quote_id).execute()
+        response = client.table("cotizaciones").delete().eq("id", quote_id).eq("base_habitacion", "PRESUPUESTO_RAPIDO").execute()
         return True
     except Exception as e:
         print(f"Supabase Client: Failed to delete quick quote {quote_id}. Details: {e}")

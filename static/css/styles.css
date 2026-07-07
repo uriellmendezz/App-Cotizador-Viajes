@@ -282,9 +282,6 @@ textarea:focus {
 
 /* ── Login screen visual effects ── */
 #login-screen {
-    background-image:
-        radial-gradient(circle at 0% 0%, rgba(255, 84, 93, 0.08) 0%, transparent 45%),
-        radial-gradient(circle at 100% 100%, rgba(247, 150, 70, 0.08) 0%, transparent 45%);
     background-color: #f8fafc;
 }
 
@@ -298,37 +295,44 @@ textarea:focus {
     background-position: center;
     opacity: 0;
     z-index: 1;
-    filter: blur(0px) saturate(110%);
-    transition: opacity 2s ease-in-out;
+    filter: brightness(0.85) saturate(110%);
+    transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1);
     transform: scale(1.08);
 }
 
+/* Smooth zoom-in/zoom-out Ken Burns animation */
 @keyframes kenburns {
     0% {
-        transform: scale(1.04) translate(0, 0);
+        transform: scale(1.05) translate(0, 0);
     }
     50% {
-        transform: scale(1.10) translate(-0.8%, 0.4%);
+        transform: scale(1.12) translate(-1%, 0.5%);
     }
     100% {
-        transform: scale(1.04) translate(0, 0);
+        transform: scale(1.05) translate(0, 0);
     }
 }
 
 .login-bg-layer.active {
-    opacity: 0.88;
+    opacity: 0.85; /* Beautiful saturation inside its 60% container */
     z-index: 2;
-    animation: kenburns 25s infinite ease-in-out alternate;
+    animation: kenburns 30s infinite ease-in-out alternate;
 }
 
-/* Frost glassmorphism design for the login container */
+/* Clean application-native card style for login container */
 .glass-login-panel {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+    background: #ffffff !important;
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.04) !important;
+    border-radius: 2.5rem !important;
+    transition: all 0.3s ease !important;
 }
+
+.glass-login-panel:hover {
+    box-shadow: 0 30px 60px -12px rgba(15, 23, 42, 0.06) !important;
+    border-color: rgba(226, 232, 240, 1) !important;
+}
+
 
 .app-fade-in {
     animation: fadeInApp 0.6s forwards ease-out;
@@ -344,3 +348,27 @@ textarea:focus {
         transform: translateY(0);
     }
 }
+
+/* Typewriter blinking cursor */
+#login-typewriter::after {
+    content: '|';
+    animation: blinkCursor 0.8s infinite;
+    margin-left: 3px;
+    color: var(--primary-color, #ff545d);
+}
+
+@keyframes blinkCursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* Smooth tab table transitions */
+.tab-transition {
+    transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-transition-hidden {
+    opacity: 0;
+    transform: translateY(4px);
+}
+
