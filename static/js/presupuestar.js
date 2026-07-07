@@ -27,11 +27,48 @@ const conceptTypes = {
     }
 };
 
+const typeOrder = {
+    'vuelo': 1,
+    'fee-aereo': 2,
+    'hotel': 3,
+    'traslado': 4,
+    'admin': 5,
+    'iva': 6
+};
+
 export function initPresupuestar() {
     // Bind main events
     const paxCountInput = document.getElementById('rapido-pax-count');
     if (paxCountInput) {
         paxCountInput.addEventListener('input', () => calculateQuickQuote());
+    }
+
+    // Initialize flatpickr on date fields
+    if (typeof flatpickr !== 'undefined') {
+        flatpickr("#rapido-fecha-salida", {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d/m/Y",
+            disableMobile: "true",
+            placeholder: "Opcional",
+            onChange: function (selectedDates, dateStr, instance) {
+                const returnPicker = document.getElementById('rapido-fecha-regreso')?._flatpickr;
+                if (returnPicker) {
+                    if (selectedDates[0]) {
+                        returnPicker.set('minDate', selectedDates[0]);
+                    } else {
+                        returnPicker.set('minDate', null);
+                    }
+                }
+            }
+        });
+        flatpickr("#rapido-fecha-regreso", {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d/m/Y",
+            disableMobile: "true",
+            placeholder: "Opcional"
+        });
     }
 
     const btnSaveOnly = document.getElementById('btn-save-quick-only');
@@ -47,26 +84,66 @@ export function initPresupuestar() {
     // Add buttons
     const btnAddFlight = document.getElementById('btn-add-flight');
     if (btnAddFlight) {
-        btnAddFlight.onclick = () => addQuickBudgetRow({ tipo: 'vuelo', label: 'Vuelo Adicional' });
+        btnAddFlight.onclick = () => {
+            const label = getNextLabelForType('vuelo');
+            addQuickBudgetRow({ tipo: 'vuelo', label: label });
+        };
     }
 
     const btnAddHotel = document.getElementById('btn-add-hotel');
     if (btnAddHotel) {
-        btnAddHotel.onclick = () => addQuickBudgetRow({ tipo: 'hotel', label: 'Alojamiento Adicional' });
+        btnAddHotel.onclick = () => {
+            const label = getNextLabelForType('hotel');
+            addQuickBudgetRow({ tipo: 'hotel', label: label });
+        };
     }
 
     const btnAddTransfer = document.getElementById('btn-add-transfer');
     if (btnAddTransfer) {
-        btnAddTransfer.onclick = () => addQuickBudgetRow({ tipo: 'traslado', label: 'Traslado Adicional' });
+        btnAddTransfer.onclick = () => {
+            const label = getNextLabelForType('traslado');
+            addQuickBudgetRow({ tipo: 'traslado', label: label });
+        };
     }
 
     loadDefaultQuickQuoteRows();
+}
+
+function getNextLabelForType(tipo) {
+    const tbody = document.getElementById('quick-budget-body');
+    const count = tbody ? tbody.querySelectorAll(`tr.quick-row .quick-row-tipo[value="${tipo}"]`).length : 0;
+    
+    if (count === 0) {
+        if (tipo === 'hotel') return 'Alojamiento';
+        return conceptTypes[tipo].label;
+    } else {
+        if (tipo === 'vuelo') return 'Vuelo Adicional';
+        if (tipo === 'hotel') return 'Alojamiento Adicional';
+        if (tipo === 'traslado') return 'Traslado Adicional';
+        return conceptTypes[tipo].label + ' Adicional';
+    }
 }
 
 function loadDefaultQuickQuoteRows() {
     const tbody = document.getElementById('quick-budget-body');
     if (!tbody) return;
     tbody.innerHTML = '';
+    
+    // Clear title and passengers meta fields
+    const passengerInput = document.getElementById('rapido-pasajero');
+    if (passengerInput) passengerInput.value = '';
+    
+    const paxCountInput = document.getElementById('rapido-pax-count');
+    if (paxCountInput) paxCountInput.value = 2;
+
+    const destInput = document.getElementById('rapido-destino');
+    if (destInput) destInput.value = '';
+
+    const depPickerInput = document.getElementById('rapido-fecha-salida');
+    if (depPickerInput && depPickerInput._flatpickr) depPickerInput._flatpickr.clear();
+
+    const retPickerInput = document.getElementById('rapido-fecha-regreso');
+    if (retPickerInput && retPickerInput._flatpickr) retPickerInput._flatpickr.clear();
     
     addQuickBudgetRow({ tipo: 'vuelo', isDefault: true });
     addQuickBudgetRow({ tipo: 'fee-aereo', isDefault: true });
@@ -89,30 +166,32 @@ function addQuickBudgetRow(data = null) {
     const labelVal = data && data.label ? data.label : conceptTypes[selectedTipo].label;
     const montoVal = (data && data.monto !== undefined) ? data.monto : '';
     const isDefault = data && data.isDefault;
+    const isUndeletable = (selectedTipo === 'fee-aereo' || selectedTipo === 'admin');
     
     tr.innerHTML = `
         <td class="py-3.5 font-bold text-slate-700 flex items-center gap-2 pl-3 bg-slate-50/80">
             <span class="quick-row-icon flex items-center justify-center">${conceptTypes[selectedTipo].icon}</span>
-            <span class="text-sm font-semibold text-slate-700">${labelVal}</span>
+            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none p-0 m-0 w-full max-w-[200px]" value="${labelVal}" title="Haz clic para renombrar este concepto" style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important;" autocomplete="off">
             <input type="hidden" class="quick-row-tipo" value="${selectedTipo}">
-            <input type="hidden" class="quick-row-label" value="${labelVal}">
-            <span class="quick-fee-unlock-container flex items-center ${selectedTipo === 'fee-aereo' ? 'block' : 'hidden'}">
-                <button type="button" class="quick-row-fee-unlock text-slate-400 hover:text-brand-primary focus:outline-none transition-colors p-1 cursor-pointer" title="Activar/Desactivar edición manual">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                </button>
-            </span>
         </td>
         <td class="py-3.5 text-right">
-            <div class="relative flex items-center justify-end max-w-[180px] ml-auto">
-                <span class="absolute left-2.5 text-[10px] font-extrabold text-slate-400 pointer-events-none">USD</span>
-                <input type="number" step="0.01" min="0" class="quick-row-monto border border-slate-200 rounded-xl pl-9 pr-2.5 py-1.5 text-right w-full text-sm font-semibold focus:outline-none focus:border-brand-primary" placeholder="0.00" value="${montoVal}">
+            <div class="flex items-center justify-end gap-2 max-w-[240px] ml-auto">
+                <span class="quick-fee-unlock-container flex items-center ${selectedTipo === 'fee-aereo' ? 'block' : 'hidden'} mr-0.5">
+                    <button type="button" class="quick-row-fee-unlock flex items-center justify-center text-slate-400 hover:text-brand-primary bg-slate-100 hover:bg-slate-200 transition-all duration-300 p-1.5 cursor-pointer rounded-full" title="Activar/Desactivar edición manual">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </button>
+                </span>
+                <div class="relative flex items-center justify-end max-w-[180px] w-full">
+                    <span class="absolute left-2.5 text-[10px] font-extrabold text-slate-400 pointer-events-none">USD</span>
+                    <input type="number" step="0.01" min="0" class="quick-row-monto border border-slate-200 rounded-xl pl-9 pr-2.5 py-1.5 text-right w-full text-sm font-semibold focus:outline-none focus:border-brand-primary" placeholder="0.00" value="${montoVal}">
+                </div>
             </div>
         </td>
         <td class="quick-row-pax py-3.5 text-right font-semibold text-slate-500 pr-3">USD 0,00</td>
         <td class="py-3.5 text-center">
-            <button type="button" class="btn-delete-row text-rose-500 hover:text-rose-700 focus:outline-none cursor-pointer p-1 ${isDefault ? 'invisible pointer-events-none' : ''}">
+            <button type="button" class="btn-delete-row text-rose-500 hover:text-rose-700 focus:outline-none cursor-pointer p-1 ${isUndeletable ? 'invisible pointer-events-none' : ''}">
                 <svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
@@ -142,7 +221,28 @@ function addQuickBudgetRow(data = null) {
     }
 
     syncQuickRowEditableState(tr);
+    sortQuickBudgetRows();
     calculateQuickQuote();
+}
+
+function sortQuickBudgetRows() {
+    const tbody = document.getElementById('quick-budget-body');
+    if (!tbody) return;
+    
+    const rows = Array.from(tbody.querySelectorAll('tr.quick-row'));
+    if (rows.length <= 1) return;
+    
+    rows.sort((a, b) => {
+        const typeA = a.querySelector('.quick-row-tipo')?.value || '';
+        const typeB = b.querySelector('.quick-row-tipo')?.value || '';
+        
+        const orderA = typeOrder[typeA] || 99;
+        const orderB = typeOrder[typeB] || 99;
+        
+        return orderA - orderB;
+    });
+    
+    rows.forEach(row => tbody.appendChild(row));
 }
 
 function syncQuickRowEditableState(tr) {
@@ -162,7 +262,8 @@ function syncQuickRowEditableState(tr) {
             
             const btnUnlock = tr.querySelector('.quick-row-fee-unlock');
             if (btnUnlock) {
-                btnUnlock.className = "quick-row-fee-unlock text-slate-400 hover:text-brand-primary focus:outline-none transition-colors p-1 cursor-pointer";
+                btnUnlock.className = "quick-row-fee-unlock flex items-center justify-center text-slate-400 hover:text-brand-primary bg-slate-100 hover:bg-slate-200 transition-all duration-300 p-1.5 cursor-pointer rounded-full";
+                btnUnlock.innerHTML = `<svg class="w-3.5 h-3.5 transition-all duration-300 transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>`;
             }
         } else {
             montoInput.readOnly = false;
@@ -171,7 +272,8 @@ function syncQuickRowEditableState(tr) {
             
             const btnUnlock = tr.querySelector('.quick-row-fee-unlock');
             if (btnUnlock) {
-                btnUnlock.className = "quick-row-fee-unlock bg-brand-primary text-white hover:bg-brand-primary/95 focus:outline-none transition-colors p-1 cursor-pointer rounded-full";
+                btnUnlock.className = "quick-row-fee-unlock flex items-center justify-center text-white bg-brand-primary hover:bg-brand-primary/95 transition-all duration-300 p-1.5 cursor-pointer rounded-full shadow-sm shadow-brand-primary/20";
+                btnUnlock.innerHTML = `<svg class="w-3.5 h-3.5 transition-all duration-300 transform scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>`;
             }
         }
     } else if (tipo === 'admin') {
@@ -287,6 +389,18 @@ async function saveQuickQuote(andRedirect = false) {
     const passengerName = document.getElementById('rapido-pasajero')?.value || '';
     const paxCount = parseInt(document.getElementById('rapido-pax-count')?.value) || 2;
     
+    // Check if there is at least one flight, hotel, or transfer service
+    const rows = Array.from(document.querySelectorAll('#quick-budget-body tr.quick-row'));
+    const hasService = rows.some(tr => {
+        const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
+        return (tipo === 'vuelo' || tipo === 'hotel' || tipo === 'traslado');
+    });
+    
+    if (!hasService) {
+        window.showAlert('warning', 'Para poder guardar el presupuesto, debe haber por lo menos un servicio de Vuelo, Alojamiento o Traslado.');
+        return;
+    }
+    
     const vuelos = [];
     const hoteles = [];
     let ivaSum = 0;
@@ -317,6 +431,18 @@ async function saveQuickQuote(andRedirect = false) {
         } else if (tipo === 'iva') {
             ivaSum += monto;
         }
+    });
+    
+    const destino = document.getElementById('rapido-destino')?.value || '';
+    const fechaSalida = document.getElementById('rapido-fecha-salida')?.value || '';
+    const fechaRegreso = document.getElementById('rapido-fecha-regreso')?.value || '';
+    
+    hoteles.push({
+        nombre: "METADATA_PRESUPUESTO_RAPIDO",
+        costo: 0,
+        destino: destino,
+        fecha_salida: fechaSalida,
+        fecha_regreso: fechaRegreso
     });
     
     const adminVal = totalTerrestreNeto * 0.05;
@@ -524,6 +650,16 @@ async function loadQuickBudgetIntoForm(quoteId) {
         document.getElementById('rapido-pasajero').value = q.pasajero_nombre || '';
         document.getElementById('rapido-pax-count').value = q.cantidad_pasajeros || 2;
         
+        // Reset optional inputs first
+        const destInput = document.getElementById('rapido-destino');
+        if (destInput) destInput.value = '';
+
+        const depPickerInput = document.getElementById('rapido-fecha-salida');
+        if (depPickerInput && depPickerInput._flatpickr) depPickerInput._flatpickr.clear();
+
+        const retPickerInput = document.getElementById('rapido-fecha-regreso');
+        if (retPickerInput && retPickerInput._flatpickr) retPickerInput._flatpickr.clear();
+        
         const tbody = document.getElementById('quick-budget-body');
         tbody.innerHTML = '';
         
@@ -556,6 +692,16 @@ async function loadQuickBudgetIntoForm(quoteId) {
         // Add Hotel/Traslado rows
         if (q.hoteles && q.hoteles.length > 0) {
             q.hoteles.forEach(h => {
+                if (h.nombre === "METADATA_PRESUPUESTO_RAPIDO") {
+                    if (destInput) destInput.value = h.destino || '';
+                    if (h.fecha_salida && depPickerInput && depPickerInput._flatpickr) {
+                        depPickerInput._flatpickr.setDate(h.fecha_salida);
+                    }
+                    if (h.fecha_regreso && retPickerInput && retPickerInput._flatpickr) {
+                        retPickerInput._flatpickr.setDate(h.fecha_regreso);
+                    }
+                    return;
+                }
                 const tipo = h.nombre.toLowerCase().includes('traslado') ? 'traslado' : 'hotel';
                 addQuickBudgetRow({ tipo: tipo, label: h.nombre, monto: h.costo });
             });
@@ -609,6 +755,21 @@ async function fillQuickTestData() {
 
     passengerInput.value = 'Familia Rodriguez';
     paxCountInput.value = 4;
+
+    const destInput = document.getElementById('rapido-destino');
+    if (destInput) destInput.value = 'Punta Cana';
+
+    const today = new Date();
+    const departureDate = new Date(today);
+    departureDate.setDate(today.getDate() + 30);
+    const returnDate = new Date(today);
+    returnDate.setDate(today.getDate() + 37);
+
+    const depPickerInput = document.getElementById('rapido-fecha-salida');
+    if (depPickerInput && depPickerInput._flatpickr) depPickerInput._flatpickr.setDate(departureDate);
+
+    const retPickerInput = document.getElementById('rapido-fecha-regreso');
+    if (retPickerInput && retPickerInput._flatpickr) retPickerInput._flatpickr.setDate(returnDate);
 
     const tbody = document.getElementById('quick-budget-body');
     if (tbody) tbody.innerHTML = '';
