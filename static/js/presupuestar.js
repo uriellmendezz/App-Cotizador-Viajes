@@ -150,7 +150,6 @@ function loadDefaultQuickQuoteRows() {
     addQuickBudgetRow({ tipo: 'hotel', isDefault: true, label: 'Hotel' });
     addQuickBudgetRow({ tipo: 'traslado', isDefault: true });
     addQuickBudgetRow({ tipo: 'admin', isDefault: true });
-    addQuickBudgetRow({ tipo: 'iva', isDefault: true });
     
     isQuickFeeLocked = true;
 }
@@ -169,21 +168,21 @@ function addQuickBudgetRow(data = null) {
     const isUndeletable = (selectedTipo === 'fee-aereo' || selectedTipo === 'admin');
     
     tr.innerHTML = `
-        <td class="py-3.5 font-bold text-slate-700 flex items-center gap-2 pl-3 bg-slate-50/80">
+        <td class="py-3.5 font-bold text-slate-700 flex items-center gap-2 pl-3 bg-white">
             <span class="quick-row-icon flex items-center justify-center">${conceptTypes[selectedTipo].icon}</span>
-            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none p-0 m-0 w-full max-w-[200px]" value="${labelVal}" title="Haz clic para renombrar este concepto" style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important;" autocomplete="off">
+            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none m-0 w-full" value="${labelVal}" title="Haz clic para renombrar este concepto" style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 4px 8px !important; margin: 0 !important;" autocomplete="off">
             <input type="hidden" class="quick-row-tipo" value="${selectedTipo}">
         </td>
-        <td class="py-3.5 text-right">
-            <div class="flex items-center justify-end gap-2 max-w-[240px] ml-auto">
-                <span class="quick-fee-unlock-container flex items-center ${selectedTipo === 'fee-aereo' ? 'block' : 'hidden'} mr-0.5">
+        <td class="py-3.5 text-right relative">
+            <div class="flex items-center justify-end max-w-[180px] ml-auto">
+                <span class="quick-fee-unlock-container absolute right-full top-1/2 -translate-y-1/2 mr-2 flex items-center ${selectedTipo === 'fee-aereo' ? 'block' : 'hidden'}">
                     <button type="button" class="quick-row-fee-unlock flex items-center justify-center text-slate-400 hover:text-brand-primary bg-slate-100 hover:bg-slate-200 transition-all duration-300 p-1.5 cursor-pointer rounded-full" title="Activar/Desactivar edición manual">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                     </button>
                 </span>
-                <div class="relative flex items-center justify-end max-w-[180px] w-full">
+                <div class="relative flex items-center justify-end w-full">
                     <span class="absolute left-2.5 text-[10px] font-extrabold text-slate-400 pointer-events-none">USD</span>
                     <input type="number" step="0.01" min="0" class="quick-row-monto border border-slate-200 rounded-xl pl-9 pr-2.5 py-1.5 text-right w-full text-sm font-semibold focus:outline-none focus:border-brand-primary" placeholder="0.00" value="${montoVal}">
                 </div>
@@ -352,7 +351,6 @@ function calculateQuickQuote() {
     let totalAereo = 0;
     let totalTerrestreNeto = 0;
     let totalAdminFee = 0;
-    let totalIva = 0;
     
     document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
@@ -366,8 +364,6 @@ function calculateQuickQuote() {
             totalTerrestreNeto += monto;
         } else if (tipo === 'admin') {
             totalAdminFee += monto;
-        } else if (tipo === 'iva') {
-            totalIva += monto;
         }
         
         const paxCell = tr.querySelector('.quick-row-pax');
@@ -376,7 +372,7 @@ function calculateQuickQuote() {
         }
     });
     
-    const totalFinal = totalAereo + totalTerrestreNeto + totalAdminFee + totalIva;
+    const totalFinal = totalAereo + totalTerrestreNeto + totalAdminFee;
     
     const elTotalFinal = document.getElementById('rapido-total-final');
     if (elTotalFinal) elTotalFinal.innerText = `USD ${window.formatPriceES(totalFinal)}`;
@@ -403,7 +399,6 @@ async function saveQuickQuote(andRedirect = false) {
     
     const vuelos = [];
     const hoteles = [];
-    let ivaSum = 0;
     let totalAereo = 0;
     let totalTerrestreNeto = 0;
     
@@ -428,8 +423,6 @@ async function saveQuickQuote(andRedirect = false) {
         } else if (tipo === 'traslado') {
             totalTerrestreNeto += monto;
             hoteles.push({ nombre: label, costo: monto });
-        } else if (tipo === 'iva') {
-            ivaSum += monto;
         }
     });
     
@@ -446,14 +439,14 @@ async function saveQuickQuote(andRedirect = false) {
     });
     
     const adminVal = totalTerrestreNeto * 0.05;
-    const totalFinal = totalAereo + totalTerrestreNeto + adminVal + ivaSum;
+    const totalFinal = totalAereo + totalTerrestreNeto + adminVal;
     
     const payload = {
         pasajero_nombre: passengerName,
         cantidad_pasajeros: paxCount,
         vuelos: vuelos,
         hoteles: hoteles,
-        gastos_iva: ivaSum,
+        gastos_iva: 0,
         total_cotizacion: totalFinal
     };
     
@@ -710,9 +703,6 @@ async function loadQuickBudgetIntoForm(quoteId) {
         // Add Admin row
         addQuickBudgetRow({ tipo: 'admin' });
         
-        // Add IVA row
-        addQuickBudgetRow({ tipo: 'iva', monto: q.gastos_iva || 0 });
-        
         // Sync locks on all rows
         document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
             syncQuickRowEditableState(tr);
@@ -781,7 +771,6 @@ async function fillQuickTestData() {
     addQuickBudgetRow({ tipo: 'hotel', label: 'Riu Palace Aruba', monto: 3200.00 });
     addQuickBudgetRow({ tipo: 'traslado', label: 'Traslado Privado In/Out', monto: 250.00 });
     addQuickBudgetRow({ tipo: 'admin', isDefault: true });
-    addQuickBudgetRow({ tipo: 'iva', isDefault: true, monto: 300.00 });
 
     // Sync locks on all rows
     document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
@@ -793,3 +782,21 @@ async function fillQuickTestData() {
     window.showAlert('success', '✔ Montos de prueba cargados correctamente en Presupuesto Rápido.');
 }
 window.fillQuickTestData = fillQuickTestData;
+
+function adjustQuickInputWidth(input) {
+    if (!input) return;
+    const tempSpan = document.createElement('span');
+    tempSpan.style.visibility = 'hidden';
+    tempSpan.style.position = 'absolute';
+    tempSpan.style.whiteSpace = 'pre';
+    tempSpan.style.font = window.getComputedStyle(input).font;
+    tempSpan.innerText = input.value || input.placeholder || '';
+    document.body.appendChild(tempSpan);
+    
+    const extraPadding = 24; 
+    const newWidth = Math.max(80, tempSpan.offsetWidth + extraPadding);
+    input.style.width = newWidth + 'px';
+    
+    document.body.removeChild(tempSpan);
+}
+window.adjustQuickInputWidth = adjustQuickInputWidth;

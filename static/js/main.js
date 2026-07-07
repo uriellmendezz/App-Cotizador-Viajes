@@ -132,6 +132,7 @@ async function loadHeaderConfig() {
                     navLogo.classList.remove('hidden');
                 }
             }
+            window.agencyConfig = config;
             isConfigLoaded = true;
         }
     } catch (err) {
@@ -278,9 +279,47 @@ document.addEventListener('click', e => {
 // popstate handling for back/forward browser buttons
 window.addEventListener('popstate', router);
 
+// Header date & time dynamic clock
+window.lastDateTimeString = "";
+function updateHeaderDateTime() {
+    const elements = document.querySelectorAll('.nav-date-time-text');
+    if (elements.length === 0) return;
+    
+    const now = new Date();
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    
+    const dayName = days[now.getDay()];
+    const day = now.getDate();
+    const monthName = months[now.getMonth()];
+    const year = now.getFullYear();
+    
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    const dateTimeString = `${dayName}, ${day} de ${monthName} de ${year} - ${hours}:${minutes}`;
+    
+    if (dateTimeString !== window.lastDateTimeString) {
+        if (!window.lastDateTimeString) {
+            elements.forEach(el => el.innerText = dateTimeString);
+            window.lastDateTimeString = dateTimeString;
+        } else {
+            elements.forEach(el => el.classList.add('opacity-0', 'scale-95'));
+            setTimeout(() => {
+                elements.forEach(el => el.innerText = dateTimeString);
+                window.lastDateTimeString = dateTimeString;
+                elements.forEach(el => el.classList.remove('opacity-0', 'scale-95'));
+            }, 200);
+        }
+    }
+}
+window.updateHeaderDateTime = updateHeaderDateTime;
+
 // Initialize application routing
 document.addEventListener('DOMContentLoaded', () => {
     router();
+    updateHeaderDateTime();
+    setInterval(updateHeaderDateTime, 1000);
 });
 
 // Global keyboard shortcuts (Ctrl + Alt + 9)
