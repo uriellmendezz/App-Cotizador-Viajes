@@ -18,7 +18,7 @@ export function initLogin() {
         if (welcomeSection) welcomeSection.classList.add('hidden');
         if (loginForm) loginForm.classList.add('hidden');
         if (sessionActiveContainer) sessionActiveContainer.classList.remove('hidden');
-        
+
         if (sessionActiveUsername) {
             sessionActiveUsername.innerText = activeUser === 'guest' ? 'Invitado' : activeUser;
         }
@@ -126,7 +126,7 @@ async function handleLoginSubmit(e) {
         if (typeof window.hideLoader === 'function') {
             window.hideLoader();
         }
-        
+
         // Clear password but keep username
         if (passwordInput) {
             passwordInput.value = '';
@@ -136,10 +136,10 @@ async function handleLoginSubmit(e) {
             alertEl.innerText = "Error: " + err.message;
             alertEl.className = "p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300 bg-rose-50 border-rose-100 text-rose-600 opacity-0 scale-95 transform";
             alertEl.classList.remove('hidden');
-            
+
             // Force browser reflow to register initial state
             alertEl.offsetHeight;
-            
+
             // Transition to visible state
             alertEl.classList.remove('opacity-0', 'scale-95');
             alertEl.classList.add('opacity-100', 'scale-100');
@@ -227,9 +227,9 @@ function startTypewriter() {
     if (!el) return;
 
     const texts = [
-        "Diseña itinerarios memorables en segundos.",
-        "Optimiza tus presupuestos con inteligencia.",
-        "Sorprende a tus clientes con viajes únicos."
+        "Diseñá cotizaciones a medida en minutos.",
+        "Optimizá tus presupuestos con inteligencia.",
+        "Hecho para que ganes tiempo."
     ];
 
     let textIdx = 0;
@@ -290,13 +290,13 @@ let currentIconIdx = 0;
 function startBrandIconCycling() {
     if (brandIconInterval) clearInterval(brandIconInterval);
     currentIconIdx = 0;
-    
+
     brandIconInterval = setInterval(() => {
         const container = document.getElementById('login-brand-icon');
         if (!container) return;
-        
+
         container.classList.add('opacity-0', 'scale-75');
-        
+
         setTimeout(() => {
             currentIconIdx = (currentIconIdx + 1) % travelIcons.length;
             container.innerHTML = travelIcons[currentIconIdx];
