@@ -198,3 +198,55 @@ def save_cotizacion_rapida(quote_data: dict) -> dict | None:
         print(f"Supabase Client: Operation failed. Error: {e}")
         return None
 
+def get_cotizaciones_rapidas() -> list:
+    """
+    Retrieves all saved quick quotes metadata from Supabase.
+    """
+    client = get_supabase_client()
+    if not client:
+        print("Supabase Client: Client not configured. Skipping get operation.")
+        return []
+    try:
+        response = client.table("cotizaciones_rapidas").select(
+            "id, pasajero_nombre, cantidad_pasajeros, total_cotizacion, agente_id, created_at"
+        ).order("created_at", desc=True).execute()
+        
+        if response and hasattr(response, 'data'):
+            return response.data
+        return []
+    except Exception as e:
+        print(f"Supabase Client: Failed to retrieve quick quotes. Details: {e}")
+        return []
+
+def get_cotizacion_rapida_by_id(quote_id) -> dict | None:
+    """
+    Retrieves a single quick quote by its ID.
+    """
+    client = get_supabase_client()
+    if not client:
+        print("Supabase Client: Client not configured. Skipping get by ID operation.")
+        return None
+    try:
+        response = client.table("cotizaciones_rapidas").select("*").eq("id", quote_id).execute()
+        if response and hasattr(response, 'data') and response.data:
+            return response.data[0]
+        return None
+    except Exception as e:
+        print(f"Supabase Client: Failed to retrieve quick quote {quote_id}. Details: {e}")
+        return None
+
+def delete_cotizacion_rapida(quote_id) -> bool:
+    """
+    Deletes a quick quote from the database.
+    """
+    client = get_supabase_client()
+    if not client:
+        print("Supabase Client: Client not configured. Skipping delete operation.")
+        return False
+    try:
+        response = client.table("cotizaciones_rapidas").delete().eq("id", quote_id).execute()
+        return True
+    except Exception as e:
+        print(f"Supabase Client: Failed to delete quick quote {quote_id}. Details: {e}")
+        return False
+

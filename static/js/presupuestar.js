@@ -3,7 +3,7 @@ let isQuickFeeLocked = true;
 const conceptTypes = {
     'vuelo': {
         label: 'Vuelo',
-        icon: `<svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>`
+        icon: `<svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L14 19v-5.5l8 2.5z" /></svg>`
     },
     'fee-aereo': {
         label: 'Fee Aéreo',
@@ -378,3 +378,257 @@ async function saveQuickQuote(andRedirect = false) {
         }
     }
 }
+
+export function initPresupuestosRapidos() {
+    loadQuickBudgetsList();
+}
+
+let allSavedQuickBudgets = [];
+
+async function loadQuickBudgetsList() {
+    const tbody = document.getElementById('db-budgets-table-body');
+    if (!tbody) return;
+
+    const searchInput = document.getElementById('budget-search-input');
+    if (searchInput) searchInput.value = '';
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="p-8 text-center text-slate-400">
+                <span class="inline-block animate-spin border-2 border-brand-primary border-t-transparent rounded-full w-4 h-4 mr-2"></span>
+                Cargando presupuestos rápidos...
+            </td>
+        </tr>
+    `;
+
+    try {
+        const res = await window.authenticatedFetch('/api/presupuestos');
+        if (!res.ok) throw new Error("Error al obtener los presupuestos rápidos de la base de datos.");
+        const budgets = await res.json();
+
+        allSavedQuickBudgets = budgets;
+        renderQuickBudgetsTable(allSavedQuickBudgets);
+
+    } catch (err) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-8 text-center text-rose-500 font-bold">
+                    Error al cargar los presupuestos rápidos: ${err.message}
+                </td>
+            </tr>
+        `;
+    }
+}
+window.loadQuickBudgetsList = loadQuickBudgetsList;
+
+function renderQuickBudgetsTable(budgetsList) {
+    const tbody = document.getElementById('db-budgets-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    if (budgetsList.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-8 text-center text-slate-400 font-semibold">
+                    No se encontraron presupuestos rápidos.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    budgetsList.forEach(q => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-100 hover:bg-rose-50/30 transition-colors duration-150 cursor-pointer';
+        tr.onclick = (e) => {
+            loadQuickBudgetIntoForm(q.id);
+        };
+
+        const totalUSD = q.total_cotizacion || 0;
+        let dateFormatted = '-';
+        if (q.created_at) {
+            try {
+                const dateObj = new Date(q.created_at);
+                const dd = String(dateObj.getDate()).padStart(2, '0');
+                const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const yyyy = dateObj.getFullYear();
+                const hh = String(dateObj.getHours()).padStart(2, '0');
+                const min = String(dateObj.getMinutes()).padStart(2, '0');
+                dateFormatted = `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+            } catch (e) {
+                dateFormatted = q.created_at;
+            }
+        }
+
+        tr.innerHTML = `
+            <td class="p-3 font-semibold text-slate-500">${dateFormatted}</td>
+            <td class="p-3 font-semibold text-slate-800">${q.pasajero_nombre || 'Sin Nombre'}</td>
+            <td class="p-3 text-center">${q.cantidad_pasajeros || 1}</td>
+            <td class="p-3">${q.agente_id || '-'}</td>
+            <td class="p-3 text-right font-semibold text-brand-primary">USD ${window.formatPriceES(totalUSD)}</td>
+            <td class="p-3 text-center">
+                <button type="button" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" onclick="deleteQuickBudget('${q.id}', event)">
+                    <svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function deleteQuickBudget(quoteId, event) {
+    if (event) event.stopPropagation();
+    if (confirm("¿Estás seguro de que deseas eliminar este presupuesto rápido?")) {
+        await executeDeleteQuickBudget(quoteId);
+    }
+}
+window.deleteQuickBudget = deleteQuickBudget;
+
+async function executeDeleteQuickBudget(quoteId) {
+    try {
+        const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`, {
+            method: 'DELETE'
+        });
+        if (!res.ok) throw new Error("No se pudo eliminar el presupuesto rápido.");
+        
+        window.showAlert('success', 'Presupuesto rápido eliminado correctamente.');
+        loadQuickBudgetsList();
+    } catch (err) {
+        window.showAlert('warning', 'Error: ' + err.message);
+    }
+}
+
+async function loadQuickBudgetIntoForm(quoteId) {
+    const isFormPage = !!document.getElementById('quick-budget-body');
+    if (!isFormPage) {
+        window.pendingEditQuickBudgetId = quoteId;
+        navigateTo('/presupuesto-rapido');
+        return;
+    }
+    
+    const overlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+    if (overlay) {
+        if (loadingText) loadingText.innerText = "Cargando presupuesto rápido...";
+        overlay.style.display = 'flex';
+        overlay.classList.remove('hidden');
+    }
+    
+    try {
+        const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`);
+        if (!res.ok) throw new Error("No se pudo cargar el presupuesto rápido.");
+        const q = await res.json();
+        
+        document.getElementById('rapido-pasajero').value = q.pasajero_nombre || '';
+        document.getElementById('rapido-pax-count').value = q.cantidad_pasajeros || 2;
+        
+        const tbody = document.getElementById('quick-budget-body');
+        tbody.innerHTML = '';
+        
+        // Add Flight rows
+        let feeSum = 0;
+        let flightsSum = 0;
+        
+        if (q.vuelos && q.vuelos.length > 0) {
+            q.vuelos.forEach(v => {
+                feeSum += v.fee || 0;
+                flightsSum += v.monto || 0;
+                
+                if (v.nombre === "Fee Aéreo" && v.monto === 0) {
+                    return;
+                }
+                addQuickBudgetRow({ tipo: 'vuelo', label: v.nombre, monto: v.monto });
+            });
+        }
+        
+        // Add Fee-aereo row
+        addQuickBudgetRow({ tipo: 'fee-aereo', monto: feeSum });
+        
+        // Sync fee lock state
+        if (flightsSum > 0 && Math.abs(feeSum - (flightsSum * 0.10)) > 0.01) {
+            isQuickFeeLocked = false;
+        } else {
+            isQuickFeeLocked = true;
+        }
+        
+        // Add Hotel/Traslado rows
+        if (q.hoteles && q.hoteles.length > 0) {
+            q.hoteles.forEach(h => {
+                const tipo = h.nombre.toLowerCase().includes('traslado') ? 'traslado' : 'hotel';
+                addQuickBudgetRow({ tipo: tipo, label: h.nombre, monto: h.costo });
+            });
+        }
+        
+        // Add Admin row
+        addQuickBudgetRow({ tipo: 'admin' });
+        
+        // Add IVA row
+        addQuickBudgetRow({ tipo: 'iva', monto: q.gastos_iva || 0 });
+        
+        // Sync locks on all rows
+        document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
+            syncQuickRowEditableState(tr);
+        });
+        
+        calculateQuickQuote();
+        
+    } catch (err) {
+        window.showAlert('warning', 'Error al cargar: ' + err.message);
+    } finally {
+        if (overlay) {
+            overlay.style.display = 'none';
+            overlay.classList.add('hidden');
+        }
+    }
+}
+window.loadQuickBudgetIntoForm = loadQuickBudgetIntoForm;
+
+function filterQuickBudgets() {
+    const query = document.getElementById('budget-search-input').value.toLowerCase().trim();
+    if (!query) {
+        renderQuickBudgetsTable(allSavedQuickBudgets);
+        return;
+    }
+
+    const filtered = allSavedQuickBudgets.filter(q => {
+        const paxName = (q.pasajero_nombre || '').toLowerCase();
+        const agent = (q.agente_id || '').toLowerCase();
+        return paxName.includes(query) || agent.includes(query);
+    });
+
+    renderQuickBudgetsTable(filtered);
+}
+window.filterQuickBudgets = filterQuickBudgets;
+
+async function fillQuickTestData() {
+    const passengerInput = document.getElementById('rapido-pasajero');
+    const paxCountInput = document.getElementById('rapido-pax-count');
+    if (!passengerInput || !paxCountInput) return;
+
+    passengerInput.value = 'Familia Rodriguez';
+    paxCountInput.value = 4;
+
+    const tbody = document.getElementById('quick-budget-body');
+    if (tbody) tbody.innerHTML = '';
+
+    isQuickFeeLocked = true;
+
+    addQuickBudgetRow({ tipo: 'vuelo', label: 'Vuelo Aerolíneas Argentinas', monto: 1800.00 });
+    addQuickBudgetRow({ tipo: 'fee-aereo', isDefault: true, monto: 180.00 });
+    addQuickBudgetRow({ tipo: 'hotel', label: 'Riu Palace Aruba', monto: 3200.00 });
+    addQuickBudgetRow({ tipo: 'traslado', label: 'Traslado Privado In/Out', monto: 250.00 });
+    addQuickBudgetRow({ tipo: 'admin', isDefault: true });
+    addQuickBudgetRow({ tipo: 'iva', isDefault: true, monto: 300.00 });
+
+    // Sync locks on all rows
+    document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
+        syncQuickRowEditableState(tr);
+    });
+
+    calculateQuickQuote();
+
+    window.showAlert('success', '✔ Montos de prueba cargados correctamente en Presupuesto Rápido.');
+}
+window.fillQuickTestData = fillQuickTestData;

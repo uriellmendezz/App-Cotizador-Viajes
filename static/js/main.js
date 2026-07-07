@@ -103,8 +103,41 @@ const routes = {
     '/login': { html: '/static/views/login.html', js: '/static/js/login.js', init: 'initLogin' },
     '/inicio': { html: '/static/views/inicio.html', js: '/static/js/inicio.js', init: 'initInicio' },
     '/presupuesto-rapido': { html: '/static/views/presupuesto_rapido.html', js: '/static/js/presupuestar.js', init: 'initPresupuestar' },
-    '/cotizar': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' }
+    '/presupuestos-rapidos': { html: '/static/views/presupuestos_rapidos.html', js: '/static/js/presupuestar.js', init: 'initPresupuestosRapidos' },
+    '/hacer-cotizacion': { html: '/static/views/opciones_cotizacion.html', js: '/static/js/inicio.js', init: 'initOpciones' },
+    '/cotizar': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
+    '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
+    '/config': { html: '/static/views/configuracion.html', js: '/static/js/cotizar.js', init: 'initConfig' }
 };
+
+let isConfigLoaded = false;
+
+async function loadHeaderConfig() {
+    if (isConfigLoaded || !window.authToken) return;
+    try {
+        const res = await authenticatedFetch('/api/config');
+        if (res.ok) {
+            const config = await res.json();
+            
+            // Set agency colors dynamically on root
+            document.documentElement.style.setProperty('--primary-color', config.colores[0]);
+            document.documentElement.style.setProperty('--secondary-color', config.colores[1]);
+            document.documentElement.style.setProperty('--accent-color', config.colores[2]);
+
+            // Update Header Logo if present
+            if (config.logo_base64) {
+                const navLogo = document.getElementById('nav-logo');
+                if (navLogo) {
+                    navLogo.src = 'data:image/png;base64,' + config.logo_base64;
+                    navLogo.classList.remove('hidden');
+                }
+            }
+            isConfigLoaded = true;
+        }
+    } catch (err) {
+        console.error("Error loading header config:", err);
+    }
+}
 
 async function router() {
     let path = window.location.pathname;
@@ -128,6 +161,33 @@ async function router() {
         } else {
             header.classList.remove('hidden');
             updateNavActiveState(path);
+
+            // Fetch and apply agency configurations
+            loadHeaderConfig();
+
+            // Update Session Agent Badge
+            const badge = document.getElementById('logged-user-badge');
+            const spanUsername = document.getElementById('logged-username-span');
+            if (badge && spanUsername) {
+                const username = window.loggedInUser;
+                if (username) {
+                    if (username === 'guest' || username === 'Invitado') {
+                        spanUsername.innerText = 'Invitado';
+                        const dot = badge.querySelector('span');
+                        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-400';
+                    } else {
+                        const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
+                        spanUsername.innerText = formattedName;
+                        const dot = badge.querySelector('span');
+                        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
+                    }
+                    badge.classList.remove('hidden');
+                    badge.classList.add('flex');
+                } else {
+                    badge.classList.add('hidden');
+                    badge.classList.remove('flex');
+                }
+            }
         }
     }
 
@@ -135,7 +195,7 @@ async function router() {
     const appEl = document.getElementById('app');
     if (appEl) {
         try {
-            const response = await fetch(route.html);
+            const response = await fetch(route.html + '?v=' + Date.now());
             if (!response.ok) throw new Error(`Failed to load view ${route.html}`);
             const html = await response.text();
             appEl.innerHTML = html;
@@ -146,6 +206,15 @@ async function router() {
                 const initFunc = module[route.init];
                 if (initFunc && typeof initFunc === 'function') {
                     initFunc();
+                    
+                    // Hook for loading quick quote from list
+                    if (route.init === 'initPresupuestar' && window.pendingEditQuickBudgetId) {
+                        const quoteId = window.pendingEditQuickBudgetId;
+                        window.pendingEditQuickBudgetId = null;
+                        if (typeof window.loadQuickBudgetIntoForm === 'function') {
+                            window.loadQuickBudgetIntoForm(quoteId);
+                        }
+                    }
                 }
             }
         } catch (err) {
@@ -180,6 +249,19 @@ function logoutAgent(notifyServer = true) {
         fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     }
     setSession(null, null);
+    isConfigLoaded = false;
+
+    // Reset navbar logo and hide agent badge
+    const badge = document.getElementById('logged-user-badge');
+    if (badge) {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+    }
+    const navLogo = document.getElementById('nav-logo');
+    if (navLogo) {
+        navLogo.src = '/assets/Banner%20letra%20O.png';
+    }
+
     navigateTo('/login');
 }
 window.logoutAgent = logoutAgent;
@@ -199,4 +281,18 @@ window.addEventListener('popstate', router);
 // Initialize application routing
 document.addEventListener('DOMContentLoaded', () => {
     router();
+});
+
+// Global keyboard shortcuts (Ctrl + Alt + 9)
+window.addEventListener('keydown', async (e) => {
+    if (e.ctrlKey && e.altKey && e.key === '9') {
+        const path = window.location.pathname;
+        if (path === '/cotizar' && typeof window.fillTestData === 'function') {
+            e.preventDefault();
+            await window.fillTestData();
+        } else if (path === '/presupuesto-rapido' && typeof window.fillQuickTestData === 'function') {
+            e.preventDefault();
+            await window.fillQuickTestData();
+        }
+    }
 });

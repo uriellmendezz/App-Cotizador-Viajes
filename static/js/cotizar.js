@@ -8,40 +8,7 @@ let currentQuoteId = null;
 let currentPdfUrl = null;
 let allSavedQuotes = [];
 
-let authToken = null; // Guardado de forma segura en memoria de JS
-let loggedInUser = null;
-let loginSlideshowInterval = null;
-
-async function authenticatedFetch(url, options = {}) {
-    options.headers = options.headers || {};
-    if (authToken) {
-        options.headers['Authorization'] = `Bearer ${authToken}`;
-    }
-
-    try {
-        let res = await fetch(url, options);
-
-        // Si da 401 y no es una ruta de autenticación, intentar auto-refrescar
-        if (res.status === 401 && !url.includes('/api/auth/')) {
-            console.warn("Access Token expirado (401). Intentando autorefrescar sesión...");
-            const success = await refreshSession();
-            if (success) {
-                // Reintentar la llamada original con el nuevo token
-                options.headers['Authorization'] = `Bearer ${authToken}`;
-                res = await fetch(url, options);
-            } else {
-                logoutAgent(false, "Su sesión ha expirado o es inválida. Inicie sesión nuevamente.");
-                throw new Error("Su sesión ha expirado. Por favor, inicie sesión nuevamente.");
-            }
-        } else if (res.status === 401 && url === '/api/auth/refresh') {
-            // El Refresh Token también expiró
-            logoutAgent(false, "Su sesión ha expirado o es inválida. Inicie sesión nuevamente.");
-        }
-        return res;
-    } catch (err) {
-        throw err;
-    }
-}
+const authenticatedFetch = window.authenticatedFetch;
 
 function formatPriceES(val) {
     if (val === undefined || val === null || isNaN(val)) return "0,00";
@@ -2290,6 +2257,13 @@ function enableFormEditing(enabled) {
 window.enableFormEditing = enableFormEditing;
 
 async function loadSavedQuoteIntoForm(quoteId) {
+    const quoteForm = document.getElementById('quote-form');
+    if (!quoteForm) {
+        window.pendingEditQuoteId = quoteId;
+        navigateTo('/cotizar');
+        return;
+    }
+
     const cachedQuote = allSavedQuotes.find(item => item.id === quoteId);
     const passengerName = cachedQuote ? cachedQuote.nombre_pax : 'Pasajero';
 
@@ -2462,11 +2436,10 @@ function closeSavedQuoteView() {
     currentQuoteId = null;
     enableFormEditing(true); // Habilitar formulario
     resetForm();
-    switchTab('editar-tab');
-    loadSavedQuotesList();
-    showAlert('success', 'Visualización cerrada. Retornando a la lista de cotizaciones.');
+    navigateTo('/editar');
 }
 window.closeSavedQuoteView = closeSavedQuoteView;
+window.saveConfig = saveConfig;
 
 function confirmEditQuote() {
     showCustomConfirm({
@@ -2606,6 +2579,12 @@ export function initCotizar() {
         document.getElementById("monto_traslados").value = "";
         window.quickQuoteBridge = null;
         updateRealTimeSummary();
+    }
+
+    if (window.pendingEditQuoteId) {
+        const quoteId = window.pendingEditQuoteId;
+        window.pendingEditQuoteId = null;
+        loadSavedQuoteIntoForm(quoteId);
     }
 }
 
