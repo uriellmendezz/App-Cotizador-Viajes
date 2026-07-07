@@ -1,5 +1,78 @@
 let isQuickFeeLocked = true;
 let currentQuickQuoteId = null;
+let isRestoringState = false;
+
+// Ensure window.savedQuickQuoteState exists
+if (typeof window.savedQuickQuoteState === 'undefined') {
+    window.savedQuickQuoteState = null;
+}
+
+function saveQuickQuoteFormState() {
+    if (isRestoringState) return;
+    const passengerInput = document.getElementById('rapido-pasajero');
+    if (!passengerInput) return;
+
+    const rows = [];
+    document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
+        const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
+        const label = tr.querySelector('.quick-row-label')?.value || '';
+        const monto = tr.querySelector('.quick-row-monto')?.value || '';
+        rows.push({ tipo, label, monto });
+    });
+
+    window.savedQuickQuoteState = {
+        currentQuickQuoteId,
+        isQuickFeeLocked,
+        passengerName: passengerInput.value,
+        paxCount: document.getElementById('rapido-pax-count')?.value || 2,
+        destino: document.getElementById('rapido-destino')?.value || '',
+        fechaSalida: document.getElementById('rapido-fecha-salida')?.value || '',
+        fechaRegreso: document.getElementById('rapido-fecha-regreso')?.value || '',
+        rows: rows
+    };
+}
+
+function restoreQuickQuoteFormState() {
+    const tbody = document.getElementById('quick-budget-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    isRestoringState = true;
+
+    currentQuickQuoteId = window.savedQuickQuoteState.currentQuickQuoteId;
+    isQuickFeeLocked = window.savedQuickQuoteState.isQuickFeeLocked;
+
+    const passengerInput = document.getElementById('rapido-pasajero');
+    if (passengerInput) passengerInput.value = window.savedQuickQuoteState.passengerName;
+
+    const paxCountInput = document.getElementById('rapido-pax-count');
+    if (paxCountInput) paxCountInput.value = window.savedQuickQuoteState.paxCount;
+
+    const destInput = document.getElementById('rapido-destino');
+    if (destInput) destInput.value = window.savedQuickQuoteState.destino;
+
+    const depPickerInput = document.getElementById('rapido-fecha-salida');
+    if (depPickerInput && depPickerInput._flatpickr && window.savedQuickQuoteState.fechaSalida) {
+        depPickerInput._flatpickr.setDate(window.savedQuickQuoteState.fechaSalida);
+    }
+
+    const retPickerInput = document.getElementById('rapido-fecha-regreso');
+    if (retPickerInput && retPickerInput._flatpickr && window.savedQuickQuoteState.fechaRegreso) {
+        retPickerInput._flatpickr.setDate(window.savedQuickQuoteState.fechaRegreso);
+    }
+
+    window.savedQuickQuoteState.rows.forEach(r => {
+        addQuickBudgetRow({ 
+            tipo: r.tipo, 
+            label: r.label, 
+            monto: r.monto, 
+            isDefault: (r.tipo === 'fee-aereo' || r.tipo === 'admin') 
+        });
+    });
+
+    isRestoringState = false;
+    calculateQuickQuote();
+}
 
 const conceptTypes = {
     'vuelo': {
@@ -42,7 +115,10 @@ export function initPresupuestar() {
     // Bind main events
     const paxCountInput = document.getElementById('rapido-pax-count');
     if (paxCountInput) {
-        paxCountInput.addEventListener('input', () => calculateQuickQuote());
+        paxCountInput.addEventListener('input', () => {
+            calculateQuickQuote();
+            saveQuickQuoteFormState();
+        });
     }
 
     // Initialize flatpickr on date fields
@@ -62,6 +138,7 @@ export function initPresupuestar() {
                         returnPicker.set('minDate', null);
                     }
                 }
+                saveQuickQuoteFormState();
             }
         });
         flatpickr("#rapido-fecha-regreso", {
@@ -69,7 +146,10 @@ export function initPresupuestar() {
             altInput: true,
             altFormat: "d/m/Y",
             disableMobile: "true",
-            placeholder: "Opcional"
+            placeholder: "Opcional",
+            onChange: function (selectedDates, dateStr, instance) {
+                saveQuickQuoteFormState();
+            }
         });
     }
 
@@ -108,7 +188,44 @@ export function initPresupuestar() {
         };
     }
 
-    loadDefaultQuickQuoteRows();
+    const btnReset = document.getElementById('btn-reset-quick-budget');
+    if (btnReset) {
+        btnReset.onclick = () => {
+            if (confirm('¿Estás seguro de que deseas restablecer el presupuesto rápido a los valores por defecto? Se perderán los cambios no guardados.')) {
+                window.savedQuickQuoteState = null;
+                currentQuickQuoteId = null;
+                isQuickFeeLocked = true;
+                const passengerInput = document.getElementById('rapido-pasajero');
+                if (passengerInput) passengerInput.value = '';
+                const paxCountInput = document.getElementById('rapido-pax-count');
+                if (paxCountInput) paxCountInput.value = 2;
+                const destInput = document.getElementById('rapido-destino');
+                if (destInput) destInput.value = '';
+                const depPickerInput = document.getElementById('rapido-fecha-salida');
+                if (depPickerInput && depPickerInput._flatpickr) depPickerInput._flatpickr.clear();
+                const retPickerInput = document.getElementById('rapido-fecha-regreso');
+                if (retPickerInput && retPickerInput._flatpickr) retPickerInput._flatpickr.clear();
+                loadDefaultQuickQuoteRows();
+                calculateQuickQuote();
+                saveQuickQuoteFormState();
+            }
+        };
+    }
+
+    // Watch text inputs
+    const inputsToWatch = ['rapido-pasajero', 'rapido-destino'];
+    inputsToWatch.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => saveQuickQuoteFormState());
+        }
+    });
+
+    if (window.savedQuickQuoteState) {
+        restoreQuickQuoteFormState();
+    } else {
+        loadDefaultQuickQuoteRows();
+    }
 }
 
 function getNextLabelForType(tipo) {
@@ -168,11 +285,14 @@ function addQuickBudgetRow(data = null) {
     const montoVal = (data && data.monto !== undefined) ? data.monto : '';
     const isDefault = data && data.isDefault;
     const isUndeletable = (selectedTipo === 'fee-aereo' || selectedTipo === 'admin');
+    const isLabelReadOnly = isUndeletable ? 'readonly' : '';
+    const labelTitle = isUndeletable ? '' : 'title="Haz clic para renombrar este concepto"';
+    const cursorClass = isUndeletable ? 'cursor-default pointer-events-none' : 'cursor-text';
     
     tr.innerHTML = `
         <td class="py-3.5 font-bold text-slate-700 flex items-center gap-2 pl-3 bg-white">
             <span class="quick-row-icon flex items-center justify-center">${conceptTypes[selectedTipo].icon}</span>
-            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none m-0 w-full" value="${labelVal}" title="Haz clic para renombrar este concepto" style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 4px 8px !important; margin: 0 !important;" autocomplete="off">
+            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none m-0 w-full ${cursorClass}" value="${labelVal}" ${labelTitle} ${isLabelReadOnly} style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 4px 8px !important; margin: 0 !important;" autocomplete="off">
             <input type="hidden" class="quick-row-tipo" value="${selectedTipo}">
         </td>
         <td class="py-3.5 text-right relative">
@@ -205,7 +325,17 @@ function addQuickBudgetRow(data = null) {
     // Bind dynamic row elements events
     const montoInput = tr.querySelector('.quick-row-monto');
     if (montoInput) {
-        montoInput.addEventListener('input', () => calculateQuickQuote());
+        montoInput.addEventListener('input', () => {
+            calculateQuickQuote();
+            saveQuickQuoteFormState();
+        });
+    }
+
+    const labelInput = tr.querySelector('.quick-row-label');
+    if (labelInput) {
+        labelInput.addEventListener('input', () => {
+            saveQuickQuoteFormState();
+        });
     }
 
     const btnDelete = tr.querySelector('.btn-delete-row');
@@ -213,12 +343,16 @@ function addQuickBudgetRow(data = null) {
         btnDelete.onclick = () => {
             tr.remove();
             calculateQuickQuote();
+            saveQuickQuoteFormState();
         };
     }
 
     const btnUnlock = tr.querySelector('.quick-row-fee-unlock');
     if (btnUnlock) {
-        btnUnlock.onclick = () => toggleQuickRowFeeLock();
+        btnUnlock.onclick = () => {
+            toggleQuickRowFeeLock();
+            saveQuickQuoteFormState();
+        };
     }
 
     syncQuickRowEditableState(tr);
@@ -381,10 +515,16 @@ function calculateQuickQuote() {
     
     const elTotalPax = document.getElementById('rapido-total-pax');
     if (elTotalPax) elTotalPax.innerText = `USD ${window.formatPriceES(totalFinal / paxCount)}`;
+
+    saveQuickQuoteFormState();
 }
 
 async function saveQuickQuote(andRedirect = false) {
-    const passengerName = document.getElementById('rapido-pasajero')?.value || '';
+    const passengerName = (document.getElementById('rapido-pasajero')?.value || '').trim();
+    if (!passengerName) {
+        window.showAlert('warning', 'El presupuesto rápido debe tener un título obligatorio.');
+        return;
+    }
     const paxCount = parseInt(document.getElementById('rapido-pax-count')?.value) || 2;
     
     // Check if there is at least one flight, hotel, or transfer service
@@ -482,14 +622,18 @@ async function saveQuickQuote(andRedirect = false) {
                 paxCount,
                 vuelos,
                 hoteles,
-                ivaSum,
+                ivaSum: 0,
                 totalFinal
             };
+            window.savedQuickQuoteState = null;
             window.navigateTo('/cotizar');
         } else {
             currentQuickQuoteId = null;
-            document.getElementById('rapido-pasajero').value = '';
-            document.getElementById('rapido-pax-count').value = '2';
+            const passengerInput = document.getElementById('rapido-pasajero');
+            if (passengerInput) passengerInput.value = '';
+            const paxCountInput = document.getElementById('rapido-pax-count');
+            if (paxCountInput) paxCountInput.value = '2';
+            window.savedQuickQuoteState = null;
             loadDefaultQuickQuoteRows();
         }
     } catch (err) {

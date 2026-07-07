@@ -18,23 +18,23 @@ function formatPriceES(val) {
 function formatCapitalization(value) {
     if (!value) return '';
     const minorWords = ['de', 'la', 'el', 'en', 'y', 'a', 'del', 'los', 'las', 'con', 'por', 'para', 'o'];
-    
+
     // Split the value into words, preserving spaces
     const words = value.trim().split(/\s+/);
     const formattedWords = words.map((word, index) => {
         if (!word) return '';
-        
+
         const lowerWord = word.toLowerCase();
-        
+
         // If it's a minor word and NOT the first word, keep it in lowercase
         if (minorWords.includes(lowerWord) && index > 0) {
             return lowerWord;
         }
-        
+
         // Otherwise, capitalize the first letter and keep the rest as lowercase
         return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
     });
-    
+
     return formattedWords.join(' ');
 }
 window.formatCapitalization = formatCapitalization;
@@ -890,11 +890,11 @@ function checkIfFormHasData() {
     const transfers = document.getElementById('monto_traslados')?.value || '';
     const dateIda = document.getElementById('fecha_vuelo_ida')?.value || '';
     const dateVuelta = document.getElementById('fecha_vuelo_vuelta')?.value || '';
-    
+
     if (pax.trim() !== '' || dest.trim() !== '' || flights.trim() !== '' || transfers.trim() !== '' || dateIda.trim() !== '' || dateVuelta.trim() !== '') {
         return true;
     }
-    
+
     const hotelCards = document.querySelectorAll('.hotel-option-card');
     for (let card of hotelCards) {
         const hName = card.querySelector('.hotel-nombre-val')?.value || '';
@@ -904,7 +904,7 @@ function checkIfFormHasData() {
             return true;
         }
     }
-    
+
     return false;
 }
 
@@ -2044,7 +2044,7 @@ async function loadSavedQuotesList() {
         <tr>
             <td colspan="7" class="p-8 text-center text-slate-400">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" class="spin-slow animate-spin inline mr-2 text-brand-primary"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-                Cargando propuestas desde Supabase...
+                Cargando base de datos...
             </td>
         </tr>
     `;
@@ -2101,14 +2101,14 @@ function switchSavedQuotesTab(tabName) {
 
     setTimeout(() => {
         savedQuotesActiveTab = tabName;
-        
+
         // Clear search bar
         const searchInput = document.getElementById('quote-search-input');
         if (searchInput) searchInput.value = '';
-        
+
         updateTabButtonsUI();
         renderActiveTabTable();
-        
+
         if (wrapper) {
             // Force reflow
             wrapper.offsetHeight;
@@ -2245,7 +2245,7 @@ window.renderActiveTabTable = renderActiveTabTable;
 
 function filterSavedQuotes() {
     const query = document.getElementById('quote-search-input').value.toLowerCase().trim();
-    
+
     if (savedQuotesActiveTab === 'detalladas') {
         if (!query) {
             renderActiveTabTable(allSavedQuotes);
@@ -2648,7 +2648,7 @@ export function initCotizar() {
     if (typeof flatpickr !== "undefined" && flatpickr.l10ns && flatpickr.l10ns.es) {
         flatpickr.localize(flatpickr.l10ns.es);
     }
-    
+
     flatpickr("#fecha_vuelo_ida", {
         dateFormat: "Y-m-d",
         altInput: true,
@@ -2666,7 +2666,7 @@ export function initCotizar() {
             validateDates();
         }
     });
-    
+
     flatpickr("#fecha_vuelo_vuelta", {
         dateFormat: "Y-m-d",
         altInput: true,
@@ -2679,37 +2679,37 @@ export function initCotizar() {
             }
         }
     });
-    
+
     flatpickr("#validez_cotizacion", {
         dateFormat: "Y-m-d",
         altInput: true,
         altFormat: "d/m/Y",
         disableMobile: "true"
     });
-    
+
     setupDragAndDrop();
     setupSidebarResizer();
     toggleFeeType();
-    
+
     const inputs = ["monto_vuelos", "fee_aereo_monto", "monto_traslados", "cantidad_pasajeros", "nombre_pax", "destino"];
     inputs.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", updateRealTimeSummary);
     });
-    
+
     setupCostInputHelpers();
     loadConfig();
-    
+
     const hotelsContainer = document.getElementById("hotels-container");
     if (hotelsContainer && hotelsContainer.children.length === 0) {
         addHotelCard();
     }
-    
+
     if (window.quickQuoteBridge) {
         const bridge = window.quickQuoteBridge;
         document.getElementById("nombre_pax").value = bridge.passengerName;
         document.getElementById("cantidad_pasajeros").value = bridge.paxCount;
-        
+
         let flightsMonto = 0;
         let flightsFee = 0;
         bridge.vuelos.forEach(v => {
@@ -2721,7 +2721,7 @@ export function initCotizar() {
         if (flightsFee > 0) {
             document.getElementById("fee_aereo_tipo").value = "fixed";
         }
-        
+
         if (hotelsContainer) hotelsContainer.innerHTML = "";
         bridge.hoteles.forEach(h => {
             addHotelCard({
@@ -2729,7 +2729,7 @@ export function initCotizar() {
                 costo: h.costo
             });
         });
-        
+
         document.getElementById("monto_traslados").value = "";
         window.quickQuoteBridge = null;
         updateRealTimeSummary();

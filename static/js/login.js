@@ -121,9 +121,6 @@ async function handleLoginSubmit(e) {
         }
 
         const data = await res.json();
-        if (typeof window.hideLoader === 'function') {
-            window.hideLoader();
-        }
         loginSuccess(data.access_token, data.username);
     } catch (err) {
         if (typeof window.hideLoader === 'function') {
@@ -156,6 +153,10 @@ async function loginAsGuest() {
         alertEl.classList.add('hidden');
     }
 
+    if (typeof window.showLoader === 'function') {
+        window.showLoader("Iniciando sesión...");
+    }
+
     try {
         const res = await fetch('/api/auth/login-guest', {
             method: 'POST',
@@ -170,6 +171,9 @@ async function loginAsGuest() {
         const data = await res.json();
         loginSuccess(data.access_token, data.username);
     } catch (err) {
+        if (typeof window.hideLoader === 'function') {
+            window.hideLoader();
+        }
         if (alertEl) {
             alertEl.innerText = "Error: " + err.message;
             alertEl.classList.remove('hidden');
@@ -179,13 +183,19 @@ async function loginAsGuest() {
 }
 
 function loginSuccess(token, username) {
-    window.setSession(token, username);
-    stopLoginSlideshow();
-    stopTypewriter();
-    stopBrandIconCycling();
-    
-    // Redirect to dashboard (SPA)
-    window.navigateTo('/inicio');
+    if (typeof window.showLoader === 'function') {
+        window.showLoader("Iniciando sesión...");
+    }
+    setTimeout(() => {
+        window.setSession(token, username);
+        stopLoginSlideshow();
+        stopTypewriter();
+        stopBrandIconCycling();
+        window.navigateTo('/inicio');
+        if (typeof window.hideLoader === 'function') {
+            window.hideLoader();
+        }
+    }, 3000);
 }
 
 function logoutActiveSession() {

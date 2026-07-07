@@ -140,7 +140,23 @@ async function loadHeaderConfig() {
     }
 }
 
+let isSessionChecked = false;
+
 async function router() {
+    // Silently restore session via cookie once on startup if no token is in memory
+    if (!window.authToken && !isSessionChecked) {
+        isSessionChecked = true;
+        try {
+            const res = await fetch('/api/auth/refresh', { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                setSession(data.access_token, data.username);
+            }
+        } catch (err) {
+            console.warn("No active session cookie found or refresh failed:", err);
+        }
+    }
+
     let path = window.location.pathname;
     
     // Auth Guards
