@@ -1,11 +1,11 @@
 export async function initInicio() {
     const titleEl = document.getElementById('welcome-title');
     if (!titleEl) return;
-    
+
     // Capitalize Agent Name
     const username = window.loggedInUser || "Agente";
     const agentName = username.charAt(0).toUpperCase() + username.slice(1);
-    
+
     // Determine Franchise Name
     let franchiseName = "One Trip Giordano";
     if (window.agencyConfig && window.agencyConfig.nombre_agencia) {
@@ -26,21 +26,21 @@ export async function initInicio() {
             console.error("Error fetching config in initInicio:", e);
         }
     }
-    
+
     // Start Typewriter
     const text1 = `Hola, ${agentName} - `;
     const text2 = franchiseName;
-    
+
     titleEl.innerHTML = ""; // Clear loader
-    
+
     // Create inner span for the second part (finer font)
     const span = document.createElement('span');
-    span.className = 'font-light text-slate-500'; 
-    
+    span.className = 'font-light text-slate-500';
+
     let i = 0;
     let j = 0;
     const speed = 40; // ms per letter
-    
+
     function typePart1() {
         if (i < text1.length) {
             titleEl.appendChild(document.createTextNode(text1.charAt(i)));
@@ -51,7 +51,7 @@ export async function initInicio() {
             typePart2();
         }
     }
-    
+
     function typePart2() {
         if (j < text2.length) {
             span.appendChild(document.createTextNode(text2.charAt(j)));
@@ -59,7 +59,7 @@ export async function initInicio() {
             setTimeout(typePart2, speed);
         }
     }
-    
+
     typePart1();
 }
 
