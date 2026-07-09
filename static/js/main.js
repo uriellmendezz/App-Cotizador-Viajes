@@ -1289,6 +1289,7 @@ function _buildPayload() {
             regimen: card.querySelector('.hotel-regimen-val').value,
             habitacion: formatHabitacionValue(card.querySelector('.hotel-habitacion-val').value),
             costo: parseFloat(card.querySelector('.hotel-costo-val').value),
+            monto_alojamiento: parseFloat(card.querySelector('.hotel-costo-val').value),
             descripcion: card.querySelector('.hotel-descripcion-val').value,
             imagen1: card.querySelector('.hotel-imagen-val-1').value,
             imagen2: "",

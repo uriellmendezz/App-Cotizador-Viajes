@@ -132,6 +132,27 @@ def get_cotizaciones() -> list:
         print(f"Supabase Client: Failed to retrieve quotes. Details: {e}")
         return []
 
+def reconstruct_monto_alojamiento(quote: dict):
+    if not quote:
+        return
+    
+    monto_vuelos = float(quote.get("monto_vuelos", 0.0))
+    fee_aereo = float(quote.get("fee_aereo", 0.0))
+    monto_traslados = float(quote.get("monto_traslados", 0.0))
+    gastos_iva = float(quote.get("gastos_iva", 0.0))
+    
+    hoteles = quote.get("hoteles", [])
+    for hotel in hoteles:
+        if hotel.get("monto_alojamiento"):
+            continue
+        
+        costo_total = float(hotel.get("costo", 0.0))
+        if costo_total > 0:
+            # Reconstruct original lodging cost mathematically:
+            # costo_hotel = (costo_total - (vuelos + fee) - traslados * 1.05 - iva) / 1.05
+            costo_hotel = (costo_total - (monto_vuelos + fee_aereo) - monto_traslados * 1.05 - gastos_iva) / 1.05
+            hotel["monto_alojamiento"] = max(0.0, round(costo_hotel, 2))
+
 def get_cotizacion_by_id(quote_id) -> dict | None:
     """
     Retrieves a single quote by its ID.
@@ -143,7 +164,9 @@ def get_cotizacion_by_id(quote_id) -> dict | None:
     try:
         response = client.table("cotizaciones").select("*").eq("id", quote_id).execute()
         if response and hasattr(response, 'data') and response.data:
-            return response.data[0]
+            quote = response.data[0]
+            reconstruct_monto_alojamiento(quote)
+            return quote
         return None
     except Exception as e:
         print(f"Supabase Client: Failed to retrieve quote {quote_id}. Details: {e}")
