@@ -584,15 +584,16 @@ async function saveQuickQuote(andRedirect = false) {
     }
     const paxCount = parseInt(document.getElementById('rapido-pax-count')?.value) || 2;
     
-    // Check if there is at least one flight, hotel, or transfer service
+    // Check if there is at least one flight, hotel, or transfer service with a cost greater than 0
     const rows = Array.from(document.querySelectorAll('#quick-budget-body tr.quick-row'));
-    const hasService = rows.some(tr => {
+    const hasServiceWithCost = rows.some(tr => {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
-        return (tipo === 'vuelo' || tipo === 'hotel' || tipo === 'traslado');
+        const monto = parseFloat(tr.querySelector('.quick-row-monto')?.value) || 0;
+        return (tipo === 'vuelo' || tipo === 'hotel' || tipo === 'traslado') && monto > 0;
     });
     
-    if (!hasService) {
-        window.showAlert('warning', 'Para poder guardar la cotización, debe haber por lo menos un servicio de Vuelo, Alojamiento o Traslado.');
+    if (!hasServiceWithCost) {
+        window.showAlert('warning', 'Para poder guardar la cotización, debe haber por lo menos un servicio de Vuelo, Alojamiento o Traslado con un monto mayor a 0.');
         return;
     }
     
