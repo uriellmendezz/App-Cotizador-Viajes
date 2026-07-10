@@ -971,7 +971,8 @@ def build_presentation_requests(slide_id, quote, hotel_image_urls,
                 if "<<FECHA COTIZACION>>" in text_val: text_val = text_val.replace("<<FECHA COTIZACION>>", today_str)
                 
                 if oid == "g3f1aacc1efc_0_451":
-                    text_val = f"Vuelos desde {quote.get('origen', '')} hacia {destination} para {cant_pax} pasajeros."
+                    pax_str = "un pasajero" if cant_pax == 1 else f"{cant_pax} pasajeros"
+                    text_val = f"Vuelos desde {quote.get('origen', '')} hacia {destination} para {pax_str}."
                 elif oid == "g3f1aacc1efc_0_445":
                     text_val = f"Estadía en {destination} por {noches_str}."
                 elif oid == "g3f1aacc1efc_0_448":

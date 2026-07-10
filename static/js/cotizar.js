@@ -91,14 +91,6 @@ window.addEventListener('load', () => {
         flatpickr.localize(flatpickr.l10ns.es);
     }
 
-    // Hidden developer shortcut to load mock test data (Control + Alt + 9)
-    window.addEventListener('keydown', async (e) => {
-        if (e.ctrlKey && e.altKey && e.key === '9') {
-            e.preventDefault();
-            await fillTestData();
-        }
-    });
-
     // Initialize custom date pickers (Flatpickr)
     flatpickr("#fecha_vuelo_ida", {
         dateFormat: "Y-m-d",
@@ -579,6 +571,28 @@ function addHotelCard(data = null) {
         habitacionVal = formatHabitacionValue(habitacionVal);
     }
 
+    let costVal = '';
+    if (data) {
+        const isSavedQuoteHotel = typeof data.precio_persona !== 'undefined' || typeof data.costo_neto !== 'undefined';
+        if (isSavedQuoteHotel) {
+            if (typeof data.costo_neto !== 'undefined' && data.costo_neto !== null && data.costo_neto !== '') {
+                costVal = data.costo_neto;
+            } else {
+                // Reconstruct legacy quote net hotel cost: Costo Neto = (Costo Total - Total Aéreo - 1.05 * Monto Traslados) / 1.05
+                const totalCost = parseFloat(data.costo) || 0;
+                const flightCost = parseFloat(document.getElementById('monto_vuelos').value) || 0;
+                const feeCost = parseFloat(document.getElementById('fee_aereo_monto').value) || 0;
+                const transfersCost = parseFloat(document.getElementById('monto_traslados').value) || 0;
+                const totalAereo = flightCost + feeCost;
+                const reconstructed = (totalCost - totalAereo - 1.05 * transfersCost) / 1.05;
+                costVal = Math.max(0, Math.round(reconstructed * 100) / 100);
+            }
+        } else {
+            // From quick budget bridge or similar new quote init
+            costVal = data.monto_alojamiento || data.costo || '';
+        }
+    }
+
     card.innerHTML = `
         <button type="button" class="remove-hotel-btn absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 bg-rose-50 border border-rose-100 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all" onclick="removeHotelCard('${cardId}')">Eliminar Opción</button>
         
@@ -624,7 +638,7 @@ function addHotelCard(data = null) {
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Costo</label>
                 <div class="relative flex items-center">
                     <span class="absolute left-3 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
-                    <input type="number" class="hotel-costo-val w-full border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary transition-all bg-white" min="0" step="0.01" required value="${data ? (data.monto_alojamiento || data.costo || '') : ''}" placeholder="0.00" oninput="updateRealTimeSummary()">
+                    <input type="number" class="hotel-costo-val w-full border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary transition-all bg-white" min="0" step="0.01" required value="${costVal}" placeholder="0.00" oninput="updateRealTimeSummary()">
                 </div>
             </div>
         </div>
@@ -1229,7 +1243,7 @@ function _buildPayload() {
         cantidad_pasajeros: parseInt(document.getElementById('cantidad_pasajeros').value),
         fecha_salida: formatDatePickerDate(getDatePickerValue('fecha_vuelo_ida')),
         origen: document.getElementById('origen').value,
-        agente_nombre: document.getElementById('agente_nombre').value,
+        agente_nombre: window.loggedInUser || 'Uriel',
         fecha_vuelo_ida: formatDatePickerDate(getDatePickerValue('fecha_vuelo_ida')),
         fecha_vuelo_vuelta: formatDatePickerDate(getDatePickerValue('fecha_vuelo_vuelta')),
         validez_cotizacion: formatDatePickerDate(getDatePickerValue('validez_cotizacion')),
@@ -1743,7 +1757,8 @@ async function handlePDFEditImport(inputEl) {
         document.getElementById('destino').value = data.destino || '';
         document.getElementById('cantidad_pasajeros').value = data.cantidad_pasajeros || 1;
         document.getElementById('origen').value = data.origen || 'Córdoba';
-        document.getElementById('agente_nombre').value = data.agente_nombre || 'Uriel';
+        const agentEl = document.getElementById('agente_nombre');
+        if (agentEl) agentEl.value = data.agente_nombre || 'Uriel';
 
         const formatToPicker = (val) => {
             if (!val) return '';
@@ -1850,7 +1865,8 @@ async function fillTestData() {
     document.getElementById('destino').value = 'Punta Cana';
     document.getElementById('cantidad_pasajeros').value = 2;
     document.getElementById('origen').value = 'Córdoba';
-    document.getElementById('agente_nombre').value = 'Uriel';
+    const agentEl = document.getElementById('agente_nombre');
+    if (agentEl) agentEl.value = 'Uriel';
 
     // Calculate sample dates
     const today = new Date();
@@ -2384,7 +2400,8 @@ async function loadSavedQuoteIntoForm(quoteId) {
         document.getElementById('destino').value = q.destino || '';
         document.getElementById('cantidad_pasajeros').value = q.cantidad_pasajeros || 1;
         document.getElementById('origen').value = q.origen || 'Córdoba';
-        document.getElementById('agente_nombre').value = q.agente_nombre || 'Uriel';
+        const agentEl = document.getElementById('agente_nombre');
+        if (agentEl) agentEl.value = q.agente_nombre || 'Uriel';
 
         const formatToPicker = (val) => {
             if (!val) return '';
@@ -2593,6 +2610,7 @@ window.updateEditingIndicator = updateEditingIndicator;
 // ── Autenticación de Usuarios y Control de Sesión ────────────────────────────
 
 export function initCotizar() {
+    const isFromBridge = !!window.quickQuoteBridge;
     if (typeof flatpickr !== "undefined" && flatpickr.l10ns && flatpickr.l10ns.es) {
         flatpickr.localize(flatpickr.l10ns.es);
     }
@@ -2638,6 +2656,23 @@ export function initCotizar() {
     setupDragAndDrop();
     setupSidebarResizer();
     toggleFeeType();
+
+    // Prevent Enter key from submitting form unless focused on a textarea or submit button
+    const quoteForm = document.getElementById("quote-form");
+    if (quoteForm) {
+        quoteForm.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                const target = e.target;
+                const isTextarea = target.tagName === "TEXTAREA";
+                const isButtonSubmit = target.tagName === "BUTTON" && target.type !== "button";
+                const isInputSubmit = target.tagName === "INPUT" && target.type === "submit";
+
+                if (!isTextarea && !isButtonSubmit && !isInputSubmit) {
+                    e.preventDefault();
+                }
+            }
+        });
+    }
 
     const inputs = ["monto_vuelos", "fee_aereo_monto", "monto_traslados", "cantidad_pasajeros", "nombre_pax", "destino"];
     inputs.forEach(id => {
@@ -2687,6 +2722,11 @@ export function initCotizar() {
         const quoteId = window.pendingEditQuoteId;
         window.pendingEditQuoteId = null;
         loadSavedQuoteIntoForm(quoteId);
+    } else if (!isFromBridge) {
+        // Fresh quote creation: clean any leftovers and enable editing
+        currentQuoteId = null;
+        enableFormEditing(true);
+        resetForm();
     }
 }
 

@@ -191,10 +191,11 @@ def generate_pptx(quote, output_path):
     noches = quote.get('noches_alojamiento', '7 noches')
     
     set_cell_font(table.cell(1, 0), "Aéreo", bold=True, size=12)
-    set_cell_font(table.cell(1, 1), f"Vuelos desde {origen} a {destino} para {cant_pax} pasajeros adultos.", size=12)
+    pax_str = "un pasajero adulto" if cant_pax == 1 else f"{cant_pax} pasajeros adultos"
+    set_cell_font(table.cell(1, 1), f"Vuelos desde {origen} a {destino} para {pax_str}.", size=12)
     
     set_cell_font(table.cell(2, 0), "Terrestre (Hotel)", bold=True, size=12)
-    set_cell_font(table.cell(2, 1), f"Estadía en hotel ({hotel_names}) por {noches} noches.", size=12)
+    set_cell_font(table.cell(2, 1), f"Estadía en hotel ({hotel_names}) por {noches}.", size=12)
     
     set_cell_font(table.cell(3, 0), "Logística", bold=True, size=12)
     set_cell_font(table.cell(3, 1), "Traslados de llegada (aeropuerto-hotel) y salida (hotel-aeropuerto) en destino.", size=12)

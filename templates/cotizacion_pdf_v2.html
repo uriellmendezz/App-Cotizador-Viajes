@@ -782,8 +782,16 @@
                     <div class="hotel-price-pp">
                         <span class="currency">USD</span> {{ format_price(hotel.precio_persona) }}
                     </div>
-                    <div class="hotel-price-base">por persona — Base {{ base_habitacion }}</div>
+                    <div class="hotel-price-base">
+                        {% if base_habitacion|lower == 'single' %}
+                        Base {{ base_habitacion }}
+                        {% else %}
+                        por persona — Base {{ base_habitacion }}
+                        {% endif %}
+                    </div>
+                    {% if base_habitacion|lower != 'single' %}
                     <div class="hotel-price-total">Total: USD {{ format_price(hotel.costo) }}</div>
+                    {% endif %}
                 </div>
             </div>
         </div>

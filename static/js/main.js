@@ -364,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Global keyboard shortcuts (Ctrl + Alt + 9)
 window.addEventListener('keydown', async (e) => {
-    if (e.ctrlKey && e.altKey && e.key === '9') {
+    if (e.ctrlKey && e.altKey && (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9')) {
         const path = window.location.pathname;
         if (path === '/cotizar' && typeof window.fillTestData === 'function') {
             e.preventDefault();

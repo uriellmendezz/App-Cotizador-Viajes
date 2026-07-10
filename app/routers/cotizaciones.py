@@ -239,7 +239,7 @@ def api_cotizar(quote: dict, current_user: str = Depends(verify_agent_user)):
             d_ida = datetime.strptime(fecha_ida, "%d/%m/%Y")
             d_vuelta = datetime.strptime(fecha_vuelta, "%d/%m/%Y")
             noches = abs((d_vuelta - d_ida).days)
-            noches_alojamiento = f"{noches} noches"
+            noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
         except Exception:
             pass
     quote["noches_alojamiento"] = noches_alojamiento
@@ -264,7 +264,8 @@ def api_cotizar(quote: dict, current_user: str = Depends(verify_agent_user)):
     
     origen = quote.get("origen", "Córdoba")
     destination = quote.get("destino", "")
-    quote["detalle_aereo"] = f"Vuelos desde {origen} hacia {destination} para {cant_pax} pasajeros.{baggage_str}"
+    pax_str = "un pasajero" if cant_pax == 1 else f"{cant_pax} pasajeros"
+    quote["detalle_aereo"] = f"Vuelos desde {origen} hacia {destination} para {pax_str}.{baggage_str}"
     quote.setdefault("detalle_hotel", f"Estadía en {destination} por {noches_alojamiento}.")
     quote.setdefault("detalle_traslado", "Traslado de llegada (aeropuerto-hotel) y traslado de salida (hotel-aeropuerto).")
     
@@ -363,7 +364,7 @@ def api_cotizar_pdf(quote: dict, current_user: str = Depends(verify_agent_user))
             d_ida = datetime.strptime(fecha_ida, "%d/%m/%Y")
             d_vuelta = datetime.strptime(fecha_vuelta, "%d/%m/%Y")
             noches = abs((d_vuelta - d_ida).days)
-            noches_alojamiento = f"{noches} noches"
+            noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
         except Exception:
             pass
     quote["noches_alojamiento"] = noches_alojamiento
@@ -388,7 +389,8 @@ def api_cotizar_pdf(quote: dict, current_user: str = Depends(verify_agent_user))
         
     origen = quote.get("origen", "Córdoba")
     destino = quote.get("destino", "Destino")
-    quote["detalle_vuelo_completo"] = f"Vuelos desde {origen} hacia {destino} para {cant_pax} pasajeros.{baggage_str}"
+    pax_str = "un pasajero" if cant_pax == 1 else f"{cant_pax} pasajeros"
+    quote["detalle_vuelo_completo"] = f"Vuelos desde {origen} hacia {destino} para {pax_str}.{baggage_str}"
     
     try:
         pdf_bytes = generate_pdf(quote)
@@ -496,7 +498,7 @@ def api_save_cotizacion(payload: dict, current_user: str = Depends(verify_agent_
             d_ida = datetime.strptime(fecha_ida, "%d/%m/%Y")
             d_vuelta = datetime.strptime(fecha_vuelta, "%d/%m/%Y")
             noches = abs((d_vuelta - d_ida).days)
-            noches_alojamiento = f"{noches} noches"
+            noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
         except Exception:
             pass
     payload["noches_alojamiento"] = noches_alojamiento
