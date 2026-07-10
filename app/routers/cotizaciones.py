@@ -1,4 +1,4 @@
-import os
+import os, math
 import json
 import base64
 import tempfile
@@ -211,14 +211,25 @@ def api_cotizar(quote: dict, current_user: str = Depends(verify_agent_user)):
     if not hoteles:
         raise HTTPException(status_code=400, detail="Se requiere al menos una opción de hotel.")
     
+    redondear = quote.get("redondear", True)
+    
     for hotel in hoteles:
         costo_hotel = float(hotel.get("costo", 0.0))
         gastos_admin = (costo_hotel + monto_traslados) * 0.05
         costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
         precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
+        
+        if redondear:
+            # Round up per person to whole number (multiple of 10)
+            rounded_pp = math.ceil(precio_persona / 10.0) * 10
+            rounded_total = rounded_pp * cant_pax
+        else:
+            rounded_pp = round(precio_persona, 2)
+            rounded_total = round(costo_total, 2)
+        
         hotel["costo_neto"] = costo_hotel
-        hotel["costo"] = round(costo_total, 2)
-        hotel["precio_persona"] = round(precio_persona, 2)
+        hotel["costo"] = rounded_total
+        hotel["precio_persona"] = rounded_pp
     
     primary_hotel = hoteles[0]
     quote["costo_total"] = primary_hotel["costo"]
@@ -336,14 +347,25 @@ def api_cotizar_pdf(quote: dict, current_user: str = Depends(verify_agent_user))
     if not hoteles:
         raise HTTPException(status_code=400, detail="Se requiere al menos una opción de hotel.")
         
+    redondear = quote.get("redondear", True)
+    
     for hotel in hoteles:
         costo_hotel = safe_float(hotel.get("costo", 0.0))
         gastos_admin = (costo_hotel + monto_traslados) * 0.05
         costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
         precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
+        
+        if redondear:
+            # Round up per person to whole number (multiple of 10)
+            rounded_pp = math.ceil(precio_persona / 10.0) * 10
+            rounded_total = rounded_pp * cant_pax
+        else:
+            rounded_pp = round(precio_persona, 2)
+            rounded_total = round(costo_total, 2)
+        
         hotel["costo_neto"] = costo_hotel
-        hotel["costo"] = round(costo_total, 2)
-        hotel["precio_persona"] = round(precio_persona, 2)
+        hotel["costo"] = rounded_total
+        hotel["precio_persona"] = rounded_pp
         
     primary_hotel = hoteles[0]
     quote["costo_total"] = primary_hotel["costo"]
@@ -469,14 +491,25 @@ def api_save_cotizacion(payload: dict, current_user: str = Depends(verify_agent_
     payload["fee_aereo"] = fee_aereo
     
     hoteles = payload.get("hoteles", [])
+    redondear = payload.get("redondear", True)
+    
     for hotel in hoteles:
         costo_hotel = safe_float(hotel.get("costo", 0.0))
         gastos_admin = (costo_hotel + monto_traslados) * 0.05
         costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
         precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
+        
+        if redondear:
+            # Round up per person to whole number (multiple of 10)
+            rounded_pp = math.ceil(precio_persona / 10.0) * 10
+            rounded_total = rounded_pp * cant_pax
+        else:
+            rounded_pp = round(precio_persona, 2)
+            rounded_total = round(costo_total, 2)
+        
         hotel["costo_neto"] = costo_hotel
-        hotel["costo"] = round(costo_total, 2)
-        hotel["precio_persona"] = round(precio_persona, 2)
+        hotel["costo"] = rounded_total
+        hotel["precio_persona"] = rounded_pp
         
     if hoteles:
         primary_hotel = hoteles[0]

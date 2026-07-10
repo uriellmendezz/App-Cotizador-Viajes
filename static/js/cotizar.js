@@ -963,6 +963,7 @@ function updateRealTimeSummary() {
     let hotelCostsHtml = '';
     let transfersHtml = '';
     let adminFeesHtml = '';
+    let roundingHtml = '';
     let totalsHtml = '';
     let perPersonHtml = '';
 
@@ -973,6 +974,11 @@ function updateRealTimeSummary() {
         const adminFee = (hotelCost + transfersCost) * 0.05;
         const total = aereosTotal + hotelCost + transfersCost + adminFee;
         const perPerson = total / cantPax;
+
+        const aplicarRedondeo = document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true;
+        const roundedPerPerson = aplicarRedondeo ? (Math.ceil(perPerson / 10) * 10) : perPerson;
+        const roundedTotal = aplicarRedondeo ? (roundedPerPerson * cantPax) : total;
+        const totalRoundingAdded = roundedTotal - total;
 
         const isRecomendado = idx === 0;
         const columnHeader = isRecomendado ? 'Recomendado' : `Opción ${idx + 1}`;
@@ -1001,12 +1007,16 @@ function updateRealTimeSummary() {
             <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(adminFee)}</td>
         `;
 
+        roundingHtml += `
+            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(totalRoundingAdded)}</td>
+        `;
+
         totalsHtml += `
-            <td class="py-2.5 px-2 text-right text-xs ${isRecomendado ? 'text-brand-primary' : 'text-slate-800'} font-extrabold">USD ${formatPriceES(total)}</td>
+            <td class="py-2.5 px-2 text-right text-xs ${isRecomendado ? 'text-brand-primary' : 'text-slate-800'} font-extrabold">USD ${formatPriceES(roundedTotal)}</td>
         `;
 
         perPersonHtml += `
-            <td class="py-2.5 px-2 text-right text-xs text-brand-primary font-extrabold">USD ${formatPriceES(perPerson)}</td>
+            <td class="py-2.5 px-2 text-right text-xs text-brand-primary font-extrabold">USD ${formatPriceES(roundedPerPerson)}</td>
         `;
     });
 
@@ -1051,6 +1061,13 @@ function updateRealTimeSummary() {
                             <span class="truncate">Gastos Admin (5%)</span>
                         </td>
                         ${adminFeesHtml}
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
+                            <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 icon-slate" alt="Redondeo">
+                            <span class="truncate">Redondeo</span>
+                        </td>
+                        ${roundingHtml}
                     </tr>
                     <tr class="bg-slate-50/50 font-bold border-t border-slate-200">
                         <td class="py-2.5 pr-2 text-[10px] text-slate-800 uppercase tracking-wider flex items-center gap-1">
@@ -1188,11 +1205,14 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         const adminFee = (hotelCost + transfersCost) * 0.05;
         const total = aereosTotal + hotelCost + transfersCost + adminFee;
         const perPerson = total / cantPax;
+        const aplicarRedondeo = document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true;
+        const roundedPerPerson = aplicarRedondeo ? (Math.ceil(perPerson / 10) * 10) : perPerson;
+        const roundedTotal = aplicarRedondeo ? (roundedPerPerson * cantPax) : total;
 
         const elTotal = document.getElementById('res-total-price');
-        if (elTotal) elTotal.innerText = `USD ${formatPriceES(total)}`;
+        if (elTotal) elTotal.innerText = `USD ${formatPriceES(roundedTotal)}`;
         const elPax = document.getElementById('res-pax-price');
-        if (elPax) elPax.innerText = `USD ${formatPriceES(perPerson)} / Pax`;
+        if (elPax) elPax.innerText = `USD ${formatPriceES(roundedPerPerson)} / Pax`;
         updateBaseLabel();
 
         // Show results panel
@@ -1236,6 +1256,7 @@ window.downloadPDFBlob = downloadPDFBlob;
 function _buildPayload() {
     const imgIda = document.getElementById('data-vuelo-ida').value;
     const imgVuelta = document.getElementById('data-vuelo-vuelta').value;
+    const aplicarRedondeo = document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true;
 
     const payload = {
         nombre_pax: document.getElementById('nombre_pax').value,
@@ -1254,6 +1275,7 @@ function _buildPayload() {
         monto_traslados: parseFloat(document.getElementById('monto_traslados').value),
         gastos_iva: 0.0,
         equipaje: selectedBaggage,
+        redondear: aplicarRedondeo,
         hoteles: []
     };
 
@@ -1272,7 +1294,8 @@ function _buildPayload() {
             descripcion: card.querySelector('.hotel-descripcion-val').value,
             imagen1: card.querySelector('.hotel-imagen-val-1').value,
             imagen2: "",
-            imagen3: ""
+            imagen3: "",
+            redondear: aplicarRedondeo
         });
     });
 
@@ -1489,6 +1512,8 @@ function resetForm() {
     document.getElementById('nombre_pax').value = '';
     document.getElementById('destino').value = '';
     document.getElementById('cantidad_pasajeros').value = '';
+    const aplicarRedondeoEl = document.getElementById('aplicar_redondeo');
+    if (aplicarRedondeoEl) aplicarRedondeoEl.checked = true;
 
     const clearDateSafe = (id) => {
         const el = document.getElementById(id);
@@ -1759,6 +1784,10 @@ async function handlePDFEditImport(inputEl) {
         document.getElementById('origen').value = data.origen || 'Córdoba';
         const agentEl = document.getElementById('agente_nombre');
         if (agentEl) agentEl.value = data.agente_nombre || 'Uriel';
+        const aplicarRedondeoEl = document.getElementById('aplicar_redondeo');
+        if (aplicarRedondeoEl) {
+            aplicarRedondeoEl.checked = typeof data.redondear !== 'undefined' ? data.redondear : true;
+        }
 
         const formatToPicker = (val) => {
             if (!val) return '';
@@ -1867,6 +1896,8 @@ async function fillTestData() {
     document.getElementById('origen').value = 'Córdoba';
     const agentEl = document.getElementById('agente_nombre');
     if (agentEl) agentEl.value = 'Uriel';
+    const aplicarRedondeoEl = document.getElementById('aplicar_redondeo');
+    if (aplicarRedondeoEl) aplicarRedondeoEl.checked = true;
 
     // Calculate sample dates
     const today = new Date();
@@ -2402,6 +2433,10 @@ async function loadSavedQuoteIntoForm(quoteId) {
         document.getElementById('origen').value = q.origen || 'Córdoba';
         const agentEl = document.getElementById('agente_nombre');
         if (agentEl) agentEl.value = q.agente_nombre || 'Uriel';
+        const aplicarRedondeoEl = document.getElementById('aplicar_redondeo');
+        if (aplicarRedondeoEl) {
+            aplicarRedondeoEl.checked = (q.hoteles && q.hoteles[0] && typeof q.hoteles[0].redondear !== 'undefined') ? q.hoteles[0].redondear : (q.redondear !== undefined ? q.redondear : true);
+        }
 
         const formatToPicker = (val) => {
             if (!val) return '';

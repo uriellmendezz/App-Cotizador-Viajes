@@ -276,6 +276,18 @@ def generate_pdf(data: dict) -> bytes:
 
         processed_hotels.append(h)
 
+    # ── Calculate dynamic destination title font size ──────────────────────
+    destino = data.get("destino", "Destino")
+    destino_len = len(destino)
+    if destino_len > 25:
+        destino_font_size = "20pt"
+    elif destino_len > 18:
+        destino_font_size = "26pt"
+    elif destino_len > 12:
+        destino_font_size = "32pt"
+    else:
+        destino_font_size = "40pt"
+
     # ── Build template context ─────────────────────────────────────────────
     fecha_generacion = datetime.now().strftime("%d/%m/%Y")
 
@@ -287,7 +299,8 @@ def generate_pdf(data: dict) -> bytes:
         # Header
         "fecha_generacion": fecha_generacion,
         # Title
-        "destino": data.get("destino", "Destino"),
+        "destino": destino,
+        "destino_font_size": destino_font_size,
         "nombre_pax": data.get("nombre_pax", "Pasajero"),
         "fecha_salida": data.get("fecha_salida", ""),
         "validez_cotizacion": data.get("validez_cotizacion", ""),

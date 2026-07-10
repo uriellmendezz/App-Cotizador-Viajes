@@ -779,7 +779,16 @@ def create_presentation_from_template(template_id: str, folder_id: str, quote_da
                 set_shape_text(requests, "g3f1aacc1efc_0_451", f"Vuelos desde {quote_data.get('origen', '')} hacia {destination} para {pax_str}.", font_size=9)
                 set_shape_text(requests, "g3f1aacc1efc_0_445", f"Estadía en {destination} por {noches_str}.", font_size=9)
                 set_shape_text(requests, "g3f1aacc1efc_0_448", quote_data.get("detalle_traslado", "Traslados de llegada y regreso (Aeropuerto/Hotel/Aeropuerto)"), font_size=9)
-                set_shape_text(requests, "g3f1aacc1efc_0_339", destination.upper(), font_size=40, bold=True, alignment="CENTER", weight=900)
+                dest_len = len(destination)
+                if dest_len > 25:
+                    dest_font_size = 20
+                elif dest_len > 18:
+                    dest_font_size = 26
+                elif dest_len > 12:
+                    dest_font_size = 32
+                else:
+                    dest_font_size = 40
+                set_shape_text(requests, "g3f1aacc1efc_0_339", destination.upper(), font_size=dest_font_size, bold=True, alignment="CENTER", weight=900)
                 set_shape_text(requests, "g3f1aacc1efc_0_340", f"Propuesta para {passenger_name} con salida el {quote_data.get('fecha_salida')}.", font_size=11, bold=True, alignment="CENTER")
                 set_shape_text(requests, "g3f1aacc1efc_0_334", quote_data.get("fecha_vuelo_ida", ""), font_size=7, bold=True)
                 set_shape_text(requests, "g3f1aacc1efc_0_336", quote_data.get("fecha_vuelo_vuelta", ""), font_size=7, bold=True)
