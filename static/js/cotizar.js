@@ -1798,7 +1798,7 @@ function resetForm() {
     document.getElementById('destino').value = '';
     document.getElementById('cantidad_pasajeros').value = '';
     const aplicarRedondeoEl = document.getElementById('aplicar_redondeo');
-    if (aplicarRedondeoEl) aplicarRedondeoEl.checked = true;
+    if (aplicarRedondeoEl) aplicarRedondeoEl.checked = false;
 
     const clearDateSafe = (id) => {
         const el = document.getElementById(id);
@@ -2776,7 +2776,7 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
         if (agentEl) agentEl.value = q.agente_nombre || 'Uriel';
         const aplicarRedondeoEl = document.getElementById('aplicar_redondeo');
         if (aplicarRedondeoEl) {
-            aplicarRedondeoEl.checked = (q.hoteles && q.hoteles[0] && typeof q.hoteles[0].redondear !== 'undefined') ? q.hoteles[0].redondear : (q.redondear !== undefined ? q.redondear : true);
+            aplicarRedondeoEl.checked = (q.hoteles && q.hoteles[0] && typeof q.hoteles[0].redondear !== 'undefined') ? q.hoteles[0].redondear : (q.redondear !== undefined ? q.redondear : false);
         }
 
         const formatToPicker = (val) => {

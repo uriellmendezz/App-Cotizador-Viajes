@@ -113,13 +113,31 @@
                                 class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ajustes</label>
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                <span>Ajustes</span>
+                                <div class="relative group inline-block">
+                                    <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors"
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div
+                                        class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
+                                        Redondear totales al múltiplo de 10 más cercano (ej. 1042 a 1050) para presentar montos limpios al pasajero.
+                                        <div
+                                            class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800">
+                                        </div>
+                                    </div>
+                                </div>
+                            </label>
                             <div class="flex items-center gap-2 h-full min-h-[46px]">
                                 <label class="relative inline-flex items-center cursor-pointer select-none">
-                                    <input type="checkbox" id="aplicar_redondeo" checked
+                                    <input type="checkbox" id="aplicar_redondeo"
                                         onchange="updateRealTimeSummary()" class="sr-only peer">
-                                    <div
-                                        class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary">
+                                    <div class="w-6 h-6 rounded-full bg-slate-200 border border-slate-300/50 flex items-center justify-center transition-all duration-300 peer-checked:bg-brand-primary peer-checked:border-brand-primary/50 text-transparent peer-checked:text-white">
+                                        <svg class="w-3.5 h-3.5 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
                                     </div>
                                     <span class="ml-3 text-sm font-semibold text-slate-700">Redondear totales</span>
                                 </label>

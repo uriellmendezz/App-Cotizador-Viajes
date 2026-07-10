@@ -271,6 +271,20 @@ async function router() {
             wrapperEl.classList.add('lg:pl-[260px]');
             updateNavActiveState(path);
 
+            // Initialize toggle chevron rotation state
+            const chevron = document.getElementById('sidebar-toggle-chevron');
+            if (chevron) {
+                if (window.innerWidth >= 1024) {
+                    const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+                    if (isCollapsed) chevron.classList.add('rotate-180');
+                    else chevron.classList.remove('rotate-180');
+                } else {
+                    const isDrawerOpen = sidebarEl.classList.contains('translate-x-0');
+                    if (isDrawerOpen) chevron.classList.remove('rotate-180');
+                    else chevron.classList.add('rotate-180');
+                }
+            }
+
             // Fetch and apply agency configurations
             loadHeaderConfig();
 
@@ -617,9 +631,10 @@ function closeConfirmModal(confirmAction) {
 }
 window.closeConfirmModal = closeConfirmModal;
 
-// Sidebar mobile toggle behavior
+// Sidebar toggle behavior (mobile drawer and desktop collapse)
 function toggleSidebar(force) {
     const isMobile = window.innerWidth < 1024;
+    const chevron = document.getElementById('sidebar-toggle-chevron');
     
     if (isMobile) {
         // Mobile drawer behavior
@@ -635,11 +650,13 @@ function toggleSidebar(force) {
             sidebar.classList.add('translate-x-0');
             backdrop.classList.remove('hidden');
             backdrop.classList.add('block');
+            if (chevron) chevron.classList.remove('rotate-180');
         } else {
             sidebar.classList.add('-translate-x-full');
             sidebar.classList.remove('translate-x-0');
             backdrop.classList.remove('block');
             backdrop.classList.add('hidden');
+            if (chevron) chevron.classList.add('rotate-180');
         }
     } else {
         // Desktop collapse inline behavior
@@ -649,9 +666,11 @@ function toggleSidebar(force) {
         if (shouldCollapse) {
             body.classList.add('sidebar-collapsed');
             localStorage.setItem('sidebarCollapsed', 'true');
+            if (chevron) chevron.classList.add('rotate-180');
         } else {
             body.classList.remove('sidebar-collapsed');
             localStorage.setItem('sidebarCollapsed', 'false');
+            if (chevron) chevron.classList.remove('rotate-180');
         }
     }
 }
