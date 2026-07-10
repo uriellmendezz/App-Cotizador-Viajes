@@ -104,6 +104,7 @@ const routeNames = {
     '/cotizacion-completa': 'Cotización Detallada',
     '/editar': 'Archivos',
     '/config': 'Configuración',
+    '/ver-cotizacion': 'Ver Cotización',
 };
 
 // SPA Router implementation
@@ -170,7 +171,8 @@ const routes = {
     '/hacer-cotizacion': { html: '/static/views/opciones_cotizacion.html', js: '/static/js/inicio.js', init: 'initOpciones' },
     '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
-    '/config': { html: '/static/views/configuracion.html', js: '/static/js/cotizar.js', init: 'initConfig' }
+    '/config': { html: '/static/views/configuracion.html', js: '/static/js/cotizar.js', init: 'initConfig' },
+    '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' }
 };
 
 let isConfigLoaded = false;

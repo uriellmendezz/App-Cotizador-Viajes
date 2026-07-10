@@ -1369,6 +1369,11 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
 
     const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
 
+    const formTab = document.getElementById('cotizacion-tab');
+    if (formTab) {
+        formTab.classList.add('hidden');
+    }
+
     if (isViewingSavedQuote) {
         window.showLoader(`Cargando cotización para ${paxNameForLoading}`);
     } else {
@@ -1470,20 +1475,27 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         if (elPax) elPax.innerText = `USD ${formatPriceES(roundedPerPerson)} / Pax`;
         updateBaseLabel();
 
-        // Show results panel
-        const resultsPanel = document.getElementById('results-panel');
-        resultsPanel.classList.remove('hidden');
-        resultsPanel.classList.add('block');
-        resultsPanel.scrollIntoView({ behavior: 'smooth' });
+        window.lastGeneratedPdfUrl = url;
+        window.lastGeneratedQuote = {
+            id: currentQuoteId,
+            nombre_pax: payload.nombre_pax,
+            destino: payload.destino,
+            agente_nombre: payload.agente_nombre || window.loggedInUser,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        window.currentPdfBlob = blob;
+        window.currentPdfUrl = url;
+        window.currentPdfFileName = currentPdfFileName;
 
-        const btnScroll = document.getElementById('btn-scroll-to-preview');
-        if (btnScroll) {
-            btnScroll.style.display = 'flex';
-        }
-
-        showAlert('success', '✔ Vista previa de PDF generada correctamente.', true);
+        sessionStorage.removeItem('detailedQuoteFormState');
+        navigateTo('/ver-cotizacion?id=' + currentQuoteId);
     } catch (err) {
         window.hideLoader();
+        const formTab = document.getElementById('cotizacion-tab');
+        if (formTab) {
+            formTab.classList.remove('hidden');
+        }
         showAlert('warning', 'Error al generar el PDF: ' + err.message);
     }
 }
@@ -2424,7 +2436,7 @@ function renderActiveTabTable(customFilteredList = null) {
         displayList.forEach(q => {
             const tr = document.createElement('tr');
             tr.className = 'border-b border-slate-100 hover:bg-rose-50/40 transition-colors duration-150 cursor-pointer';
-            tr.setAttribute('onclick', `loadSavedQuoteIntoForm('${q.id}')`);
+            tr.setAttribute('onclick', `navigateTo('/ver-cotizacion?id=${q.id}')`);
 
             let fechaSalidaFormatted = q.fecha_salida || '';
             if (fechaSalidaFormatted.includes('-')) {
@@ -2695,10 +2707,11 @@ function enableFormEditing(enabled) {
 }
 window.enableFormEditing = enableFormEditing;
 
-async function loadSavedQuoteIntoForm(quoteId) {
+async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
     const quoteForm = document.getElementById('quote-form');
     if (!quoteForm) {
         window.pendingEditQuoteId = quoteId;
+        window.pendingEditQuoteEditable = forceEditMode;
         navigateTo('/cotizacion-completa');
         return;
     }
@@ -2808,20 +2821,23 @@ async function loadSavedQuoteIntoForm(quoteId) {
             });
         }
 
-        // Update edit state and enter Read-only mode
+        // Update edit state and read-only / editing modes
         currentQuoteId = q.id;
         window.currentQuoteOwner = q.agente_nombre;
-        enableFormEditing(false);
 
-        // Update breakdown
-        updateRealTimeSummary();
-
-        // Ensure the correct passenger name is used in the loading text for generation
-        const exactPassengerName = q.nombre_pax || 'Pasajero';
-        window.showLoader(`Cargando cotización para ${exactPassengerName}`);
-
-        // Auto-generate the PDF preview
-        await generatePDFPreview(null, true);
+        if (forceEditMode) {
+            enableFormEditing(true);
+            isReadOnlyMode = false;
+            updateRealTimeSummary();
+            window.hideLoader();
+        } else {
+            enableFormEditing(false);
+            isReadOnlyMode = true;
+            updateRealTimeSummary();
+            const exactPassengerName = q.nombre_pax || 'Pasajero';
+            window.showLoader(`Cargando cotización para ${exactPassengerName}`);
+            await generatePDFPreview(null, true);
+        }
 
     } catch (err) {
         window.hideLoader();
@@ -3100,8 +3116,10 @@ export function initCotizar() {
 
     if (window.pendingEditQuoteId) {
         const quoteId = window.pendingEditQuoteId;
+        const forceEdit = !!window.pendingEditQuoteEditable;
         window.pendingEditQuoteId = null;
-        loadSavedQuoteIntoForm(quoteId);
+        window.pendingEditQuoteEditable = null;
+        loadSavedQuoteIntoForm(quoteId, forceEdit);
     } else if (sessionStorage.getItem('detailedQuoteFormState')) {
         restoreDetailedQuoteFormState();
     } else if (!isFromBridge) {
@@ -3126,3 +3144,111 @@ export function initSavedQuotes() {
 export function initConfig() {
     loadConfig();
 }
+
+export async function initVerCotizacion() {
+    const params = new URLSearchParams(window.location.search);
+    const quoteId = params.get('id');
+    if (!quoteId) {
+        navigateTo('/editar');
+        return;
+    }
+
+    window.showLoader("Cargando cotización...");
+
+    try {
+        let quote = null;
+        let pdfUrl = null;
+
+        // If it was just generated and we have it in memory, use it
+        if (window.lastGeneratedQuote && String(window.lastGeneratedQuote.id) === String(quoteId)) {
+            quote = window.lastGeneratedQuote;
+            pdfUrl = window.lastGeneratedPdfUrl;
+        } else {
+            // Fetch from database
+            const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`);
+            if (!res.ok) throw new Error("No se pudo cargar la cotización.");
+            quote = await res.json();
+
+            // Generate the PDF
+            const pdfRes = await authenticatedFetch('/api/cotizar-pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(quote)
+            });
+            if (!pdfRes.ok) throw new Error("No se pudo generar el PDF de la cotización.");
+            const blob = await pdfRes.blob();
+            pdfUrl = URL.createObjectURL(blob);
+
+            // Save in window variables for current pdf operations (download, open tab)
+            window.currentPdfBlob = blob;
+            window.currentPdfUrl = pdfUrl;
+            
+            // Reconstruct filename
+            const now = new Date(quote.updated_at || quote.created_at || new Date());
+            const dd = String(now.getDate()).padStart(2, '0');
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const yyyy = now.getFullYear();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            const fecha = `${dd}-${mm}-${yyyy}`;
+            const hora = `${hh}-${min}-${ss}`;
+            const paxName = (quote.nombre_pax || 'Pasajero').replace(/[\/\\]/g, '-');
+            const destName = (quote.destino || 'Destino').replace(/[\/\\]/g, '-');
+            window.currentPdfFileName = `Cotización para ${paxName} - ${destName} - ${fecha}_${hora}.pdf`;
+        }
+
+        // Cache quote id and owner
+        currentQuoteId = quote.id;
+        window.currentQuoteOwner = quote.agente_nombre;
+
+        // Populate left column PDF viewer
+        const iframe = document.getElementById('ver-pdf-iframe');
+        if (iframe) {
+            iframe.src = pdfUrl + '#zoom=75';
+        }
+
+        // Populate right column details
+        document.getElementById('ver-pax-name').textContent = quote.nombre_pax || 'Sin Nombre';
+        document.getElementById('ver-destino').textContent = quote.destino || 'Sin Destino';
+        
+        const formatAgent = (name) => {
+            if (!name) return '-';
+            return name.charAt(0).toUpperCase() + name.slice(1);
+        };
+        document.getElementById('ver-agente').textContent = formatAgent(quote.agente_nombre);
+
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '-';
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleString('es-AR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (e) {
+                return dateStr;
+            }
+        };
+
+        document.getElementById('ver-created-at').textContent = formatDate(quote.created_at);
+        document.getElementById('ver-updated-at').textContent = formatDate(quote.updated_at || quote.created_at);
+
+        window.hideLoader();
+    } catch (e) {
+        window.hideLoader();
+        showAlert('danger', "Error al cargar la cotización: " + e.message);
+    }
+}
+window.initVerCotizacion = initVerCotizacion;
+
+export function editQuoteFromView() {
+    if (!currentQuoteId) return;
+    window.pendingEditQuoteId = currentQuoteId;
+    window.pendingEditQuoteEditable = true;
+    navigateTo('/cotizacion-completa');
+}
+window.editQuoteFromView = editQuoteFromView;
