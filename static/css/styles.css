@@ -394,5 +394,45 @@ textarea:focus {
     overflow: hidden !important;
 }
 
+/* Sidebar Light Theme & Glassmorphism states */
+.sidebar-light {
+    background-color: #f8fafc; /* bg-slate-50 */
+    border-color: #e2e8f0; /* border-slate-200 */
+}
+
+.sidebar-item-style {
+    color: #475569; /* text-slate-600 */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent;
+}
+
+.sidebar-item-style:hover {
+    background-color: rgba(254, 226, 226, 0.4); /* soft pink transparent */
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-color: rgba(254, 205, 211, 0.4); /* rose-200/40 */
+    color: #be123c; /* text-rose-700 */
+}
+
+.sidebar-item-active {
+    background-color: rgba(254, 226, 226, 0.7) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border-color: rgba(254, 205, 211, 0.6) !important;
+    color: #be123c !important;
+    font-weight: 600 !important;
+    box-shadow: 0 1px 3px 0 rgba(251, 113, 133, 0.05) !important;
+}
+
+/* Collapsible sidebar layout overrides */
+@media (min-width: 1024px) {
+    body.sidebar-collapsed #app-sidebar {
+        transform: translateX(-100%);
+    }
+    body.sidebar-collapsed #main-content-wrapper {
+        padding-left: 0 !important;
+    }
+}
+
 
 

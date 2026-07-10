@@ -2,6 +2,13 @@
 let authToken = localStorage.getItem('authToken') || null;
 let loggedInUser = localStorage.getItem('loggedInUser') || null;
 
+// Initialize sidebar collapse state on desktop early
+if (window.innerWidth >= 1024) {
+    if (localStorage.getItem('sidebarCollapsed') === 'true') {
+        document.body.classList.add('sidebar-collapsed');
+    }
+}
+
 window.authToken = authToken;
 window.loggedInUser = loggedInUser;
 
@@ -190,12 +197,15 @@ async function loadHeaderConfig() {
             document.documentElement.style.setProperty('--secondary-color', config.colores[1]);
             document.documentElement.style.setProperty('--accent-color', config.colores[2]);
 
-            // Update Header Logo if present
+            // Update Sidebar and Mobile Logo if present
             if (config.logo_base64) {
-                const navLogo = document.getElementById('nav-logo');
-                if (navLogo) {
-                    navLogo.src = 'data:image/png;base64,' + config.logo_base64;
-                    navLogo.classList.remove('hidden');
+                const sidebarLogo = document.getElementById('sidebar-logo');
+                if (sidebarLogo) {
+                    sidebarLogo.src = 'data:image/png;base64,' + config.logo_base64;
+                }
+                const mobileLogo = document.getElementById('mobile-logo');
+                if (mobileLogo) {
+                    mobileLogo.src = 'data:image/png;base64,' + config.logo_base64;
                 }
             }
             window.agencyConfig = config;
@@ -245,28 +255,35 @@ async function router() {
 
     const route = routes[path] || routes['/inicio'];
     
-    // Handle Header/Navigation bar visibility based on route
-    const header = document.querySelector('header');
-    if (header) {
+    // Handle Sidebar and Mobile Header visibility based on route
+    const sidebarEl = document.getElementById('app-sidebar');
+    const wrapperEl = document.getElementById('main-content-wrapper');
+    const headerEl = document.getElementById('app-top-header');
+    
+    if (sidebarEl && wrapperEl) {
         if (path === '/login') {
-            header.classList.add('hidden');
+            sidebarEl.classList.add('hidden');
+            if (headerEl) headerEl.classList.add('hidden');
+            wrapperEl.classList.remove('lg:pl-[260px]');
         } else {
-            header.classList.remove('hidden');
+            sidebarEl.classList.remove('hidden');
+            if (headerEl) headerEl.classList.remove('hidden');
+            wrapperEl.classList.add('lg:pl-[260px]');
             updateNavActiveState(path);
 
             // Fetch and apply agency configurations
             loadHeaderConfig();
 
-            // Update Session Agent Badge
-            const badge = document.getElementById('logged-user-badge');
-            const spanUsername = document.getElementById('logged-username-span');
+            // Update Sidebar Session Agent Badge
+            const badge = document.getElementById('sidebar-user-badge');
+            const spanUsername = document.getElementById('sidebar-username-span');
             if (badge && spanUsername) {
                 const username = window.loggedInUser;
                 if (username) {
                     if (username === 'guest' || username === 'Invitado') {
                         spanUsername.innerText = 'Invitado';
                         const dot = badge.querySelector('span');
-                        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-400';
+                        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-500';
                     } else {
                         const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
                         spanUsername.innerText = formattedName;
@@ -349,20 +366,20 @@ async function router() {
 window.router = router;
 
 function updateNavActiveState(path) {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active', 'bg-gradient-to-r', 'from-brand-primary', 'to-[#ff7f85]', 'text-white', 'shadow-lg', 'shadow-brand-primary/35');
-        btn.classList.add('text-slate-500', 'hover:text-slate-800', 'hover:bg-slate-100');
+    // Remove active styles from all sidebar items
+    document.querySelectorAll('.sidebar-item').forEach(btn => {
+        btn.classList.remove('sidebar-item-active');
     });
-    
+
     let btnId = '';
-    if (path === '/cotizacion-completa') btnId = 'nav-btn-new-quote';
-    else if (path === '/cotizacion-rapida') btnId = 'nav-btn-quick-quote';
-    else if (path === '/inicio') btnId = 'nav-btn-inicio';
+    if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
+    else if (path === '/cotizacion-completa') btnId = 'sidebar-btn-full-quote';
+    else if (path === '/editar') btnId = 'sidebar-btn-editar';
+    else if (path === '/config') btnId = 'sidebar-btn-config';
 
     const activeBtn = document.getElementById(btnId);
     if (activeBtn) {
-        activeBtn.classList.add('active', 'bg-gradient-to-r', 'from-brand-primary', 'to-[#ff7f85]', 'text-white', 'shadow-lg', 'shadow-brand-primary/35');
-        activeBtn.classList.remove('text-slate-500', 'hover:text-slate-800', 'hover:bg-slate-100');
+        activeBtn.classList.add('sidebar-item-active');
     }
 }
 
@@ -374,15 +391,19 @@ function logoutAgent(notifyServer = true) {
     setSession(null, null);
     isConfigLoaded = false;
 
-    // Reset navbar logo and hide agent badge
-    const badge = document.getElementById('logged-user-badge');
+    // Reset sidebar and mobile logo, and hide agent badge
+    const badge = document.getElementById('sidebar-user-badge');
     if (badge) {
         badge.classList.add('hidden');
         badge.classList.remove('flex');
     }
-    const navLogo = document.getElementById('nav-logo');
+    const navLogo = document.getElementById('sidebar-logo');
     if (navLogo) {
         navLogo.src = '/assets/Banner%20letra%20O.png';
+    }
+    const mobileLogo = document.getElementById('mobile-logo');
+    if (mobileLogo) {
+        mobileLogo.src = '/assets/Banner%20letra%20O.png';
     }
 
     navigateTo('/login');
@@ -595,3 +616,43 @@ function closeConfirmModal(confirmAction) {
     currentCancelCallback = null;
 }
 window.closeConfirmModal = closeConfirmModal;
+
+// Sidebar mobile toggle behavior
+function toggleSidebar(force) {
+    const isMobile = window.innerWidth < 1024;
+    
+    if (isMobile) {
+        // Mobile drawer behavior
+        const sidebar = document.getElementById('app-sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (!sidebar || !backdrop) return;
+
+        const isOpen = sidebar.classList.contains('translate-x-0');
+        const shouldOpen = typeof force === 'boolean' ? force : !isOpen;
+
+        if (shouldOpen) {
+            sidebar.classList.remove('-translate-x-full');
+            sidebar.classList.add('translate-x-0');
+            backdrop.classList.remove('hidden');
+            backdrop.classList.add('block');
+        } else {
+            sidebar.classList.add('-translate-x-full');
+            sidebar.classList.remove('translate-x-0');
+            backdrop.classList.remove('block');
+            backdrop.classList.add('hidden');
+        }
+    } else {
+        // Desktop collapse inline behavior
+        const body = document.body;
+        const shouldCollapse = typeof force === 'boolean' ? !force : !body.classList.contains('sidebar-collapsed');
+        
+        if (shouldCollapse) {
+            body.classList.add('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', 'true');
+        } else {
+            body.classList.remove('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', 'false');
+        }
+    }
+}
+window.toggleSidebar = toggleSidebar;
