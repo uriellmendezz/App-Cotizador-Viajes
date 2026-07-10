@@ -110,7 +110,7 @@ const typeOrder = {
     'iva': 6
 };
 
-export function initPresupuestar() {
+export function initCotizacionRapida() {
     currentQuickQuoteId = null;
     // Bind main events
     const paxCountInput = document.getElementById('rapido-pax-count');
@@ -193,7 +193,7 @@ export function initPresupuestar() {
         btnReset.onclick = () => {
             window.showCustomConfirm({
                 title: '¿Limpiar tabla?',
-                desc: '¿Estás seguro de que deseas restablecer el presupuesto rápido a los valores por defecto? Se perderán todos los cambios no guardados.',
+                desc: '¿Estás seguro de que deseas restablecer la cotización rápida a los valores por defecto? Se perderán todos los cambios no guardados.',
                 btnText: 'Sí, Limpiar',
                 confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
                 callback: () => {
@@ -364,6 +364,7 @@ function addQuickBudgetRow(data = null) {
     syncQuickRowEditableState(tr);
     sortQuickBudgetRows();
     calculateQuickQuote();
+    saveQuickQuoteFormState();
 }
 
 function sortQuickBudgetRows() {
@@ -528,7 +529,7 @@ function calculateQuickQuote() {
 async function saveQuickQuote(andRedirect = false) {
     const passengerName = (document.getElementById('rapido-pasajero')?.value || '').trim();
     if (!passengerName) {
-        window.showAlert('warning', 'El presupuesto rápido debe tener un título obligatorio.');
+        window.showAlert('warning', 'La cotización rápida debe tener un título obligatorio.');
         return;
     }
     const paxCount = parseInt(document.getElementById('rapido-pax-count')?.value) || 2;
@@ -541,7 +542,7 @@ async function saveQuickQuote(andRedirect = false) {
     });
     
     if (!hasService) {
-        window.showAlert('warning', 'Para poder guardar el presupuesto, debe haber por lo menos un servicio de Vuelo, Alojamiento o Traslado.');
+        window.showAlert('warning', 'Para poder guardar la cotización, debe haber por lo menos un servicio de Vuelo, Alojamiento o Traslado.');
         return;
     }
     
@@ -602,7 +603,7 @@ async function saveQuickQuote(andRedirect = false) {
         payload.id = currentQuickQuoteId;
     }
     
-    window.showLoader("Guardando presupuesto rápido...");
+    window.showLoader("Guardando cotización rápida...");
     
     try {
         const res = await window.authenticatedFetch('/api/presupuestos', {
@@ -619,7 +620,7 @@ async function saveQuickQuote(andRedirect = false) {
         const saved = await res.json();
         currentQuickQuoteId = saved.id;
         
-        window.showAlert('success', 'Presupuesto rápido guardado correctamente.');
+        window.showAlert('success', 'Cotización rápida guardada correctamente.');
         
         if (andRedirect) {
             // Keep quote payload in memory to pre-load detailed quote tab
@@ -632,7 +633,7 @@ async function saveQuickQuote(andRedirect = false) {
                 totalFinal
             };
             window.savedQuickQuoteState = null;
-            window.navigateTo('/cotizar');
+            window.navigateTo('/cotizacion-completa');
         } else {
             currentQuickQuoteId = null;
             const passengerInput = document.getElementById('rapido-pasajero');
@@ -649,7 +650,7 @@ async function saveQuickQuote(andRedirect = false) {
     }
 }
 
-export function initPresupuestosRapidos() {
+export function initCotizacionesRapidas() {
     loadQuickBudgetsList();
 }
 
@@ -666,14 +667,14 @@ async function loadQuickBudgetsList() {
         <tr>
             <td colspan="6" class="p-8 text-center text-slate-400">
                 <span class="inline-block animate-spin border-2 border-brand-primary border-t-transparent rounded-full w-4 h-4 mr-2"></span>
-                Cargando presupuestos rápidos...
+                Cargando cotizaciones rápidas...
             </td>
         </tr>
     `;
 
     try {
         const res = await window.authenticatedFetch('/api/presupuestos');
-        if (!res.ok) throw new Error("Error al obtener los presupuestos rápidos de la base de datos.");
+        if (!res.ok) throw new Error("Error al obtener las cotizaciones rápidas de la base de datos.");
         const budgets = await res.json();
 
         allSavedQuickBudgets = budgets;
@@ -683,7 +684,7 @@ async function loadQuickBudgetsList() {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="p-8 text-center text-rose-500 font-bold">
-                    Error al cargar los presupuestos rápidos: ${err.message}
+                    Error al cargar las cotizaciones rápidas: ${err.message}
                 </td>
             </tr>
         `;
@@ -700,7 +701,7 @@ function renderQuickBudgetsTable(budgetsList) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="p-8 text-center text-slate-400 font-semibold">
-                    No se encontraron presupuestos rápidos.
+                    No se encontraron cotizaciones rápidas.
                 </td>
             </tr>
         `;
@@ -751,8 +752,8 @@ function renderQuickBudgetsTable(budgetsList) {
 async function deleteQuickBudget(quoteId, event) {
     if (event) event.stopPropagation();
     window.showCustomConfirm({
-        title: '¿Eliminar presupuesto?',
-        desc: '¿Estás seguro de que deseas eliminar este presupuesto rápido? Esta acción no se puede deshacer.',
+        title: '¿Eliminar cotización rápida?',
+        desc: '¿Estás seguro de que deseas eliminar esta cotización rápida? Esta acción no se puede deshacer.',
         btnText: 'Sí, Eliminar',
         confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
         callback: () => executeDeleteQuickBudget(quoteId)
@@ -765,9 +766,9 @@ async function executeDeleteQuickBudget(quoteId) {
         const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`, {
             method: 'DELETE'
         });
-        if (!res.ok) throw new Error("No se pudo eliminar el presupuesto rápido.");
+        if (!res.ok) throw new Error("No se pudo eliminar la cotización rápida.");
         
-        window.showAlert('success', 'Presupuesto rápido eliminado correctamente.');
+        window.showAlert('success', 'Cotización rápida eliminada correctamente.');
         loadQuickBudgetsList();
     } catch (err) {
         window.showAlert('warning', 'Error: ' + err.message);
@@ -778,15 +779,15 @@ async function loadQuickBudgetIntoForm(quoteId) {
     const isFormPage = !!document.getElementById('quick-budget-body');
     if (!isFormPage) {
         window.pendingEditQuickBudgetId = quoteId;
-        navigateTo('/presupuesto-rapido');
+        navigateTo('/cotizacion-rapida');
         return;
     }
     
-    window.showLoader("Cargando presupuesto rápido...");
+    window.showLoader("Cargando cotización rápida...");
     
     try {
         const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`);
-        if (!res.ok) throw new Error("No se pudo cargar el presupuesto rápido.");
+        if (!res.ok) throw new Error("No se pudo cargar la cotización rápida.");
         const q = await res.json();
         currentQuickQuoteId = q.id;
         
@@ -926,7 +927,7 @@ async function fillQuickTestData() {
 
     calculateQuickQuote();
 
-    window.showAlert('success', '✔ Montos de prueba cargados correctamente en Presupuesto Rápido.');
+    window.showAlert('success', '✔ Montos de prueba cargados correctamente en Cotización Rápida.');
 }
 window.fillQuickTestData = fillQuickTestData;
 
