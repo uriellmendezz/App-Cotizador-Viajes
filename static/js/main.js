@@ -102,10 +102,10 @@ window.navigateTo = navigateTo;
 const routes = {
     '/login': { html: '/static/views/login.html', js: '/static/js/login.js', init: 'initLogin' },
     '/inicio': { html: '/static/views/inicio.html', js: '/static/js/inicio.js', init: 'initInicio' },
-    '/presupuesto-rapido': { html: '/static/views/presupuesto_rapido.html', js: '/static/js/presupuestar.js', init: 'initPresupuestar' },
-    '/presupuestos-rapidos': { html: '/static/views/presupuestos_rapidos.html', js: '/static/js/presupuestar.js', init: 'initPresupuestosRapidos' },
+    '/cotizacion-rapida': { html: '/static/views/cotizacion_rapida.html', js: '/static/js/cotizacion_rapida.js', init: 'initCotizacionRapida' },
+    '/cotizaciones-rapidas': { html: '/static/views/cotizaciones_rapidas.html', js: '/static/js/cotizacion_rapida.js', init: 'initCotizacionesRapidas' },
     '/hacer-cotizacion': { html: '/static/views/opciones_cotizacion.html', js: '/static/js/inicio.js', init: 'initOpciones' },
-    '/cotizar': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
+    '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
     '/config': { html: '/static/views/configuracion.html', js: '/static/js/cotizar.js', init: 'initConfig' }
 };
@@ -166,7 +166,7 @@ async function router() {
     } else if (window.authToken && (path === '/login' || path === '/')) {
         history.pushState(null, null, '/inicio');
         path = '/inicio';
-    } else if (path === '/presupuestos-rapidos') {
+    } else if (path === '/cotizaciones-rapidas') {
         history.pushState(null, null, '/editar?tab=rapidos');
         path = '/editar';
     }
@@ -247,7 +247,7 @@ async function router() {
                     initFunc();
                     
                     // Hook for loading quick quote from list
-                    if (route.init === 'initPresupuestar' && window.pendingEditQuickBudgetId) {
+                    if (route.init === 'initCotizacionRapida' && window.pendingEditQuickBudgetId) {
                         const quoteId = window.pendingEditQuickBudgetId;
                         window.pendingEditQuickBudgetId = null;
                         if (typeof window.loadQuickBudgetIntoForm === 'function') {
@@ -273,8 +273,8 @@ function updateNavActiveState(path) {
     });
     
     let btnId = '';
-    if (path === '/cotizar') btnId = 'nav-btn-new-quote';
-    else if (path === '/presupuesto-rapido') btnId = 'nav-btn-quick-quote';
+    if (path === '/cotizacion-completa') btnId = 'nav-btn-new-quote';
+    else if (path === '/cotizacion-rapida') btnId = 'nav-btn-quick-quote';
     else if (path === '/inicio') btnId = 'nav-btn-inicio';
 
     const activeBtn = document.getElementById(btnId);
@@ -366,10 +366,10 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('keydown', async (e) => {
     if (e.ctrlKey && e.altKey && (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9')) {
         const path = window.location.pathname;
-        if (path === '/cotizar' && typeof window.fillTestData === 'function') {
+        if (path === '/cotizacion-completa' && typeof window.fillTestData === 'function') {
             e.preventDefault();
             await window.fillTestData();
-        } else if (path === '/presupuesto-rapido' && typeof window.fillQuickTestData === 'function') {
+        } else if (path === '/cotizacion-rapida' && typeof window.fillQuickTestData === 'function') {
             e.preventDefault();
             await window.fillQuickTestData();
         }

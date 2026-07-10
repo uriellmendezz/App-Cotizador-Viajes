@@ -2267,7 +2267,7 @@ function filterSavedQuotes() {
 
 async function deleteSavedQuickQuote(quoteId) {
     showCustomConfirm({
-        title: '¿Eliminar presupuesto rápido?',
+        title: '¿Eliminar cotización rápida?',
         desc: 'Esta acción borrará el registro de Supabase de forma definitiva. No se puede deshacer.',
         btnText: 'Sí, Eliminar',
         confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
@@ -2276,8 +2276,8 @@ async function deleteSavedQuickQuote(quoteId) {
                 const res = await authenticatedFetch(`/api/presupuestos/${quoteId}`, {
                     method: 'DELETE'
                 });
-                if (!res.ok) throw new Error("No se pudo eliminar el presupuesto rápido.");
-                showAlert('success', 'Presupuesto rápido eliminado con éxito.');
+                if (!res.ok) throw new Error("No se pudo eliminar la cotización rápida.");
+                showAlert('success', 'Cotización rápida eliminada con éxito.');
                 loadSavedQuotesList();
             } catch (e) {
                 showAlert('warning', 'Error al eliminar: ' + e.message);
@@ -2410,7 +2410,7 @@ async function loadSavedQuoteIntoForm(quoteId) {
     const quoteForm = document.getElementById('quote-form');
     if (!quoteForm) {
         window.pendingEditQuoteId = quoteId;
-        navigateTo('/cotizar');
+        navigateTo('/cotizacion-completa');
         return;
     }
 
@@ -2740,15 +2740,43 @@ export function initCotizar() {
             document.getElementById("fee_aereo_tipo").value = "fixed";
         }
 
-        if (hotelsContainer) hotelsContainer.innerHTML = "";
-        bridge.hoteles.forEach(h => {
-            addHotelCard({
-                nombre: h.nombre,
-                costo: h.costo
-            });
-        });
+        // Set transfers total
+        const trasladosTotal = bridge.trasladosTotal || 0;
+        document.getElementById("monto_traslados").value = trasladosTotal > 0 ? trasladosTotal.toFixed(2) : "";
 
-        document.getElementById("monto_traslados").value = "";
+        // Pre-fill destination and dates if available
+        if (bridge.destino) {
+            const destinoEl = document.getElementById("destino");
+            if (destinoEl) destinoEl.value = bridge.destino;
+        }
+        if (bridge.fechaSalida) {
+            const idaEl = document.getElementById("fecha_vuelo_ida");
+            if (idaEl && idaEl._flatpickr) {
+                idaEl._flatpickr.setDate(bridge.fechaSalida);
+            }
+        }
+        if (bridge.fechaRegreso) {
+            const vueltaEl = document.getElementById("fecha_vuelo_vuelta");
+            if (vueltaEl && vueltaEl._flatpickr) {
+                vueltaEl._flatpickr.setDate(bridge.fechaRegreso);
+            }
+        }
+
+        // Load only real accommodation entries (no transfers, no metadata)
+        if (hotelsContainer) hotelsContainer.innerHTML = "";
+        const realHoteles = (bridge.hoteles || []).filter(h => h.nombre !== "METADATA_PRESUPUESTO_RAPIDO");
+        if (realHoteles.length > 0) {
+            realHoteles.forEach(h => {
+                addHotelCard({
+                    nombre: h.nombre,
+                    costo: h.costo
+                });
+            });
+        } else {
+            // No accommodation entries: add one empty card
+            addHotelCard();
+        }
+
         window.quickQuoteBridge = null;
         updateRealTimeSummary();
     }

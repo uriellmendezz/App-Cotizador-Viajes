@@ -547,7 +547,8 @@ async function saveQuickQuote(andRedirect = false) {
     }
     
     const vuelos = [];
-    const hoteles = [];
+    const hoteles = [];    // solo alojamientos reales
+    const traslados = []; // traslados separados
     let totalAereo = 0;
     let totalTerrestreNeto = 0;
     
@@ -571,7 +572,7 @@ async function saveQuickQuote(andRedirect = false) {
             hoteles.push({ nombre: label, costo: monto });
         } else if (tipo === 'traslado') {
             totalTerrestreNeto += monto;
-            hoteles.push({ nombre: label, costo: monto });
+            traslados.push({ nombre: label, costo: monto });
         }
     });
     
@@ -579,13 +580,18 @@ async function saveQuickQuote(andRedirect = false) {
     const fechaSalida = document.getElementById('rapido-fecha-salida')?.value || '';
     const fechaRegreso = document.getElementById('rapido-fecha-regreso')?.value || '';
     
-    hoteles.push({
-        nombre: "METADATA_PRESUPUESTO_RAPIDO",
-        costo: 0,
-        destino: destino,
-        fecha_salida: fechaSalida,
-        fecha_regreso: fechaRegreso
-    });
+    // Build backend payload: hoteles array includes transfers and METADATA (backend format)
+    const hotelesPayload = [
+        ...hoteles,
+        ...traslados,
+        {
+            nombre: "METADATA_PRESUPUESTO_RAPIDO",
+            costo: 0,
+            destino: destino,
+            fecha_salida: fechaSalida,
+            fecha_regreso: fechaRegreso
+        }
+    ];
     
     const adminVal = totalTerrestreNeto * 0.05;
     const totalFinal = totalAereo + totalTerrestreNeto + adminVal;
@@ -594,7 +600,7 @@ async function saveQuickQuote(andRedirect = false) {
         pasajero_nombre: passengerName,
         cantidad_pasajeros: paxCount,
         vuelos: vuelos,
-        hoteles: hoteles,
+        hoteles: hotelesPayload,
         gastos_iva: 0,
         total_cotizacion: totalFinal
     };
@@ -624,11 +630,19 @@ async function saveQuickQuote(andRedirect = false) {
         
         if (andRedirect) {
             // Keep quote payload in memory to pre-load detailed quote tab
+            // hoteles: only real accommodation entries (no transfers, no metadata)
+            // traslados: transfer entries only
+            const trasladosTotal = traslados.reduce((sum, t) => sum + t.costo, 0);
             window.quickQuoteBridge = {
                 passengerName,
                 paxCount,
                 vuelos,
-                hoteles,
+                hoteles,        // alojamientos reales
+                traslados,      // traslados separados
+                trasladosTotal, // suma total de traslados
+                destino,
+                fechaSalida,
+                fechaRegreso,
                 ivaSum: 0,
                 totalFinal
             };
