@@ -1,12 +1,12 @@
 <div class="w-full px-8 space-y-8">
-    <button type="button" onclick="navigateTo('/inicio')"
+    <button type="button" id="page-back-btn" onclick="navigateBack()" title="Volver al Inicio"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        Volver al Inicio
+        <span class="back-btn-label">Volver al Inicio</span>
     </button>
- 
+
     <!-- Header Section -->
     <div class="space-y-4">
         <div class="flex items-center gap-3">
@@ -23,7 +23,7 @@
                     autocomplete="off">
             </div>
         </div>
- 
+
         <div class="flex flex-wrap items-center gap-4 md:gap-x-8 pl-0 md:pl-14 text-xs font-semibold text-slate-500">
             <!-- Pasajeros -->
             <div class="flex items-center gap-2 flex-shrink-0">
@@ -34,10 +34,9 @@
                 </svg>
                 <span class="text-slate-400 font-semibold text-sm">Pasajeros:</span>
                 <input type="number" id="rapido-pax-count" min="1" value="2" required
-                    class="w-12 text-center border-none bg-transparent p-0 focus:outline-none focus:ring-0 text-sm font-extrabold text-slate-800"
-                    style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 2px 6px !important; margin: 0 !important;">
+                    class="w-20 text-center border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-1.5 text-sm font-extrabold text-slate-800 focus:outline-none focus:bg-white focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
             </div>
- 
+
             <!-- Destino -->
             <div class="flex items-center gap-2 flex-shrink-0">
                 <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -48,11 +47,10 @@
                 </svg>
                 <span class="text-slate-400 font-semibold text-sm">Destino:</span>
                 <input type="text" id="rapido-destino" placeholder="Opcional"
-                    class="w-44 border-none bg-transparent p-0 focus:outline-none focus:ring-0 text-sm font-bold text-slate-800 placeholder-slate-300"
-                    style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 2px 8px !important; margin: 0 !important;"
+                    class="w-64 border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-800 placeholder-slate-300 focus:outline-none focus:bg-white focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all"
                     autocomplete="off">
             </div>
- 
+
             <!-- Fecha de Salida -->
             <div class="flex items-center gap-2 flex-shrink-0">
                 <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -62,10 +60,9 @@
                 </svg>
                 <span class="text-slate-400 font-semibold text-sm">Salida:</span>
                 <input type="text" id="rapido-fecha-salida" placeholder="Opcional" readonly
-                    class="w-28 border-none bg-transparent p-0 focus:outline-none focus:ring-0 text-sm font-bold text-slate-800 placeholder-slate-300 cursor-pointer"
-                    style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 2px 8px !important; margin: 0 !important;">
+                    class="w-36 border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-800 placeholder-slate-300 cursor-pointer focus:outline-none focus:bg-white focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
             </div>
- 
+
             <!-- Fecha de Regreso -->
             <div class="flex items-center gap-2 flex-shrink-0">
                 <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -75,23 +72,11 @@
                 </svg>
                 <span class="text-slate-400 font-semibold text-sm">Regreso:</span>
                 <input type="text" id="rapido-fecha-regreso" placeholder="Opcional" readonly
-                    class="w-28 border-none bg-transparent p-0 focus:outline-none focus:ring-0 text-sm font-bold text-slate-800 placeholder-slate-300 cursor-pointer"
-                    style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 2px 8px !important; margin: 0 !important;">
+                    class="w-36 border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-800 placeholder-slate-300 cursor-pointer focus:outline-none focus:bg-white focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
             </div>
- 
-            <!-- Limpiar y restablecer a default -->
-            <button type="button" id="btn-reset-quick-budget"
-                class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer flex-shrink-0 ml-auto"
-                title="Restablecer tabla a valores por defecto">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                </svg>
-                Limpiar
-            </button>
         </div>
     </div>
- 
+
     <!-- Table & Actions Group -->
     <div class="w-full space-y-6 mt-10">
         <!-- Single Clean Table -->
@@ -105,49 +90,62 @@
                     </svg>
                     Desglose
                 </h3>
-                <!-- Hover Dropdown Menu -->
-                <div class="relative group inline-block">
-                    <button type="button"
-                        class="px-4 py-2 bg-brand-primary/10 hover:bg-brand-primary hover:text-white text-brand-primary rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-sm">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                <div class="flex items-center gap-3">
+                    <!-- Limpiar y restablecer a default -->
+                    <button type="button" id="btn-reset-quick-budget"
+                        class="hidden items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer flex-shrink-0"
+                        title="Restablecer tabla a valores por defecto">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                         </svg>
-                        Agregar Concepto
+                        Limpiar
                     </button>
-                    <div class="absolute right-0 top-full pt-2 w-44 z-20 hidden group-hover:block hover:block">
-                        <div class="bg-white border border-slate-200 rounded-xl shadow-lg py-1">
-                            <button type="button" id="btn-add-flight"
-                                class="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-primary transition-all flex items-center gap-2">
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path
-                                        d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L14 19v-5.5l8 2.5z" />
-                                </svg>
-                                Vuelo
-                            </button>
-                            <button type="button" id="btn-add-hotel"
-                                class="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-primary transition-all flex items-center gap-2">
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                    stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                </svg>
-                                Alojamiento
-                            </button>
-                            <button type="button" id="btn-add-transfer"
-                                class="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-primary transition-all flex items-center gap-2">
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                    stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                                </svg>
-                                Traslado
-                            </button>
+
+                    <!-- Hover Dropdown Menu -->
+                    <div class="relative group inline-block">
+                        <button type="button"
+                            class="px-4 py-2 bg-brand-primary/10 hover:bg-brand-primary hover:text-white text-brand-primary rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-sm">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Agregar Concepto
+                        </button>
+                        <div class="absolute right-0 top-full pt-2 w-44 z-20 hidden group-hover:block hover:block">
+                            <div class="bg-white border border-slate-200 rounded-xl shadow-lg py-1">
+                                <button type="button" id="btn-add-flight"
+                                    class="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-primary transition-all flex items-center gap-2">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path
+                                            d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L14 19v-5.5l8 2.5z" />
+                                    </svg>
+                                    Vuelo
+                                </button>
+                                <button type="button" id="btn-add-hotel"
+                                    class="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-primary transition-all flex items-center gap-2">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
+                                    Alojamiento
+                                </button>
+                                <button type="button" id="btn-add-transfer"
+                                    class="w-full text-left px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-brand-primary transition-all flex items-center gap-2">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                    </svg>
+                                    Traslado
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
- 
+
             <div class="overflow-x-auto max-h-[500px] overflow-y-auto relative">
                 <table class="w-full text-left border-collapse text-sm select-none relative">
                     <thead>
@@ -185,12 +183,12 @@
                 </table>
             </div>
         </div>
- 
+
         <!-- Footer Actions -->
         <div class="flex flex-col sm:flex-row gap-4 justify-end mt-8">
             <button type="button" id="btn-save-quick-only"
                 class="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer">
-                Guardar Cotización Rápida
+                Guardar
             </button>
             <button type="button" id="btn-save-quick-and-go"
                 class="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-slate-900/20 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5">

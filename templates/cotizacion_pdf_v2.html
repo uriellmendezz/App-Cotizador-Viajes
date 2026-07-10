@@ -677,6 +677,7 @@
                 Estadía en {{ destino }} por {{ noches_alojamiento }}.
             </td>
         </tr>
+        {% if monto_traslados > 0 %}
         <tr>
             <td class="svc-icon">
                 {{ svg_traslados }}
@@ -685,6 +686,7 @@
                 Traslados IN-OUT (Aeropuerto → Hotel → Aeropuerto).
             </td>
         </tr>
+        {% endif %}
     </table>
 
     <!-- ═══════════════ 4. VUELOS ═══════════════ -->

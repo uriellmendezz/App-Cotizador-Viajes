@@ -30,6 +30,8 @@ function saveQuickQuoteFormState() {
         fechaRegreso: document.getElementById('rapido-fecha-regreso')?.value || '',
         rows: rows
     };
+
+    updateResetButtonVisibility();
 }
 
 function restoreQuickQuoteFormState() {
@@ -109,6 +111,52 @@ const typeOrder = {
     'admin': 5,
     'iva': 6
 };
+
+function updateResetButtonVisibility() {
+    const btnReset = document.getElementById('btn-reset-quick-budget');
+    if (!btnReset) return;
+
+    const passengerInput = document.getElementById('rapido-pasajero');
+    const paxCountInput = document.getElementById('rapido-pax-count');
+    const destInput = document.getElementById('rapido-destino');
+    const depPickerInput = document.getElementById('rapido-fecha-salida');
+    const retPickerInput = document.getElementById('rapido-fecha-regreso');
+
+    const hasPassenger = passengerInput && passengerInput.value.trim() !== '';
+    const hasCustomPaxCount = paxCountInput && paxCountInput.value !== '2' && paxCountInput.value !== '';
+    const hasDestino = destInput && destInput.value.trim() !== '';
+    const hasFechaSalida = depPickerInput && depPickerInput.value !== '';
+    const hasFechaRegreso = retPickerInput && retPickerInput.value !== '';
+
+    const rows = document.querySelectorAll('#quick-budget-body tr.quick-row');
+    const hasCustomRowsCount = rows.length !== 5;
+    
+    let hasAnyMonto = false;
+    let hasCustomLabels = false;
+
+    rows.forEach(tr => {
+        const label = tr.querySelector('.quick-row-label')?.value || '';
+        const monto = tr.querySelector('.quick-row-monto')?.value || '';
+        if (monto.trim() !== '' && parseFloat(monto) !== 0) {
+            hasAnyMonto = true;
+        }
+        const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
+        const defaultLabelForType = conceptTypes[tipo]?.label;
+        if (label !== defaultLabelForType && label !== 'Hotel' && label !== 'Alojamiento') {
+            hasCustomLabels = true;
+        }
+    });
+
+    const isDirty = hasPassenger || hasCustomPaxCount || hasDestino || hasFechaSalida || hasFechaRegreso || hasCustomRowsCount || hasAnyMonto || hasCustomLabels;
+
+    if (isDirty) {
+        btnReset.classList.remove('hidden');
+        btnReset.classList.add('flex');
+    } else {
+        btnReset.classList.remove('flex');
+        btnReset.classList.add('hidden');
+    }
+}
 
 export function initCotizacionRapida() {
     currentQuickQuoteId = null;
@@ -199,6 +247,7 @@ export function initCotizacionRapida() {
                 callback: () => {
                     window.savedQuickQuoteState = null;
                     currentQuickQuoteId = null;
+                    window.currentQuickQuoteOwner = null;
                     isQuickFeeLocked = true;
                     const passengerInput = document.getElementById('rapido-pasajero');
                     if (passengerInput) passengerInput.value = '';
@@ -231,6 +280,7 @@ export function initCotizacionRapida() {
         restoreQuickQuoteFormState();
     } else {
         loadDefaultQuickQuoteRows();
+        saveQuickQuoteFormState();
     }
 }
 
@@ -605,6 +655,14 @@ async function saveQuickQuote(andRedirect = false) {
         total_cotizacion: totalFinal
     };
     
+    const currentUser = (window.loggedInUser || '').toLowerCase();
+    const quoteOwner = (window.currentQuickQuoteOwner || '').toLowerCase();
+    if (currentQuickQuoteId && currentUser && quoteOwner && currentUser !== quoteOwner) {
+        currentQuickQuoteId = null;
+        window.currentQuickQuoteOwner = null;
+        window.showAlert('info', 'Esta cotización pertenece a otro agente. Se ha guardado como una copia nueva bajo tu usuario.');
+    }
+
     if (currentQuickQuoteId) {
         payload.id = currentQuickQuoteId;
     }
@@ -625,6 +683,7 @@ async function saveQuickQuote(andRedirect = false) {
         
         const saved = await res.json();
         currentQuickQuoteId = saved.id;
+        window.currentQuickQuoteOwner = saved.agente_id;
         
         window.showAlert('success', 'Cotización rápida guardada correctamente.');
         
@@ -745,6 +804,18 @@ function renderQuickBudgetsTable(budgetsList) {
             }
         }
 
+        const currentUser = (window.loggedInUser || '').toLowerCase();
+        const quoteOwner = (q.agente_id || '').toLowerCase();
+        const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+
+        const deleteButtonHtml = isOwner ? `
+            <button type="button" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" onclick="deleteQuickBudget('${q.id}', event)">
+                <svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            </button>
+        ` : `<span class="text-slate-300 select-none">-</span>`;
+
         tr.innerHTML = `
             <td class="p-3 font-semibold text-slate-500">${dateFormatted}</td>
             <td class="p-3 font-semibold text-slate-800">${q.pasajero_nombre || 'Sin Nombre'}</td>
@@ -752,11 +823,7 @@ function renderQuickBudgetsTable(budgetsList) {
             <td class="p-3">${q.agente_id || '-'}</td>
             <td class="p-3 text-right font-semibold text-brand-primary">USD ${window.formatPriceES(totalUSD)}</td>
             <td class="p-3 text-center">
-                <button type="button" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" onclick="deleteQuickBudget('${q.id}', event)">
-                    <svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                </button>
+                ${deleteButtonHtml}
             </td>
         `;
         tbody.appendChild(tr);
@@ -804,6 +871,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
         if (!res.ok) throw new Error("No se pudo cargar la cotización rápida.");
         const q = await res.json();
         currentQuickQuoteId = q.id;
+        window.currentQuickQuoteOwner = q.agente_id;
         
         document.getElementById('rapido-pasajero').value = q.pasajero_nombre || '';
         document.getElementById('rapido-pax-count').value = q.cantidad_pasajeros || 2;

@@ -92,12 +92,75 @@ async function authenticatedFetch(url, options = {}) {
 }
 window.authenticatedFetch = authenticatedFetch;
 
+// Navigation History Stack
+let navStack = [];
+
+// Human-readable names for each route
+const routeNames = {
+    '/inicio': 'Inicio',
+    '/cotizacion-rapida': 'Cotización Rápida',
+    '/cotizaciones-rapidas': 'Cotizaciones Rápidas',
+    '/hacer-cotizacion': 'Nueva Cotización',
+    '/cotizacion-completa': 'Cotización Detallada',
+    '/editar': 'Archivos',
+    '/config': 'Configuración',
+};
+
 // SPA Router implementation
 async function navigateTo(url) {
+    const currentPath = window.location.pathname;
+    // Push current path to history stack before leaving
+    if (currentPath && currentPath !== url && currentPath !== '/login') {
+        navStack.push(currentPath);
+    }
     history.pushState(null, null, url);
     await router();
 }
 window.navigateTo = navigateTo;
+
+// Navigate back to the previous page in the internal nav stack
+function navigateBack() {
+    if (navStack.length > 0) {
+        const prevPath = navStack.pop();
+        history.pushState(null, null, prevPath);
+        router();
+    } else {
+        navigateTo('/inicio');
+    }
+}
+window.navigateBack = navigateBack;
+
+// Get the label and destination for the back button
+function getBackButtonInfo() {
+    if (navStack.length === 0) return { label: 'Volver al Inicio', path: '/inicio' };
+    const prevPath = navStack[navStack.length - 1];
+    const name = routeNames[prevPath] || 'Volver';
+    return { label: `Volver a ${name}`, path: prevPath };
+}
+window.getBackButtonInfo = getBackButtonInfo;
+
+// Update the back button text/tooltip on the currently loaded view
+function updateBackButton() {
+    const btn = document.getElementById('page-back-btn');
+    if (!btn) return;
+    const info = getBackButtonInfo();
+    const labelEl = btn.querySelector('.back-btn-label');
+    if (labelEl) labelEl.textContent = info.label;
+    btn.title = info.label;
+}
+window.updateBackButton = updateBackButton;
+
+// Logout with native confirmation modal
+function confirmLogout() {
+    window.showCustomConfirm({
+        title: '¿Cerrar Sesión?',
+        desc: '¿Estás seguro de que deseas cerrar sesión? Tendrás que volver a ingresar tus credenciales para acceder al sistema.',
+        btnText: 'Sí, Cerrar Sesión',
+        confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
+        callback: () => logoutAgent(true)
+    });
+}
+window.confirmLogout = confirmLogout;
 
 const routes = {
     '/login': { html: '/static/views/login.html', js: '/static/js/login.js', init: 'initLogin' },
@@ -262,6 +325,9 @@ async function router() {
             appEl.classList.remove('opacity-0');
             appEl.classList.add('opacity-100');
         }
+
+        // Update dynamic back button after content loads
+        updateBackButton();
     }
 }
 window.router = router;

@@ -8,6 +8,19 @@ router = APIRouter(prefix="/api/presupuestos", tags=["presupuestos"])
 @router.post("/")
 def api_save_cotizacion_rapida(payload: dict, current_user: str = Depends(verify_agent_user)):
     """Saves a quick quote to Supabase."""
+    quote_id = payload.get("id")
+    if quote_id:
+        try:
+            quote_id_typed = int(quote_id)
+        except ValueError:
+            quote_id_typed = quote_id
+        existing = get_cotizacion_rapida_by_id(quote_id_typed)
+        if existing:
+            owner = existing.get("agente_id") or ""
+            if owner.lower() != current_user.lower():
+                # Strip the ID to force creation of a duplicate!
+                payload.pop("id", None)
+
     payload["agente_id"] = current_user
     saved = save_cotizacion_rapida(payload)
     if not saved:
@@ -39,6 +52,15 @@ def api_delete_cotizacion_rapida(quote_id: str, current_user: str = Depends(veri
         quote_id_typed = int(quote_id)
     except ValueError:
         quote_id_typed = quote_id
+
+    quote = get_cotizacion_rapida_by_id(quote_id_typed)
+    if not quote:
+        raise HTTPException(status_code=404, detail="Presupuesto rápido no encontrado.")
+    
+    owner = quote.get("agente_id") or ""
+    if owner.lower() != current_user.lower():
+        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar este presupuesto rápido.")
+
     success = delete_cotizacion_rapida(quote_id_typed)
     if not success:
         raise HTTPException(status_code=500, detail="No se pudo eliminar el presupuesto rápido de la base de datos.")

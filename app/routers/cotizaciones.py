@@ -472,6 +472,18 @@ def api_get_cotizacion(quote_id: str, current_user: str = Depends(verify_agent_u
 
 @router.post("/cotizaciones")
 def api_save_cotizacion(payload: dict, current_user: str = Depends(verify_agent_user)):
+    quote_id = payload.get("id")
+    if quote_id:
+        try:
+            quote_id_typed = int(quote_id)
+        except ValueError:
+            quote_id_typed = quote_id
+        existing = get_cotizacion_by_id(quote_id_typed)
+        if existing:
+            owner = existing.get("agente_nombre") or ""
+            if owner.lower() != current_user.lower():
+                raise HTTPException(status_code=403, detail="No puedes modificar una cotización de otro agente.")
+
     if current_user == "guest":
         payload["agente_nombre"] = "Invitado"
     else:
@@ -548,6 +560,14 @@ def api_delete_cotizacion(quote_id: str, current_user: str = Depends(verify_agen
     except ValueError:
         quote_id_typed = quote_id
         
+    quote = get_cotizacion_by_id(quote_id_typed)
+    if not quote:
+        raise HTTPException(status_code=404, detail=f"Cotización con ID {quote_id} no encontrada.")
+        
+    owner = quote.get("agente_nombre") or ""
+    if owner.lower() != current_user.lower():
+        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar esta cotización.")
+
     success = delete_cotizacion(quote_id_typed)
     if not success:
         raise HTTPException(status_code=500, detail=f"No se pudo eliminar la cotización con ID {quote_id}.")

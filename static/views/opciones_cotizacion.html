@@ -1,39 +1,51 @@
 <div class="max-w-[95%] mx-auto space-y-12 py-6">
     <!-- Back Button -->
-    <button type="button" onclick="navigateTo('/inicio')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer">
+    <button type="button" id="page-back-btn" onclick="navigateBack()" title="Volver al Inicio"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        Volver al Inicio
+        <span class="back-btn-label">Volver al Inicio</span>
     </button>
 
     <!-- Header Section -->
     <div class="space-y-3">
-        <span class="text-xs font-black uppercase tracking-widest text-brand-accent bg-amber-50 px-3 py-1 rounded-full">Módulos de Cotización</span>
-        <h1 class="text-5xl font-black text-slate-900 font-display tracking-tight leading-none">Opciones de Cotización</h1>
+        <span
+            class="text-xs font-black uppercase tracking-widest text-brand-accent bg-amber-50 px-3 py-1 rounded-full">Módulos
+            de Cotización</span>
+        <h1 class="text-5xl font-black text-slate-900 font-display tracking-tight leading-none">¿Qué te gustaría
+            cotizar?</h1>
         <p class="text-slate-500 text-base font-medium">Selecciona el tipo de viaje e itinerario para comenzar.</p>
     </div>
 
     <!-- Opciones Cards Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 pt-2">
         <!-- Opción 1: Cotización Completa -->
-        <div onclick="navigateTo('/cotizacion-completa')" 
+        <div onclick="navigateTo('/cotizacion-completa')"
             class="group cursor-pointer relative bg-white border border-slate-200/60 rounded-[2.5rem] p-8 shadow-sm hover:shadow-[0_25px_50px_-12px_rgba(247,150,70,0.15)] hover:border-brand-accent/30 hover:-translate-y-2 transition-all duration-500 ease-out flex flex-col justify-between min-h-[300px]">
-            <div class="absolute inset-0 bg-gradient-to-tr from-brand-accent/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-[2.5rem]"></div>
+            <div
+                class="absolute inset-0 bg-gradient-to-tr from-brand-accent/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-[2.5rem]">
+            </div>
             <div class="space-y-6 relative z-10">
-                <div class="w-16 h-16 bg-gradient-to-br from-brand-accent/10 to-[#fabf8f]/5 rounded-[1.8rem] flex items-center justify-center text-brand-accent group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-sm shadow-brand-accent/5">
+                <div
+                    class="w-16 h-16 bg-gradient-to-br from-brand-accent/10 to-[#fabf8f]/5 rounded-[1.8rem] flex items-center justify-center text-brand-accent group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-sm shadow-brand-accent/5">
                     <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <h3 class="text-2xl font-bold text-slate-800 font-display group-hover:text-brand-accent transition-colors">Cotización Completa</h3>
+                        <h3
+                            class="text-2xl font-bold text-slate-800 font-display group-hover:text-brand-accent transition-colors">
+                            Cotización Estándar</h3>
                     </div>
-                    <p class="text-slate-400 text-xs mt-2.5 font-semibold leading-relaxed">Diseño de itinerario completo con vuelos, alojamientos y traslados estructurados.</p>
+                    <p class="text-slate-400 text-xs mt-2.5 font-semibold leading-relaxed">Diseño de itinerario completo
+                        con vuelos, alojamientos y traslados estructurados.</p>
                 </div>
             </div>
-            <div class="flex items-center gap-1.5 text-xs font-bold text-brand-accent uppercase tracking-wider relative z-10 pt-6 group-hover:translate-x-2 transition-transform duration-300">
+            <div
+                class="flex items-center gap-1.5 text-xs font-bold text-brand-accent uppercase tracking-wider relative z-10 pt-6 group-hover:translate-x-2 transition-transform duration-300">
                 Comenzar
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -42,43 +54,55 @@
         </div>
 
         <!-- Opción 2: Crucero (Disabled) -->
-        <div class="group relative bg-slate-50/40 border border-slate-200/40 rounded-[2.5rem] p-8 opacity-60 flex flex-col justify-between min-h-[300px] cursor-not-allowed select-none">
+        <div
+            class="group relative bg-slate-50/40 border border-slate-200/40 rounded-[2.5rem] p-8 opacity-60 flex flex-col justify-between min-h-[300px] cursor-not-allowed select-none">
             <div class="space-y-6 relative z-10">
-                <div class="w-16 h-16 bg-slate-100 rounded-[1.8rem] flex items-center justify-center text-slate-400 shadow-sm">
+                <div
+                    class="w-16 h-16 bg-slate-100 rounded-[1.8rem] flex items-center justify-center text-slate-400 shadow-sm">
                     <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                     </svg>
                 </div>
                 <div>
                     <div class="flex items-center justify-between gap-2">
                         <h3 class="text-2xl font-bold text-slate-700 font-display">Cotizar Crucero</h3>
-                        <span class="px-2.5 py-0.5 bg-slate-100 border border-slate-200/60 text-[9px] font-black text-slate-500 rounded-md tracking-wider">PRÓXIMAMENTE</span>
+                        <span
+                            class="px-2.5 py-0.5 bg-slate-100 border border-slate-200/60 text-[9px] font-black text-slate-500 rounded-md tracking-wider">PRÓXIMAMENTE</span>
                     </div>
-                    <p class="text-slate-400 text-xs mt-2.5 font-semibold leading-relaxed">Módulo específico para selección de cabinas, puertos de escala y pensiones a bordo.</p>
+                    <p class="text-slate-400 text-xs mt-2.5 font-semibold leading-relaxed">Módulo específico para
+                        selección de cabinas, puertos de escala y pensiones a bordo.</p>
                 </div>
             </div>
-            <div class="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider relative z-10 pt-6">
+            <div
+                class="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider relative z-10 pt-6">
                 Desactivado
             </div>
         </div>
 
         <!-- Opción 3: Viaje Largo / Multidestino (Disabled) -->
-        <div class="group relative bg-slate-50/40 border border-slate-200/40 rounded-[2.5rem] p-8 opacity-60 flex flex-col justify-between min-h-[300px] cursor-not-allowed select-none">
+        <div
+            class="group relative bg-slate-50/40 border border-slate-200/40 rounded-[2.5rem] p-8 opacity-60 flex flex-col justify-between min-h-[300px] cursor-not-allowed select-none">
             <div class="space-y-6 relative z-10">
-                <div class="w-16 h-16 bg-slate-100 rounded-[1.8rem] flex items-center justify-center text-slate-400 shadow-sm">
+                <div
+                    class="w-16 h-16 bg-slate-100 rounded-[1.8rem] flex items-center justify-center text-slate-400 shadow-sm">
                     <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A2 2 0 013 15.485V5.122a2 2 0 011.03-1.755L9 1.5m0 18.5V1.5m0 18.5l6-3m0-14V16.5m0 0l5.447 2.724A2 2 0 0021 17.485V7.122a2 2 0 00-1.03-1.755L15 1.5m-6 3.5l6-3" />
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M9 20l-5.447-2.724A2 2 0 013 15.485V5.122a2 2 0 011.03-1.755L9 1.5m0 18.5V1.5m0 18.5l6-3m0-14V16.5m0 0l5.447 2.724A2 2 0 0021 17.485V7.122a2 2 0 00-1.03-1.755L15 1.5m-6 3.5l6-3" />
                     </svg>
                 </div>
                 <div>
                     <div class="flex items-center justify-between gap-2">
                         <h3 class="text-2xl font-bold text-slate-700 font-display">Viaje Largo</h3>
-                        <span class="px-2.5 py-0.5 bg-slate-100 border border-slate-200/60 text-[9px] font-black text-slate-500 rounded-md tracking-wider">PRÓXIMAMENTE</span>
+                        <span
+                            class="px-2.5 py-0.5 bg-slate-100 border border-slate-200/60 text-[9px] font-black text-slate-500 rounded-md tracking-wider">PRÓXIMAMENTE</span>
                     </div>
-                    <p class="text-slate-400 text-xs mt-2.5 font-semibold leading-relaxed">Conexión de múltiples paradas, circuitos turísticos complejos y escalas de larga distancia.</p>
+                    <p class="text-slate-400 text-xs mt-2.5 font-semibold leading-relaxed">Conexión de múltiples
+                        paradas, circuitos turísticos complejos y escalas de larga distancia.</p>
                 </div>
             </div>
-            <div class="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider relative z-10 pt-6">
+            <div
+                class="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider relative z-10 pt-6">
                 Desactivado
             </div>
         </div>

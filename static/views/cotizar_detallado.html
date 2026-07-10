@@ -1,11 +1,12 @@
 <div class="max-w-[95%] mx-auto space-y-8">
-    <button type="button" onclick="navigateTo('/inicio')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer">
+    <button type="button" id="page-back-btn" onclick="navigateBack()" title="Volver al Inicio"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        Volver al Inicio
+        <span class="back-btn-label">Volver al Inicio</span>
     </button>
-    
+
     <div id="cotizacion-tab" class="tab-content active block">
         <form id="quote-form" onsubmit="generatePDFPreview(event)"
             class="flex flex-col lg:flex-row gap-8 lg:gap-0 items-start w-full transition-all duration-500">
@@ -22,9 +23,11 @@
                     </div>
                     <div id="editing-indicator-actions" class="flex gap-2">
                         <button type="button" onclick="duplicateCurrentQuote()"
-                            class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer">Duplicar como Nueva</button>
+                            class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer">Duplicar
+                            como Nueva</button>
                         <button type="button" onclick="cancelEditingQuote()"
-                            class="px-3 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold transition-all cursor-pointer">Cancelar Edición</button>
+                            class="px-3 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold transition-all cursor-pointer">Cancelar
+                            Edición</button>
                     </div>
                 </div>
 
@@ -34,27 +37,32 @@
                     <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                         <span
                             class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">1</span>
-                        <h2 class="font-display font-black text-lg text-slate-800 tracking-tight uppercase">Datos generales del viaje</h2>
+                        <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Datos generales del
+                            viaje</h2>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="flex flex-col gap-2">
                             <label for="nombre_pax"
-                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre Pasajero</label>
-                            <input type="text" id="nombre_pax" required placeholder="Ej. Mariana López" onblur="handleCapitalizationBlur(this)"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre
+                                Pasajero</label>
+                            <input type="text" id="nombre_pax" required placeholder="Ej. Mariana López"
+                                onblur="handleCapitalizationBlur(this)"
                                 class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                         </div>
                         <div class="flex flex-col gap-2">
                             <label for="destino"
                                 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Destino</label>
-                            <input type="text" id="destino" required placeholder="Ej. Punta Cana" onblur="handleCapitalizationBlur(this)"
+                            <input type="text" id="destino" required placeholder="Ej. Punta Cana"
+                                onblur="handleCapitalizationBlur(this)"
                                 class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                         </div>
                         <div class="flex flex-col gap-2">
                             <label for="cantidad_pasajeros"
-                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cantidad de Pasajeros</label>
-                            <input type="number" id="cantidad_pasajeros" min="1" value="" placeholder="2"
-                                required onchange="updateBaseLabel(); updateRealTimeSummary();"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cantidad de
+                                Pasajeros</label>
+                            <input type="number" id="cantidad_pasajeros" min="1" value="" placeholder="2" required
+                                onchange="updateBaseLabel(); updateRealTimeSummary();"
                                 class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                         </div>
                     </div>
@@ -65,12 +73,17 @@
                                 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                                 <span>Origen</span>
                                 <div class="relative group inline-block">
-                                    <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors"
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
+                                    <div
+                                        class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
                                         Ciudad de salida del vuelo (ej. Córdoba, Buenos Aires).
-                                        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                        <div
+                                            class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800">
+                                        </div>
                                     </div>
                                 </div>
                             </label>
@@ -82,12 +95,17 @@
                                 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                                 <span>Validez cotización</span>
                                 <div class="relative group inline-block">
-                                    <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors"
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
+                                    <div
+                                        class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
                                         Fecha límite en la que el cliente puede reservar con estos precios.
-                                        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                        <div
+                                            class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800">
+                                        </div>
                                     </div>
                                 </div>
                             </label>
@@ -98,9 +116,12 @@
                             <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ajustes</label>
                             <div class="flex items-center gap-2 h-full min-h-[46px]">
                                 <label class="relative inline-flex items-center cursor-pointer select-none">
-                                    <input type="checkbox" id="aplicar_redondeo" checked onchange="updateRealTimeSummary()" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary"></div>
-                                    <span class="ml-3 text-sm font-semibold text-slate-700">Redondear precios</span>
+                                    <input type="checkbox" id="aplicar_redondeo" checked
+                                        onchange="updateRealTimeSummary()" class="sr-only peer">
+                                    <div
+                                        class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary">
+                                    </div>
+                                    <span class="ml-3 text-sm font-semibold text-slate-700">Redondear totales</span>
                                 </label>
                             </div>
                         </div>
@@ -113,15 +134,14 @@
                     <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                         <span
                             class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">2</span>
-                        <h2 class="font-display font-black text-lg text-slate-800 tracking-tight uppercase">Vuelos</h2>
+                        <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Vuelos</h2>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <!-- Ida Card -->
-                        <div
-                            class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
-                            <span
-                                class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo de Ida</span>
+                        <div class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
+                            <span class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo de
+                                Ida</span>
                             <div class="flex flex-col gap-2">
                                 <label for="fecha_vuelo_ida"
                                     class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</label>
@@ -129,34 +149,33 @@
                                     class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white">
                             </div>
                             <div class="flex flex-col gap-2">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura Vuelo Ida</label>
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura Vuelo
+                                    Ida</label>
                                 <div class="dropzone relative overflow-hidden border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-6 bg-white flex flex-col items-center justify-center min-h-[140px] cursor-pointer transition-all duration-300 group"
-                                    id="dropzone-vuelo-ida" tabindex="0"
-                                    onclick="triggerFileInput('file-vuelo-ida')">
+                                    id="dropzone-vuelo-ida" tabindex="0" onclick="triggerFileInput('file-vuelo-ida')">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                         class="w-8 h-8 text-slate-400 group-hover:text-brand-primary transition-colors mb-2">
-                                        <path
-                                            d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
                                     </svg>
                                     <span
-                                        class="text-xs text-slate-500 font-semibold text-center leading-relaxed">Arrastra, haz clic para subir<br><span
-                                            class="text-[10px] text-brand-primary/80 font-bold">o pulsa Ctrl+V para pegar</span></span>
+                                        class="text-xs text-slate-500 font-semibold text-center leading-relaxed">Arrastra,
+                                        haz clic para subir<br><span
+                                            class="text-[10px] text-brand-primary/80 font-bold">o pulsa Ctrl+V para
+                                            pegar</span></span>
                                     <input type="file" id="file-vuelo-ida" accept="image/*" class="hidden"
                                         onchange="handleImageUpload(this, 'preview-vuelo-ida', 'data-vuelo-ida')">
                                     <img id="preview-vuelo-ida"
                                         class="dropzone-preview absolute inset-0 w-full h-full object-contain bg-slate-50 rounded-xl"
-                                        style="display: none;"
-                                        alt="">
+                                        style="display: none;" alt="">
                                     <input type="hidden" id="data-vuelo-ida">
                                 </div>
                             </div>
                         </div>
 
                         <!-- Vuelta Card -->
-                        <div
-                            class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
-                            <span
-                                class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo de Vuelta</span>
+                        <div class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
+                            <span class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo de
+                                Vuelta</span>
                             <div class="flex flex-col gap-2">
                                 <label for="fecha_vuelo_vuelta"
                                     class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</label>
@@ -164,24 +183,25 @@
                                     class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white">
                             </div>
                             <div class="flex flex-col gap-2">
-                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura Vuelo Vuelta</label>
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura Vuelo
+                                    Vuelta</label>
                                 <div class="dropzone relative overflow-hidden border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-6 bg-white flex flex-col items-center justify-center min-h-[140px] cursor-pointer transition-all duration-300 group"
                                     id="dropzone-vuelo-vuelta" tabindex="0"
                                     onclick="triggerFileInput('file-vuelo-vuelta')">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                         class="w-8 h-8 text-slate-400 group-hover:text-brand-primary transition-colors mb-2">
-                                        <path
-                                            d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
                                     </svg>
                                     <span
-                                        class="text-xs text-slate-500 font-semibold text-center leading-relaxed">Arrastra, haz clic para subir<br><span
-                                            class="text-[10px] text-brand-primary/80 font-bold">o pulsa Ctrl+V para pegar</span></span>
+                                        class="text-xs text-slate-500 font-semibold text-center leading-relaxed">Arrastra,
+                                        haz clic para subir<br><span
+                                            class="text-[10px] text-brand-primary/80 font-bold">o pulsa Ctrl+V para
+                                            pegar</span></span>
                                     <input type="file" id="file-vuelo-vuelta" accept="image/*" class="hidden"
                                         onchange="handleImageUpload(this, 'preview-vuelo-vuelta', 'data-vuelo-vuelta')">
                                     <img id="preview-vuelo-vuelta"
                                         class="dropzone-preview absolute inset-0 w-full h-full object-contain bg-slate-50 rounded-xl"
-                                        style="display: none;"
-                                        alt="">
+                                        style="display: none;" alt="">
                                     <input type="hidden" id="data-vuelo-vuelta">
                                 </div>
                             </div>
@@ -190,18 +210,23 @@
 
                     <!-- Baggage Selector -->
                     <div class="mt-6 pt-6 border-t border-slate-100 flex flex-col gap-3">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Equipaje Incluido</label>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Equipaje
+                            Incluido</label>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <!-- Option 1 -->
                             <button type="button" id="btn-bag-mano" onclick="toggleBaggage('mano')"
                                 class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
-                                        <img src="/assets/iconos/equipaje-de-mano.svg" class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity" alt="Mano">
+                                    <div
+                                        class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
+                                        <img src="/assets/iconos/equipaje-de-mano.svg"
+                                            class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
+                                            alt="Mano">
                                     </div>
                                     <span class="text-xs font-bold text-slate-600">Equipaje de mano</span>
                                 </div>
-                                <div class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
+                                <div
+                                    class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
                                     <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
                                 </div>
                             </button>
@@ -210,12 +235,16 @@
                             <button type="button" id="btn-bag-carry" onclick="toggleBaggage('carry')"
                                 class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
-                                        <img src="/assets/iconos/carry-on.svg" class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity" alt="Carry">
+                                    <div
+                                        class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
+                                        <img src="/assets/iconos/carry-on.svg"
+                                            class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
+                                            alt="Carry">
                                     </div>
                                     <span class="text-xs font-bold text-slate-600">Carry-On 10kg</span>
                                 </div>
-                                <div class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
+                                <div
+                                    class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
                                     <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
                                 </div>
                             </button>
@@ -224,12 +253,16 @@
                             <button type="button" id="btn-bag-valija" onclick="toggleBaggage('valija')"
                                 class="baggage-opt-btn flex items-center justify-between p-4 rounded-xl border border-slate-200/80 bg-white/40 hover:bg-white/60 transition-all duration-300 group cursor-pointer">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
-                                        <img src="/assets/iconos/valija-23kg.svg" class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity" alt="Valija">
+                                    <div
+                                        class="w-8 h-8 rounded-lg bg-slate-100/80 flex items-center justify-center text-slate-400 group-hover:text-brand-primary transition-colors icon-container">
+                                        <img src="/assets/iconos/valija-23kg.svg"
+                                            class="w-5 h-5 opacity-60 group-hover:opacity-100 transition-opacity"
+                                            alt="Valija">
                                     </div>
                                     <span class="text-xs font-bold text-slate-600">Valija 23kg</span>
                                 </div>
-                                <div class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
+                                <div
+                                    class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center checkbox-indicator">
                                     <div class="w-2 h-2 rounded-full bg-emerald-500 hidden check-dot"></div>
                                 </div>
                             </button>
@@ -239,17 +272,19 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-100">
                         <div class="flex flex-col gap-2">
-                            <label for="monto_vuelos" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Vuelo</label>
+                            <label for="monto_vuelos"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Vuelo</label>
                             <div class="relative flex items-center">
-                                <span class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
-                                <input type="number" id="monto_vuelos" min="0" step="0.01" value=""
-                                    placeholder="0.00" required
-                                    oninput="calculateAutoFee(); updateRealTimeSummary();"
+                                <span
+                                    class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
+                                <input type="number" id="monto_vuelos" min="0" step="0.01" value="" placeholder="0.00"
+                                    required oninput="calculateAutoFee(); updateRealTimeSummary();"
                                     class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                             </div>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label for="fee_aereo_tipo" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fee Aéreo</label>
+                            <label for="fee_aereo_tipo"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fee Aéreo</label>
                             <select id="fee_aereo_tipo" onchange="toggleFeeType(); updateRealTimeSummary();"
                                 class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                                 <option value="auto">Calculado (10%)</option>
@@ -257,9 +292,11 @@
                             </select>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label for="fee_aereo_monto" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Fee</label>
+                            <label for="fee_aereo_monto"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Fee</label>
                             <div class="relative flex items-center">
-                                <span class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
+                                <span
+                                    class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
                                 <input type="number" id="fee_aereo_monto" min="0" step="0.01" value=""
                                     placeholder="0.00" required oninput="updateRealTimeSummary();"
                                     class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
@@ -275,7 +312,7 @@
                         <div class="flex items-center gap-3">
                             <span
                                 class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">3</span>
-                            <h2 class="font-display font-black text-lg text-slate-800 tracking-tight uppercase">Alojamiento</h2>
+                            <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Alojamiento</h2>
                         </div>
                         <button type="button"
                             class="px-4 py-2 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-full font-bold text-xs text-slate-600 uppercase tracking-wider transition-all duration-300"
@@ -293,16 +330,17 @@
                     <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                         <span
                             class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">4</span>
-                        <h2 class="font-display font-black text-lg text-slate-800 tracking-tight uppercase">Traslados</h2>
+                        <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Traslados</h2>
                     </div>
                     <div class="flex flex-col gap-2 max-w-sm">
                         <label for="monto_traslados"
-                            class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Traslados In/Out</label>
+                            class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Traslados
+                            In/Out</label>
                         <div class="relative flex items-center">
                             <span
                                 class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
-                            <input type="number" id="monto_traslados" min="0" step="0.01" value=""
-                                placeholder="0.00" required oninput="updateRealTimeSummary();"
+                            <input type="number" id="monto_traslados" min="0" step="0.01" value="" placeholder="0.00"
+                                required oninput="updateRealTimeSummary();"
                                 class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                         </div>
                     </div>
@@ -312,24 +350,24 @@
                 <section class="bg-slate-100/80 border border-slate-200/60 rounded-xl p-4 text-slate-500">
                     <h3
                         class="font-display font-bold text-xs text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor" stroke-width="2">
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                         Gastos Administrativos
                     </h3>
-                    <p class="text-[11px] text-slate-500 leading-relaxed font-medium">Se sumará automáticamente un cargo fijo del <strong class="text-slate-700 font-bold">5%</strong> sobre los servicios terrestres (Alojamiento + Traslados) en el cálculo final.</p>
+                    <p class="text-[11px] text-slate-500 leading-relaxed font-medium">Se sumará automáticamente un cargo
+                        fijo del <strong class="text-slate-700 font-bold">5%</strong> sobre los servicios terrestres
+                        (Alojamiento + Traslados) en el cálculo final.</p>
                 </section>
 
                 <!-- Submit Buttons Container: PDF Preview -->
                 <div class="flex flex-col sm:flex-row justify-start gap-3 pt-4">
                     <button type="submit" id="btn-generar-preview"
                         class="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-brand-primary hover:bg-brand-primary/95 text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                            stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
@@ -383,9 +421,9 @@
                     <!-- Botón para desplazarse a la vista previa de la cotización -->
                     <button type="button" id="btn-scroll-to-preview"
                         class="w-full mt-4 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#6a68af] hover:bg-[#59579d] text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl shadow-lg shadow-[#6a68af]/20 hover:shadow-[#6a68af]/30 transition-all duration-300 hover:-translate-y-0.5 cursor-pointer shrink-0"
-                        style="display: none;"
-                        onclick="scrollToPreview()">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        style="display: none;" onclick="scrollToPreview()">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                         </svg>
                         VER COTIZACIÓN
@@ -394,8 +432,10 @@
                     <!-- Botón para limpiar/resetear formulario -->
                     <button type="button" id="btn-clear-form" onclick="confirmNewQuote()"
                         class="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 hover:border-rose-200 font-extrabold text-[10px] uppercase tracking-wider rounded-xl shadow-sm transition-all duration-300 ease-in-out hover:-translate-y-0.5 cursor-pointer shrink-0 opacity-0 max-h-0 overflow-hidden pointer-events-none mt-0">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                         Limpiar Formulario
                     </button>
@@ -409,32 +449,35 @@
             <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                 <span
                     class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center font-bold text-sm">✓</span>
-                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight uppercase">¡Vista Previa de la Cotización!</h2>
+                <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight uppercase">¡Vista Previa de
+                    la Cotización!</h2>
             </div>
 
             <div class="w-full space-y-8">
                 <div class="w-full space-y-6">
-                    <p class="text-sm text-slate-500 leading-relaxed">Visualizá cómo quedó la cotización en PDF a continuación. Podés descargar el archivo oficial presionando el botón de descarga.</p>
+                    <p class="text-sm text-slate-500 leading-relaxed">Visualizá cómo quedó la cotización en PDF a
+                        continuación. Podés descargar el archivo oficial presionando el botón de descarga.</p>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 hidden">
                         <div id="res-total-card"
                             class="bg-slate-50 rounded-2xl p-4 border border-slate-200/50 flex flex-col justify-center">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo Total</span>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo
+                                Total</span>
                             <span id="res-total-price" class="text-xl font-extrabold text-slate-800">USD 0.00</span>
                         </div>
                         <div id="res-pax-card"
                             class="bg-brand-primary/5 rounded-2xl p-4 border border-brand-primary/10 flex flex-col justify-center">
                             <span class="text-[10px] font-bold text-brand-primary uppercase tracking-wider"
                                 id="res-basis-label">Base Doble</span>
-                            <span id="res-pax-price" class="text-xl font-extrabold text-brand-primary">USD 0.00 / Pax</span>
+                            <span id="res-pax-price" class="text-xl font-extrabold text-brand-primary">USD 0.00 /
+                                Pax</span>
                         </div>
                     </div>
 
                     <!-- CTA Download PDF -->
                     <button id="btn-download-pdf" onclick="downloadPDFBlob()"
                         class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-[#6a68af] hover:bg-[#59579d] text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-[#6a68af]/20 hover:shadow-[#6a68af]/30 transition-all duration-300 hover:-translate-y-0.5">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                            stroke-width="2">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
@@ -443,8 +486,7 @@
 
                     <!-- Live PDF Embedded Preview -->
                     <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-lg bg-white mt-8">
-                        <div
-                            class="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
+                        <div class="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
                             <span
                                 class="text-xs font-extrabold uppercase text-slate-500 tracking-wider flex items-center gap-2">
                                 <span class="w-2.5 h-2.5 rounded-full bg-brand-primary animate-pulse"></span>
@@ -463,8 +505,8 @@
                             </div>
                         </div>
                         <div class="relative pb-[141%] h-0 w-full bg-slate-100">
-                            <iframe id="pdf-preview-iframe" class="absolute top-0 left-0 w-full h-full border-0"
-                                src="" allowfullscreen="true"></iframe>
+                            <iframe id="pdf-preview-iframe" class="absolute top-0 left-0 w-full h-full border-0" src=""
+                                allowfullscreen="true"></iframe>
                         </div>
                     </div>
                 </div>

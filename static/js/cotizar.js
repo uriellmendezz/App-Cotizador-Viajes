@@ -379,17 +379,47 @@ function updateHotelBadges() {
     const container = document.getElementById('hotels-container');
     if (!container) return;
     const cards = container.querySelectorAll('.hotel-option-card');
-    cards.forEach((card, idx) => {
+
+    // Find which radio is currently checked
+    let recommendedCardId = null;
+    cards.forEach(card => {
+        const radio = card.querySelector('.hotel-recommended-radio');
+        if (radio && radio.checked) {
+            recommendedCardId = card.id;
+        }
+    });
+
+    // If none selected, default to first card
+    if (!recommendedCardId && cards.length > 0) {
+        const firstRadio = cards[0].querySelector('.hotel-recommended-radio');
+        if (firstRadio) {
+            firstRadio.checked = true;
+            recommendedCardId = cards[0].id;
+        }
+    }
+
+    cards.forEach((card) => {
         // Remove existing badge if any
         const oldBadge = card.querySelector('.recommendation-badge');
         if (oldBadge) oldBadge.remove();
 
-        if (idx === 0) {
-            // Add badge to the first card
+        const isRecommended = card.id === recommendedCardId;
+
+        if (isRecommended) {
             const badge = document.createElement('div');
             badge.className = 'recommendation-badge absolute -top-3 left-6 px-3 py-1 bg-brand-primary text-white text-[9px] font-extrabold rounded-full uppercase tracking-wider shadow-md z-10';
             badge.innerText = 'NUESTRA RECOMENDACIÓN';
             card.appendChild(badge);
+        }
+
+        // Update radio label style
+        const radioLabel = card.querySelector('.hotel-recommended-label');
+        if (radioLabel) {
+            if (isRecommended) {
+                radioLabel.className = 'hotel-recommended-label flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand-primary/10 text-brand-primary border border-brand-primary/20 cursor-pointer text-[10px] font-extrabold uppercase tracking-wider transition-all select-none';
+            } else {
+                radioLabel.className = 'hotel-recommended-label flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 cursor-pointer text-[10px] font-bold uppercase tracking-wider hover:bg-slate-200 transition-all select-none';
+            }
         }
     });
 }
@@ -594,7 +624,16 @@ function addHotelCard(data = null) {
     }
 
     card.innerHTML = `
-        <button type="button" class="remove-hotel-btn absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 bg-rose-50 border border-rose-100 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all" onclick="removeHotelCard('${cardId}')">Eliminar Opción</button>
+        <div class="flex items-center justify-between mb-1">
+            <label class="hotel-recommended-label flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 cursor-pointer text-[10px] font-bold uppercase tracking-wider hover:bg-slate-200 transition-all select-none">
+                <input type="radio" name="hotel-recommended" class="hotel-recommended-radio hidden" value="${cardId}" onchange="updateHotelBadges(); updateRealTimeSummary();">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
+                Recomendar
+            </label>
+            <button type="button" class="remove-hotel-btn text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 bg-rose-50 border border-rose-100 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all" onclick="removeHotelCard('${cardId}')">Eliminar Opción</button>
+        </div>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
             <div class="flex flex-col gap-1">
@@ -960,6 +999,7 @@ function updateRealTimeSummary() {
     let columnsHtml = '';
     let hotelNamesHtml = '';
     let flightsHtml = '';
+    let feeHtml = '';
     let hotelCostsHtml = '';
     let transfersHtml = '';
     let adminFeesHtml = '';
@@ -967,7 +1007,22 @@ function updateRealTimeSummary() {
     let totalsHtml = '';
     let perPersonHtml = '';
 
-    hotelCards.forEach((card, idx) => {
+    const allHotelCards = Array.from(document.querySelectorAll('.hotel-option-card'));
+
+    // Find which hotel is marked as recommended via radio button
+    let recommendedIdx = 0;
+    allHotelCards.forEach((card, idx) => {
+        const radio = card.querySelector('.hotel-recommended-radio');
+        if (radio && radio.checked) recommendedIdx = idx;
+    });
+
+    // Reorder: recommended first
+    const orderedCards = [
+        allHotelCards[recommendedIdx],
+        ...allHotelCards.filter((_, idx) => idx !== recommendedIdx)
+    ];
+
+    orderedCards.forEach((card, idx) => {
         const hotelName = card.querySelector('.hotel-nombre-val').value.trim() || `Opción ${idx + 1}`;
         const hotelCost = parseFloat(card.querySelector('.hotel-costo-val').value) || 0;
 
@@ -980,7 +1035,7 @@ function updateRealTimeSummary() {
         const roundedTotal = aplicarRedondeo ? (roundedPerPerson * cantPax) : total;
         const totalRoundingAdded = roundedTotal - total;
 
-        const isRecomendado = idx === 0;
+        const isRecomendado = idx === 0;  // first in ordered list is always the recommended
         const columnHeader = isRecomendado ? 'Recomendado' : `Opción ${idx + 1}`;
 
         columnsHtml += `
@@ -992,7 +1047,11 @@ function updateRealTimeSummary() {
         `;
 
         flightsHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(aereosTotal)}</td>
+            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(flightsCost)}</td>
+        `;
+
+        feeHtml += `
+            <td class="py-2 px-2 text-right font-semibold text-slate-700">${flightsFee > 0 ? 'USD ' + formatPriceES(flightsFee) : '<span class="text-slate-300">—</span>'}</td>
         `;
 
         hotelCostsHtml += `
@@ -1037,9 +1096,16 @@ function updateRealTimeSummary() {
                     <tr>
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                             <img src="/assets/iconos/avion.svg" class="w-3.5 h-3.5 icon-slate" alt="Vuelos">
-                            <span class="truncate">Vuelos${flightsFee > 0 ? ' + Fee' : ''}</span>
+                            <span class="truncate">Vuelos</span>
                         </td>
                         ${flightsHtml}
+                    </tr>
+                    <tr class="${flightsFee > 0 ? '' : 'opacity-40'}">
+                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
+                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Fee Aéreo">
+                            <span class="truncate">Fee Aéreo</span>
+                        </td>
+                        ${feeHtml}
                     </tr>
                     <tr>
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
@@ -1048,6 +1114,7 @@ function updateRealTimeSummary() {
                         </td>
                         ${hotelCostsHtml}
                     </tr>
+                    ${transfersCost > 0 ? `
                     <tr>
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                             <img src="/assets/iconos/traslados.svg" class="w-3.5 h-3.5 icon-slate" alt="Traslados">
@@ -1055,6 +1122,7 @@ function updateRealTimeSummary() {
                         </td>
                         ${transfersHtml}
                     </tr>
+                    ` : ''}
                     <tr>
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                             <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Gastos Admin">
@@ -1283,8 +1351,24 @@ function _buildPayload() {
         payload.id = currentQuoteId;
     }
 
-    const hotelCards = document.querySelectorAll('.hotel-option-card');
-    hotelCards.forEach(card => {
+    const hotelCards = Array.from(document.querySelectorAll('.hotel-option-card'));
+
+    // Find the recommended (starred) hotel index
+    let recommendedIdx = 0;
+    hotelCards.forEach((card, idx) => {
+        const radio = card.querySelector('.hotel-recommended-radio');
+        if (radio && radio.checked) {
+            recommendedIdx = idx;
+        }
+    });
+
+    // Reorder: recommended first, then the rest in original order
+    const orderedCards = [
+        hotelCards[recommendedIdx],
+        ...hotelCards.filter((_, idx) => idx !== recommendedIdx)
+    ];
+
+    orderedCards.forEach(card => {
         payload.hoteles.push({
             nombre: card.querySelector('.hotel-nombre-val').value,
             estrellas: card.querySelector('.hotel-estrellas-val').value,
@@ -1890,8 +1974,8 @@ async function fillTestData() {
     resetForm();
 
     // 2. Populate general fields
-    document.getElementById('nombre_pax').value = 'Mariana López';
-    document.getElementById('destino').value = 'Punta Cana';
+    document.getElementById('nombre_pax').value = 'Cotización de prueba';
+    document.getElementById('destino').value = 'Prueba';
     document.getElementById('cantidad_pasajeros').value = 2;
     document.getElementById('origen').value = 'Córdoba';
     const agentEl = document.getElementById('agente_nombre');
@@ -2162,6 +2246,21 @@ function renderActiveTabTable(customFilteredList = null) {
             const totalUSD = q.costo_total || 0;
             const fechaCreadoFormatted = formatCreatedAt(q.created_at);
 
+            const currentUser = (window.loggedInUser || '').toLowerCase();
+            const quoteOwner = (q.agente_nombre || '').toLowerCase();
+            const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+
+            const deleteButtonHtml = isOwner ? `
+                <button type="button" 
+                        class="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" 
+                        onclick="event.stopPropagation(); deleteSavedQuote('${q.id}')"
+                        title="Eliminar Cotización">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            ` : `<span class="text-slate-300 select-none">-</span>`;
+
             tr.innerHTML = `
                 <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
                 <td class="p-3 font-semibold text-slate-800">${q.nombre_pax || 'Sin Nombre'}</td>
@@ -2170,14 +2269,7 @@ function renderActiveTabTable(customFilteredList = null) {
                 <td class="p-3 hidden sm:table-cell">${fechaSalidaFormatted}</td>
                 <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
                 <td class="p-3 flex justify-center">
-                    <button type="button" 
-                            class="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" 
-                            onclick="event.stopPropagation(); deleteSavedQuote('${q.id}')"
-                            title="Eliminar Cotización">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                    </button>
+                    ${deleteButtonHtml}
                 </td>
             `;
             tbody.appendChild(tr);
@@ -2216,20 +2308,28 @@ function renderActiveTabTable(customFilteredList = null) {
             const totalUSD = q.total_cotizacion || 0;
             const fechaCreadoFormatted = formatCreatedAt(q.created_at);
 
+            const currentUser = (window.loggedInUser || '').toLowerCase();
+            const quoteOwner = (q.agente_id || '').toLowerCase();
+            const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+
+            const deleteButtonHtml = isOwner ? `
+                <button type="button" 
+                        class="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" 
+                        onclick="event.stopPropagation(); deleteSavedQuickQuote('${q.id}')"
+                        title="Eliminar Presupuesto">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            ` : `<span class="text-slate-300 select-none">-</span>`;
+
             tr.innerHTML = `
                 <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
                 <td class="p-3 font-semibold text-slate-800">${q.pasajero_nombre || 'Sin Nombre'}</td>
                 <td class="p-3 hidden md:table-cell">${q.agente_id || '-'}</td>
                 <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
                 <td class="p-3 flex justify-center">
-                    <button type="button" 
-                            class="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" 
-                            onclick="event.stopPropagation(); deleteSavedQuickQuote('${q.id}')"
-                            title="Eliminar Presupuesto">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                    </button>
+                    ${deleteButtonHtml}
                 </td>
             `;
             tbody.appendChild(tr);
@@ -2521,6 +2621,7 @@ async function loadSavedQuoteIntoForm(quoteId) {
 
         // Update edit state and enter Read-only mode
         currentQuoteId = q.id;
+        window.currentQuoteOwner = q.agente_nombre;
         enableFormEditing(false);
 
         // Update breakdown
@@ -2572,6 +2673,7 @@ window.deleteSavedQuote = deleteSavedQuote;
 function duplicateCurrentQuote() {
     if (!currentQuoteId) return;
     currentQuoteId = null;
+    window.currentQuoteOwner = null;
     enableFormEditing(true); // Permitir edición
     updateEditingIndicator();
     showAlert('success', 'La cotización se ha duplicado en el formulario. Al presionar "Generar Cotización" se creará un nuevo registro.');
@@ -2580,6 +2682,7 @@ window.duplicateCurrentQuote = duplicateCurrentQuote;
 
 function cancelEditingQuote() {
     currentQuoteId = null;
+    window.currentQuoteOwner = null;
     enableFormEditing(true); // Habilitar formulario
     resetForm();
     showAlert('success', 'Formulario reiniciado. Modo de edición cancelado.');
@@ -2588,6 +2691,7 @@ window.cancelEditingQuote = cancelEditingQuote;
 
 function closeSavedQuoteView() {
     currentQuoteId = null;
+    window.currentQuoteOwner = null;
     enableFormEditing(true); // Habilitar formulario
     resetForm();
     navigateTo('/editar');
@@ -2596,6 +2700,13 @@ window.closeSavedQuoteView = closeSavedQuoteView;
 window.saveConfig = saveConfig;
 
 function confirmEditQuote() {
+    const currentUser = (window.loggedInUser || '').toLowerCase();
+    const quoteOwner = (window.currentQuoteOwner || '').toLowerCase();
+    if (currentUser && quoteOwner && currentUser !== quoteOwner) {
+        showAlert('warning', 'No puedes editar una cotización creada por otro agente. Usa "Duplicar como Nueva".');
+        return;
+    }
+
     showCustomConfirm({
         title: '¿Habilitar edición de cotización?',
         desc: 'Vas a modificar una cotización existente. Al presionar "Generar Cotización" se actualizará este registro (ID #' + currentQuoteId + ') en Supabase de forma permanente.',
@@ -2619,11 +2730,19 @@ function updateEditingIndicator() {
         indicator.classList.remove('hidden');
         indicator.classList.add('flex');
 
+        const currentUser = (window.loggedInUser || '').toLowerCase();
+        const quoteOwner = (window.currentQuoteOwner || '').toLowerCase();
+        const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+
         if (isReadOnlyMode) {
             indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando cotización guardada (ID #${currentQuoteId})</span>`;
 
-            actionsContainer.innerHTML = `
+            const editBtnHtml = isOwner ? `
                 <button type="button" onclick="confirmEditQuote()" class="px-3 py-1 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-brand-primary/20">Editar Cotización</button>
+            ` : '';
+
+            actionsContainer.innerHTML = `
+                ${editBtnHtml}
                 <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
                 <button type="button" onclick="closeSavedQuoteView()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cerrar</button>
             `;

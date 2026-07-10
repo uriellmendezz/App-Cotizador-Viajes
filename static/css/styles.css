@@ -372,5 +372,27 @@ textarea:focus {
     transform: translateY(4px);
 }
 
+/* Smooth transition for reset quick budget button */
+#btn-reset-quick-budget {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    max-width: 120px;
+    opacity: 1;
+    transform: scale(1);
+    display: inline-flex !important;
+}
+
+#btn-reset-quick-budget.hidden {
+    display: inline-flex !important;
+    max-width: 0 !important;
+    opacity: 0 !important;
+    transform: scale(0.8) !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-color: transparent !important;
+    margin-right: -12px !important; /* Cancel out flex gap-3 spacing */
+    pointer-events: none !important;
+    overflow: hidden !important;
+}
+
 
 

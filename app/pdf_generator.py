@@ -332,6 +332,8 @@ def generate_pdf(data: dict) -> bytes:
         "hoteles": processed_hotels,
         "base_habitacion": data.get("base_habitacion", "Doble"),
         "format_price": format_price,
+        # Transfers — used to conditionally show/hide the traslados row
+        "monto_traslados": float(data.get("monto_traslados", 0.0)),
     }
 
     # ── Render HTML with Jinja2 ────────────────────────────────────────────
