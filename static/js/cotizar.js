@@ -3058,6 +3058,21 @@ export function initCotizar() {
         }
     });
 
+    // Keyboard Shortcut Ctrl + Alt + 9 to fill test data
+    if (window._fillTestDataShortcutListener) {
+        document.removeEventListener('keydown', window._fillTestDataShortcutListener);
+    }
+    window._fillTestDataShortcutListener = (e) => {
+        if (e.ctrlKey && e.altKey && e.key === '9') {
+            if (window.location.pathname !== '/cotizacion-completa') return;
+            e.preventDefault();
+            if (typeof fillTestData === 'function') {
+                fillTestData();
+            }
+        }
+    };
+    document.addEventListener('keydown', window._fillTestDataShortcutListener);
+
     setupDragAndDrop();
     setupSidebarResizer();
     toggleFeeType();
