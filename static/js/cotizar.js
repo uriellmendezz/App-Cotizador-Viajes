@@ -2312,6 +2312,7 @@ let allSavedQuickQuotes = [];
 let savedQuotesActiveTab = 'detalladas';
 
 async function loadSavedQuotesList() {
+    const wrapper = document.getElementById('db-quotes-table-wrapper');
     const tbody = document.getElementById('db-quotes-table-body');
     if (!tbody) return;
 
@@ -2320,6 +2321,15 @@ async function loadSavedQuotesList() {
 
     updateTabButtonsUI();
 
+    // 1. Fade out the table wrapper
+    if (wrapper) {
+        wrapper.classList.add('tab-transition-hidden');
+    }
+
+    // 2. Wait 200ms for the fade-out to complete
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // 3. Set the loading spinner inside the table
     tbody.innerHTML = `
         <tr>
             <td colspan="7" class="p-8 text-center text-slate-400">
@@ -2328,6 +2338,12 @@ async function loadSavedQuotesList() {
             </td>
         </tr>
     `;
+
+    // 4. Fade back in to show the spinner smoothly
+    if (wrapper) {
+        wrapper.offsetHeight; // Force reflow
+        wrapper.classList.remove('tab-transition-hidden');
+    }
 
     try {
         // Fetch detailed and quick budgets in parallel
@@ -2342,8 +2358,26 @@ async function loadSavedQuotesList() {
         allSavedQuotes = await resQuotes.json();
         allSavedQuickQuotes = await resQuick.json();
 
+        // 5. Once loaded, fade out again before swapping the rows
+        if (wrapper) {
+            wrapper.classList.add('tab-transition-hidden');
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Render the actual data
         renderActiveTabTable();
+
+        // 6. Fade back in with the fresh data!
+        if (wrapper) {
+            wrapper.offsetHeight; // Force reflow
+            wrapper.classList.remove('tab-transition-hidden');
+        }
     } catch (err) {
+        if (wrapper) {
+            wrapper.classList.add('tab-transition-hidden');
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         tbody.innerHTML = `
             <tr>
                 <td colspan="7" class="p-8 text-center text-rose-500 font-bold">
@@ -2351,6 +2385,11 @@ async function loadSavedQuotesList() {
                 </td>
             </tr>
         `;
+
+        if (wrapper) {
+            wrapper.offsetHeight;
+            wrapper.classList.remove('tab-transition-hidden');
+        }
     }
 }
 
@@ -3201,6 +3240,10 @@ export async function initVerCotizacion() {
         // Cache quote id and owner
         currentQuoteId = quote.id;
         window.currentQuoteOwner = quote.agente_nombre;
+
+        // Update document title dynamically for detailed quote preview
+        const appName = (window.agencyConfig && window.agencyConfig.nombre_agencia) || 'One Trip';
+        document.title = `Detalle de Cotización #${quoteId} | ${appName}`;
 
         // Populate left column PDF viewer
         const iframe = document.getElementById('ver-pdf-iframe');

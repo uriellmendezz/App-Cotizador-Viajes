@@ -97,11 +97,12 @@ let navStack = [];
 
 // Human-readable names for each route
 const routeNames = {
+    '/login': 'Iniciar Sesión',
     '/inicio': 'Inicio',
     '/cotizacion-rapida': 'Cotización Rápida',
     '/cotizaciones-rapidas': 'Cotizaciones Rápidas',
     '/hacer-cotizacion': 'Nueva Cotización',
-    '/cotizacion-completa': 'Cotización Detallada',
+    '/cotizacion-completa': 'Generar Cotización',
     '/editar': 'Archivos',
     '/config': 'Configuración',
     '/ver-cotizacion': 'Ver Cotización',
@@ -199,6 +200,12 @@ async function loadHeaderConfig() {
             }
             window.agencyConfig = config;
             isConfigLoaded = true;
+
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/ver-cotizacion') {
+                const secName = routeNames[currentPath] || 'Inicio';
+                document.title = `${secName} | ${config.nombre_agencia || 'One Trip'}`;
+            }
         }
     } catch (err) {
         console.error("Error loading header config:", err);
@@ -303,6 +310,13 @@ async function router() {
             // Start entry transition
             appEl.classList.remove('opacity-0');
             appEl.classList.add('opacity-100');
+
+            // Update document title dynamically based on section
+            if (path !== '/ver-cotizacion') {
+                const sectionName = routeNames[path] || 'Inicio';
+                const appName = (window.agencyConfig && window.agencyConfig.nombre_agencia) || 'One Trip';
+                document.title = `${sectionName} | ${appName}`;
+            }
             
             // Import and run dynamic module JS script
             if (route.js) {
