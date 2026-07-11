@@ -474,10 +474,19 @@ textarea:focus {
         padding-left: 80px !important;
     }
 
-    /* Hide text contents and headers inside compact mode */
-    body.sidebar-collapsed .sidebar-text,
-    body.sidebar-collapsed .sidebar-section-header {
+    /* Hide ONLY menu item text contents in compact mode */
+    body.sidebar-collapsed .sidebar-text {
         display: none !important;
+    }
+
+    /* Style and keep section headers (Crear, Gestión) visible in compact mode */
+    body.sidebar-collapsed .sidebar-section-header {
+        display: block !important;
+        text-align: center;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        font-size: 8px !important;
+        letter-spacing: 0.05em !important;
     }
 
     /* Hide logo in compact mode */
