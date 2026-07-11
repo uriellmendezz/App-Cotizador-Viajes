@@ -751,8 +751,8 @@ function addHotelCard(data = null) {
     const container = document.getElementById('hotels-container');
     const currentCards = container.querySelectorAll('.hotel-option-card');
 
-    if (currentCards.length >= 3) {
-        alert("Máximo 3 hoteles permitidos.");
+    if (currentCards.length >= 2 && !isRestoringStateDetailed) {
+        alert("Máximo 2 hoteles permitidos.");
         return;
     }
 
@@ -1502,14 +1502,16 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
 window.generatePDFPreview = generatePDFPreview;
 
 function downloadPDFBlob() {
-    if (!currentPdfBlob) {
+    const blob = window.currentPdfBlob;
+    const filename = window.currentPdfFileName;
+    if (!blob) {
         showAlert('warning', 'No hay ningún PDF generado para descargar.');
         return;
     }
-    const url = window.URL.createObjectURL(currentPdfBlob);
+    const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = currentPdfFileName || 'Cotizacion.pdf';
+    a.download = filename || 'Cotizacion.pdf';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1517,6 +1519,16 @@ function downloadPDFBlob() {
     showAlert('success', '✔ PDF descargado con éxito.');
 }
 window.downloadPDFBlob = downloadPDFBlob;
+
+function openPDFInNewTab() {
+    const url = window.currentPdfUrl;
+    if (url) {
+        window.open(url, '_blank');
+    } else {
+        showAlert('warning', 'No hay ningún PDF generado para abrir.');
+    }
+}
+window.openPDFInNewTab = openPDFInNewTab;
 
 
 // Build payload from form (shared between Slides and PDF)
@@ -2147,6 +2159,7 @@ async function handlePDFEditImport(inputEl) {
         hotelCount = 0; // Reset counter
 
         const hotels = data.hoteles || [];
+        isRestoringStateDetailed = true;
         if (hotels.length === 0) {
             addHotelCard();
         } else {
@@ -2154,6 +2167,7 @@ async function handlePDFEditImport(inputEl) {
                 addHotelCard(h);
             });
         }
+        isRestoringStateDetailed = false;
 
         // Scroll & feedback
         updateRealTimeSummary();
@@ -2852,6 +2866,7 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
         hotelCount = 0; // Reset counter
 
         const hotels = q.hoteles || [];
+        isRestoringStateDetailed = true;
         if (hotels.length === 0) {
             addHotelCard();
         } else {
@@ -2859,6 +2874,7 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
                 addHotelCard(h);
             });
         }
+        isRestoringStateDetailed = false;
 
         // Update edit state and read-only / editing modes
         currentQuoteId = q.id;
@@ -3294,6 +3310,19 @@ export async function initVerCotizacion() {
 
         document.getElementById('ver-created-at').textContent = formatDate(quote.created_at);
         document.getElementById('ver-updated-at').textContent = formatDate(quote.updated_at || quote.created_at);
+
+        // Control the visibility of the Edit button based on current user ownership
+        const currentUser = (window.loggedInUser || '').toLowerCase();
+        const quoteOwner = (quote.agente_nombre || '').toLowerCase();
+        const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+        const editBtn = document.getElementById('btn-edit-quote-view');
+        if (editBtn) {
+            if (isOwner) {
+                editBtn.classList.remove('hidden');
+            } else {
+                editBtn.classList.add('hidden');
+            }
+        }
 
         window.hideLoader();
     } catch (e) {

@@ -76,6 +76,19 @@ function restoreQuickQuoteFormState() {
     calculateQuickQuote();
 }
 
+function updateSaveButtonState() {
+    const btnSaveOnly = document.getElementById('btn-save-quick-only');
+    if (!btnSaveOnly) return;
+
+    if (currentQuickQuoteId) {
+        btnSaveOnly.innerText = 'Editar';
+        btnSaveOnly.className = 'px-6 py-3.5 bg-brand-primary hover:bg-brand-primary/90 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer';
+    } else {
+        btnSaveOnly.innerText = 'Guardar';
+        btnSaveOnly.className = 'px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer';
+    }
+}
+
 const conceptTypes = {
     'vuelo': {
         label: 'Vuelo',
@@ -223,6 +236,12 @@ export function initCotizacionRapida() {
     const btnAddHotel = document.getElementById('btn-add-hotel');
     if (btnAddHotel) {
         btnAddHotel.onclick = () => {
+            const tbody = document.getElementById('quick-budget-body');
+            const currentHotels = tbody ? tbody.querySelectorAll('tr.quick-row .quick-row-tipo[value="hotel"]').length : 0;
+            if (currentHotels >= 2) {
+                window.showAlert('warning', 'Máximo 2 alojamientos permitidos.');
+                return;
+            }
             const label = getNextLabelForType('hotel');
             addQuickBudgetRow({ tipo: 'hotel', label: label });
         };
@@ -282,6 +301,7 @@ export function initCotizacionRapida() {
         loadDefaultQuickQuoteRows();
         saveQuickQuoteFormState();
     }
+    updateSaveButtonState();
 }
 
 function getNextLabelForType(tipo) {
@@ -300,6 +320,8 @@ function getNextLabelForType(tipo) {
 }
 
 function loadDefaultQuickQuoteRows() {
+    currentQuickQuoteId = null;
+    window.currentQuickQuoteOwner = null;
     const tbody = document.getElementById('quick-budget-body');
     if (!tbody) return;
     tbody.innerHTML = '';
@@ -327,6 +349,7 @@ function loadDefaultQuickQuoteRows() {
     addQuickBudgetRow({ tipo: 'admin', isDefault: true });
     
     isQuickFeeLocked = true;
+    updateSaveButtonState();
 }
 
 function addQuickBudgetRow(data = null) {
@@ -709,13 +732,8 @@ async function saveQuickQuote(andRedirect = false) {
             window.savedQuickQuoteState = null;
             window.navigateTo('/cotizacion-completa');
         } else {
-            currentQuickQuoteId = null;
-            const passengerInput = document.getElementById('rapido-pasajero');
-            if (passengerInput) passengerInput.value = '';
-            const paxCountInput = document.getElementById('rapido-pax-count');
-            if (paxCountInput) paxCountInput.value = '2';
-            window.savedQuickQuoteState = null;
-            loadDefaultQuickQuoteRows();
+            updateSaveButtonState();
+            saveQuickQuoteFormState();
         }
     } catch (err) {
         window.showAlert('warning', 'Error al procesar: ' + err.message);
@@ -943,6 +961,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
         });
         
         calculateQuickQuote();
+        updateSaveButtonState();
         
     } catch (err) {
         window.showAlert('warning', 'Error al cargar: ' + err.message);
