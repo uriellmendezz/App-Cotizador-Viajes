@@ -11,7 +11,7 @@ let isRestoringStateDetailed = false;
 
 function saveDetailedQuoteFormState() {
     if (isRestoringStateDetailed) return;
-    
+
     const passengerInput = document.getElementById('nombre_pax');
     if (!passengerInput) return; // Not on form page
 
@@ -23,10 +23,10 @@ function saveDetailedQuoteFormState() {
         const habitacion = card.querySelector('.hotel-habitacion-val')?.value || '';
         const costo = card.querySelector('.hotel-costo-val')?.value || '';
         const descripcion = card.querySelector('.hotel-descripcion-val')?.value || '';
-        
+
         const imgInput = card.querySelector('.hotel-imagen-val-1');
         const imagen = imgInput ? imgInput.value : '';
-        
+
         const recommendedRadio = card.querySelector('.hotel-recommended-radio');
         const recommended = recommendedRadio ? recommendedRadio.checked : false;
 
@@ -86,16 +86,16 @@ function restoreDetailedQuoteFormState() {
         // General info
         const nombrePaxEl = document.getElementById('nombre_pax');
         if (nombrePaxEl) nombrePaxEl.value = state.nombre_pax || '';
-        
+
         const destinoEl = document.getElementById('destino');
         if (destinoEl) destinoEl.value = state.destino || '';
-        
+
         const paxCountEl = document.getElementById('cantidad_pasajeros');
         if (paxCountEl) paxCountEl.value = state.cantidad_pasajeros || '';
-        
+
         const origenEl = document.getElementById('origen');
         if (origenEl) origenEl.value = state.origen || '';
-        
+
         const redondeoEl = document.getElementById('aplicar_redondeo');
         if (redondeoEl) redondeoEl.checked = state.aplicar_redondeo !== false;
 
@@ -146,7 +146,7 @@ function restoreDetailedQuoteFormState() {
         document.getElementById('monto_vuelos').value = state.monto_vuelos || '';
         document.getElementById('fee_aereo_monto').value = state.fee_aereo_monto || '';
         document.getElementById('monto_traslados').value = state.monto_traslados || '';
-        
+
         const feeTypeEl = document.getElementById('fee_aereo_tipo');
         if (feeTypeEl) feeTypeEl.value = state.fee_aereo_tipo || 'auto';
         toggleFeeType();
@@ -407,7 +407,7 @@ window.addEventListener('load', () => {
         }
     });
     flatpickr("#validez_cotizacion", {
-        dateFormat: "Y-m-d",
+        dateFormat: "d/m/Y",
         altInput: true,
         altFormat: "d/m/Y",
         disableMobile: "true"
@@ -3236,7 +3236,7 @@ export async function initVerCotizacion() {
             // Save in window variables for current pdf operations (download, open tab)
             window.currentPdfBlob = blob;
             window.currentPdfUrl = pdfUrl;
-            
+
             // Reconstruct filename
             const now = new Date(quote.updated_at || quote.created_at || new Date());
             const dd = String(now.getDate()).padStart(2, '0');
@@ -3269,7 +3269,7 @@ export async function initVerCotizacion() {
         // Populate right column details
         document.getElementById('ver-pax-name').textContent = quote.nombre_pax || 'Sin Nombre';
         document.getElementById('ver-destino').textContent = quote.destino || 'Sin Destino';
-        
+
         const formatAgent = (name) => {
             if (!name) return '-';
             return name.charAt(0).toUpperCase() + name.slice(1);
