@@ -212,29 +212,24 @@
         <main id="app"
             class="max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-32 lg:pb-10 transition-opacity duration-150 ease-in-out opacity-100">
         </main>
-    </div>
-
     <!-- Loading Overlay -->
     <div id="loading-overlay"
-        class="fixed inset-0 bg-slate-950/40 backdrop-blur-md z-[5000] flex flex-col items-center justify-center gap-6 hidden transition-opacity duration-300">
-        <div class="relative w-20 h-20 flex items-center justify-center">
-            <!-- Spinning Ring -->
-            <div class="absolute inset-0 border-4 border-brand-primary/10 rounded-full"></div>
-            <div class="absolute inset-0 border-4 border-brand-primary rounded-full animate-spin border-t-transparent">
-            </div>
-
+        class="fixed inset-0 bg-white/65 backdrop-blur-md z-[5000] flex flex-col items-center justify-center gap-6 hidden transition-opacity duration-300">
+        <div class="relative flex items-center justify-center">
             <!-- Centered Cycling Icon -->
             <span id="loading-travel-icon"
-                class="block w-8 h-8 text-brand-primary transition-all duration-300 ease-in-out transform">
+                class="block w-16 h-16 text-brand-primary transition-all duration-100 ease-in-out transform">
                 <!-- Default compass icon -->
-                <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <svg class="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <circle cx="12" cy="12" r="10"></circle>
                     <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88"></polygon>
                 </svg>
             </span>
         </div>
         <span id="loading-text"
-            class="text-sm font-extrabold text-white tracking-widest uppercase text-center max-w-xs drop-shadow-sm select-none">Generando...</span>
+            class="text-base font-bold text-slate-800 text-center max-w-xs select-none">Generando...</span>
+    </div>
+
     </div>
 
     <!-- Custom Confirm Modal -->
