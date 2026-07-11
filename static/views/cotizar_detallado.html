@@ -1,4 +1,4 @@
-<div class="max-w-[95%] mx-auto space-y-8">
+<div class="max-w-[99%] mx-auto space-y-8">
     <div id="cotizacion-tab" class="tab-content active block">
         <form id="quote-form" onsubmit="generatePDFPreview(event)"
             class="flex flex-col lg:flex-row gap-8 lg:gap-0 items-start w-full transition-all duration-500">
@@ -105,7 +105,8 @@
                                 class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                            <label
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                                 <span>Ajustes</span>
                                 <div class="relative group inline-block">
                                     <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors"
@@ -115,7 +116,8 @@
                                     </svg>
                                     <div
                                         class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
-                                        Redondear totales al múltiplo de 10 más cercano (ej. 1042 a 1050) para presentar montos limpios al pasajero.
+                                        Redondear totales al múltiplo de 10 más cercano (ej. 1042 a 1050) para presentar
+                                        montos limpios al pasajero.
                                         <div
                                             class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800">
                                         </div>
@@ -124,10 +126,12 @@
                             </label>
                             <div class="flex items-center gap-2 h-full min-h-[46px]">
                                 <label class="relative inline-flex items-center cursor-pointer select-none">
-                                    <input type="checkbox" id="aplicar_redondeo"
-                                        onchange="updateRealTimeSummary()" class="sr-only peer">
-                                    <div class="w-6 h-6 rounded-full bg-slate-200 border border-slate-300/50 flex items-center justify-center transition-all duration-300 peer-checked:bg-brand-primary peer-checked:border-brand-primary/50 text-transparent peer-checked:text-white">
-                                        <svg class="w-3.5 h-3.5 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <input type="checkbox" id="aplicar_redondeo" onchange="updateRealTimeSummary()"
+                                        class="sr-only peer">
+                                    <div
+                                        class="w-6 h-6 rounded-full bg-slate-200 border border-slate-300/50 flex items-center justify-center transition-all duration-300 peer-checked:bg-brand-primary peer-checked:border-brand-primary/50 text-transparent peer-checked:text-white">
+                                        <svg class="w-3.5 h-3.5 stroke-[3]" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                         </svg>
                                     </div>
