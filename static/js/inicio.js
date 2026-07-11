@@ -61,6 +61,180 @@ export async function initInicio() {
     }
 
     typePart1();
+    loadRecentQuotes();
+}
+
+async function loadRecentQuotes() {
+    const recentSection = document.getElementById('inicio-recent-section');
+    const container = document.getElementById('recent-quotes-container');
+    if (!recentSection || !container) return;
+
+    try {
+        const [resQuotes, resBudgets] = await Promise.all([
+            window.authenticatedFetch('/api/cotizaciones'),
+            window.authenticatedFetch('/api/presupuestos')
+        ]);
+
+        if (!resQuotes.ok || !resBudgets.ok) throw new Error("Error al obtener los datos de cotizaciones.");
+
+        const quotes = await resQuotes.json();
+        const budgets = await resBudgets.json();
+
+        const currentUser = (window.loggedInUser || '').toLowerCase();
+
+        // Filter and sort detailed quotes (cotizaciones completas)
+        const userQuotes = quotes
+            .filter(q => (q.agente_nombre || '').toLowerCase() === currentUser)
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+            .slice(0, 2);
+
+        // Filter and sort quick quotes (cotizaciones rapidas)
+        const userBudgets = budgets
+            .filter(b => (b.agente_id || '').toLowerCase() === currentUser)
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+            .slice(0, 2);
+
+        // Combine recent items
+        const recentItems = [];
+        userQuotes.forEach(q => recentItems.push({ ...q, isQuick: false }));
+        userBudgets.forEach(b => recentItems.push({ ...b, isQuick: true }));
+
+        // Sort combined recent items by created_at descending
+        recentItems.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+        if (recentItems.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-1 md:col-span-2 bg-white/60 border border-dashed border-slate-200 rounded-3xl p-8 text-center space-y-4">
+                    <div class="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mx-auto">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                    </div>
+                    <div class="space-y-1.5">
+                        <h4 class="font-bold text-slate-700 text-sm">No tienes cotizaciones recientes</h4>
+                        <p class="text-xs text-slate-400 font-semibold max-w-xs mx-auto">Comienza creando una nueva cotización rápida o completa en la barra lateral para ver tu historial reciente.</p>
+                    </div>
+                </div>
+            `;
+            recentSection.classList.remove('hidden');
+            return;
+        }
+
+        container.innerHTML = '';
+
+        recentItems.forEach(item => {
+            const card = document.createElement('div');
+            card.className = "group cursor-pointer relative bg-white border border-slate-200/60 rounded-3xl p-6 shadow-sm hover:shadow-[0_15px_30px_-10px_rgba(0,0,0,0.08)] hover:border-slate-350 hover:-translate-y-1 transition-all duration-300 ease-out flex items-center justify-between gap-6";
+            
+            if (item.isQuick) {
+                card.onclick = () => {
+                    window.pendingEditQuickBudgetId = item.id;
+                    window.navigateTo('/cotizacion-rapida');
+                };
+            } else {
+                card.onclick = () => {
+                    window.navigateTo('/ver-cotizacion?id=' + item.id);
+                };
+            }
+
+            const iconHtml = item.isQuick 
+                ? `<div class="w-16 h-16 bg-gradient-to-br from-brand-primary/10 to-[#ff7f85]/5 rounded-2xl flex items-center justify-center text-brand-primary group-hover:scale-105 transition-transform duration-300 shrink-0 shadow-sm shadow-brand-primary/5">
+                     <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                         <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                     </svg>
+                   </div>`
+                : `<div class="w-16 h-16 bg-gradient-to-br from-brand-accent/10 to-[#fabf8f]/5 rounded-2xl flex items-center justify-center text-brand-accent group-hover:scale-105 transition-transform duration-300 shrink-0 shadow-sm shadow-brand-accent/5">
+                     <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                     </svg>
+                   </div>`;
+
+            const badgeHtml = item.isQuick 
+                ? `<span class="text-[10px] font-black uppercase tracking-wider text-brand-primary bg-rose-50 px-2.5 py-1 rounded-md">Rápida</span>`
+                : `<span class="text-[10px] font-black uppercase tracking-wider text-brand-accent bg-orange-50 px-2.5 py-1 rounded-md">Completa</span>`;
+
+            const title = item.isQuick ? item.pasajero_nombre : item.nombre_pax;
+            
+            // Extract destination from quick quote metadata if applicable
+            let destination = item.destino || 'Sin Destino';
+            if (item.isQuick && item.hoteles) {
+                const meta = item.hoteles.find(h => h.nombre === "METADATA_PRESUPUESTO_RAPIDO");
+                if (meta && meta.destino) {
+                    destination = meta.destino;
+                }
+            }
+
+            const total = item.isQuick ? item.total_cotizacion : item.costo_total;
+
+            card.innerHTML = `
+                <div class="flex items-center gap-5 min-w-0 flex-grow">
+                    ${iconHtml}
+                    <div class="space-y-1 min-w-0 flex-grow">
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-bold text-slate-800 truncate text-base leading-snug group-hover:text-brand-primary transition-colors duration-200">${title || 'Sin Nombre'}</h4>
+                            ${badgeHtml}
+                        </div>
+                        <p class="text-slate-400 text-sm font-semibold truncate flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            ${destination}
+                        </p>
+                    </div>
+                </div>
+                <div class="text-right shrink-0 flex flex-col items-end gap-1">
+                    <span class="text-base font-black text-slate-700">USD ${window.formatPriceES(total)}</span>
+                    <span class="text-[10px] font-semibold text-slate-400">${formatCreatedAt(item.created_at)}</span>
+                </div>
+            `;
+
+            container.appendChild(card);
+        });
+
+        recentSection.classList.remove('hidden');
+
+    } catch (e) {
+        console.error("Error loading recent quotes on hub page:", e);
+        recentSection.classList.add('hidden');
+    }
+}
+
+function formatCreatedAt(isoStr) {
+    if (!isoStr) return '-';
+    try {
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return '-';
+
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+
+        const today = new Date();
+        const todayYear = today.getFullYear();
+        const todayMonth = today.getMonth();
+        const todayDay = today.getDate();
+
+        const targetYear = d.getFullYear();
+        const targetMonth = d.getMonth();
+        const targetDay = d.getDate();
+
+        if (todayYear === targetYear && todayMonth === targetMonth && todayDay === targetDay) {
+            return `Hoy, ${hh}:${min}`;
+        }
+
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        if (yesterday.getFullYear() === targetYear && yesterday.getMonth() === targetMonth && yesterday.getDate() === targetDay) {
+            return `Ayer, ${hh}:${min}`;
+        }
+
+        const dd = String(targetDay).padStart(2, '0');
+        const mm = String(targetMonth + 1).padStart(2, '0');
+        const yyyy = targetYear;
+        return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+    } catch (e) {
+        return '-';
+    }
 }
 
 export function initOpciones() {

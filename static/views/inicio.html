@@ -2,156 +2,23 @@
     <!-- Hub Header -->
     <div class="space-y-3">
         <span
-            class="text-xs font-black uppercase tracking-widest text-brand-primary bg-rose-50 px-3 py-1 rounded-full">Menú
-            Principal</span>
+            class="text-xs font-black uppercase tracking-widest text-brand-primary bg-rose-50 px-3 py-1 rounded-full">Menú Principal</span>
         <h1 id="welcome-title"
             class="text-4xl md:text-5xl font-black text-slate-900 font-display tracking-tight leading-none min-h-[50px]">
             &nbsp;</h1>
-        <p class="text-slate-500 text-sm md:text-base font-medium">Gestión inteligente de presupuestos e itinerarios.
-        </p>
+        <p class="text-slate-500 text-sm md:text-base font-medium">Gestión inteligente de presupuestos e itinerarios.</p>
     </div>
 
-    <!-- Sección de Creación de Propuestas -->
-    <div class="space-y-5">
+    <!-- Sección de Recientes -->
+    <div id="inicio-recent-section" class="space-y-5 pt-4 hidden">
         <div class="flex items-center gap-3">
             <span
-                class="text-[10px] font-black uppercase tracking-widest text-brand-primary bg-rose-50 px-2.5 py-1 rounded-full">Crear</span>
-            <div class="h-[1px] flex-grow bg-slate-100"></div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Card 1: Cotización Rápida -->
-            <div onclick="navigateTo('/cotizacion-rapida')"
-                class="group cursor-pointer relative bg-white border border-slate-200/60 rounded-3xl p-5 shadow-sm hover:shadow-[0_15px_30px_-10px_rgba(255,84,93,0.12)] hover:border-brand-primary/30 hover:-translate-y-1 transition-all duration-300 ease-out flex items-center gap-5">
-                <div
-                    class="absolute inset-0 bg-gradient-to-tr from-brand-primary/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl">
-                </div>
-
-                <div
-                    class="w-14 h-14 bg-gradient-to-br from-brand-primary/10 to-[#ff7f85]/5 rounded-2xl flex items-center justify-center text-brand-primary group-hover:scale-105 transition-transform duration-300 shrink-0 shadow-sm shadow-brand-primary/5">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                </div>
-
-                <div class="flex-grow min-w-0 space-y-1 relative z-10">
-                    <h3
-                        class="text-lg font-bold text-slate-800 font-display group-hover:text-brand-primary transition-colors leading-tight">
-                        Cotización Rápida</h3>
-                    <p class="text-slate-400 text-xs font-semibold truncate">Carga ágil de importes y estimación en
-                        segundos.</p>
-                </div>
-
-                <div
-                    class="text-brand-primary shrink-0 opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                </div>
-            </div>
-
-            <!-- Card 2: Hacer Cotización -->
-            <div onclick="navigateTo('/hacer-cotizacion')"
-                class="group cursor-pointer relative bg-white border border-slate-200/60 rounded-3xl p-5 shadow-sm hover:shadow-[0_15px_30px_-10px_rgba(247,150,70,0.12)] hover:border-brand-accent/30 hover:-translate-y-1 transition-all duration-300 ease-out flex items-center gap-5">
-                <div
-                    class="absolute inset-0 bg-gradient-to-tr from-brand-accent/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl">
-                </div>
-
-                <div
-                    class="w-14 h-14 bg-gradient-to-br from-brand-accent/10 to-[#fabf8f]/5 rounded-2xl flex items-center justify-center text-brand-accent group-hover:scale-105 transition-transform duration-300 shrink-0 shadow-sm shadow-brand-accent/5">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                </div>
-
-                <div class="flex-grow min-w-0 space-y-1 relative z-10">
-                    <h3
-                        class="text-lg font-bold text-slate-800 font-display group-hover:text-brand-accent transition-colors leading-tight">
-                        Cotización Completa</h3>
-                    <p class="text-slate-400 text-xs font-semibold truncate">Diseño detallado de itinerarios, vuelos y
-                        hoteles.</p>
-                </div>
-
-                <div
-                    class="text-brand-accent shrink-0 opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sección de Administración y Gestión -->
-    <div class="space-y-5 pt-8 border-t border-slate-100">
-        <div class="flex items-center gap-3">
-            <span
-                class="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">Gestión</span>
+                class="text-[10px] font-black uppercase tracking-widest text-brand-primary bg-rose-50 px-2.5 py-1 rounded-full">Recientes</span>
             <div class="h-[1px] flex-grow bg-slate-100"></div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Card 3: Archivos -->
-            <div onclick="navigateTo('/editar')"
-                class="group cursor-pointer relative bg-white border border-slate-200/60 rounded-3xl p-5 shadow-sm hover:shadow-[0_15px_30px_-10px_rgba(99,102,241,0.12)] hover:border-indigo-500/30 hover:-translate-y-1 transition-all duration-300 ease-out flex items-center gap-5">
-                <div
-                    class="absolute inset-0 bg-gradient-to-tr from-indigo-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl">
-                </div>
-
-                <div
-                    class="w-14 h-14 bg-gradient-to-br from-indigo-500/10 to-[#a5b4fc]/5 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform duration-300 shrink-0 shadow-sm shadow-indigo-500/5">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                </div>
-
-                <div class="flex-grow min-w-0 space-y-1 relative z-10">
-                    <h3
-                        class="text-lg font-bold text-slate-800 font-display group-hover:text-indigo-600 transition-colors leading-tight">
-                        Archivos</h3>
-                    <p class="text-slate-400 text-xs font-semibold truncate">Historial de cotizaciones generadas.</p>
-                </div>
-
-                <div
-                    class="text-indigo-500 shrink-0 opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                </div>
-            </div>
-
-            <!-- Card 4: Configuración -->
-            <div onclick="navigateTo('/config')"
-                class="group cursor-pointer relative bg-white border border-slate-200/60 rounded-3xl p-5 shadow-sm hover:shadow-[0_15px_30px_-10px_rgba(71,85,105,0.12)] hover:border-slate-800/30 hover:-translate-y-1 transition-all duration-300 ease-out flex items-center gap-5">
-                <div
-                    class="absolute inset-0 bg-gradient-to-tr from-slate-700/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl">
-                </div>
-
-                <div
-                    class="w-14 h-14 bg-gradient-to-br from-slate-700/10 to-[#cbd5e1]/5 rounded-2xl flex items-center justify-center text-slate-700 group-hover:scale-105 transition-transform duration-300 shrink-0 shadow-sm shadow-slate-700/5">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                </div>
-
-                <div class="flex-grow min-w-0 space-y-1 relative z-10">
-                    <h3
-                        class="text-lg font-bold text-slate-800 font-display group-hover:text-slate-900 transition-colors leading-tight">
-                        Configuración</h3>
-                    <p class="text-slate-400 text-xs font-semibold truncate">Identidad visual de marca, logo y colores
-                        de la agencia.</p>
-                </div>
-
-                <div
-                    class="text-slate-700 shrink-0 opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                </div>
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="recent-quotes-container">
+            <!-- Dynamically populated recent quote cards -->
         </div>
     </div>
 </div>

@@ -311,6 +311,7 @@ async function router() {
                     badge.classList.remove('flex');
                 }
             }
+            updateHomeButtonVisibility();
         }
     }
 
@@ -386,7 +387,8 @@ function updateNavActiveState(path) {
     });
 
     let btnId = '';
-    if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
+    if (path === '/inicio' || path === '/') btnId = 'sidebar-btn-inicio';
+    else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
     else if (path === '/cotizacion-completa') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
     else if (path === '/config') btnId = 'sidebar-btn-config';
@@ -673,5 +675,32 @@ function toggleSidebar(force) {
             if (chevron) chevron.classList.remove('rotate-180');
         }
     }
+
+    updateHomeButtonVisibility();
 }
 window.toggleSidebar = toggleSidebar;
+
+function updateHomeButtonVisibility() {
+    const isMobile = window.innerWidth < 1024;
+    const homeBtn = document.getElementById('top-nav-inicio-btn');
+    if (!homeBtn) return;
+
+    if (isMobile) {
+        const sidebar = document.getElementById('app-sidebar');
+        const isOpen = sidebar && sidebar.classList.contains('translate-x-0');
+        if (isOpen) {
+            homeBtn.classList.add('hidden');
+        } else {
+            homeBtn.classList.remove('hidden');
+        }
+    } else {
+        const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+        if (isCollapsed) {
+            homeBtn.classList.remove('hidden');
+        } else {
+            homeBtn.classList.add('hidden');
+        }
+    }
+}
+window.updateHomeButtonVisibility = updateHomeButtonVisibility;
+window.addEventListener('resize', updateHomeButtonVisibility);
