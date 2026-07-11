@@ -2,7 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
 html {
-    zoom: 0.9;
+    zoom: 0.8;
 }
 
 :root {
@@ -61,10 +61,12 @@ body {
 
 /* Pulsing hover border animation for dropzones */
 @keyframes pulse-border {
+
     0%,
     100% {
         border-color: rgba(255, 84, 93, 0.3);
     }
+
     50% {
         border-color: rgba(255, 84, 93, 1);
         box-shadow: 0 0 0 4px rgba(255, 84, 93, 0.1);
@@ -105,6 +107,7 @@ body {
     0% {
         transform: rotate(0deg);
     }
+
     100% {
         transform: rotate(360deg);
     }
@@ -253,15 +256,18 @@ textarea:focus {
 #layout-resizer {
     transition: background-color 0.2s, opacity 0.2s;
 }
+
 #layout-resizer:hover .resizer-line,
 #layout-resizer.is-dragging .resizer-line {
     background-color: var(--primary-color) !important;
 }
+
 .is-resizing {
     cursor: col-resize !important;
     user-select: none !important;
     -webkit-user-select: none !important;
 }
+
 .is-resizing * {
     transition: none !important;
 }
@@ -270,12 +276,15 @@ textarea:focus {
 .icon-slate {
     filter: brightness(0) saturate(100%) invert(49%) sepia(13%) saturate(919%) hue-rotate(178deg) brightness(93%) contrast(88%);
 }
+
 .icon-brand {
     filter: brightness(0) saturate(100%) invert(56%) sepia(87%) saturate(2256%) hue-rotate(328deg) brightness(101%) contrast(102%);
 }
+
 .icon-dark {
     filter: brightness(0) saturate(100%) invert(12%) sepia(21%) saturate(1518%) hue-rotate(185deg) brightness(94%) contrast(92%);
 }
+
 .is-resizing iframe {
     pointer-events: none !important;
 }
@@ -305,16 +314,19 @@ textarea:focus {
     0% {
         transform: scale(1.05) translate(0, 0);
     }
+
     50% {
         transform: scale(1.12) translate(-1%, 0.5%);
     }
+
     100% {
         transform: scale(1.05) translate(0, 0);
     }
 }
 
 .login-bg-layer.active {
-    opacity: 0.85; /* Beautiful saturation inside its 60% container */
+    opacity: 0.85;
+    /* Beautiful saturation inside its 60% container */
     z-index: 2;
     animation: kenburns 30s infinite ease-in-out alternate;
 }
@@ -343,6 +355,7 @@ textarea:focus {
         opacity: 0;
         transform: translateY(8px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -358,8 +371,15 @@ textarea:focus {
 }
 
 @keyframes blinkCursor {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
 }
 
 /* Smooth tab table transitions */
@@ -389,29 +409,36 @@ textarea:focus {
     padding-left: 0 !important;
     padding-right: 0 !important;
     border-color: transparent !important;
-    margin-right: -12px !important; /* Cancel out flex gap-3 spacing */
+    margin-right: -12px !important;
+    /* Cancel out flex gap-3 spacing */
     pointer-events: none !important;
     overflow: hidden !important;
 }
 
 /* Sidebar Light Theme & Glassmorphism states */
 .sidebar-light {
-    background-color: #f8fafc; /* bg-slate-50 */
-    border-color: #e2e8f0; /* border-slate-200 */
+    background-color: #f8fafc;
+    /* bg-slate-50 */
+    border-color: #e2e8f0;
+    /* border-slate-200 */
 }
 
 .sidebar-item-style {
-    color: #475569; /* text-slate-600 */
+    color: #475569;
+    /* text-slate-600 */
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid transparent;
 }
 
 .sidebar-item-style:hover {
-    background-color: rgba(254, 226, 226, 0.4); /* soft pink transparent */
+    background-color: rgba(254, 226, 226, 0.4);
+    /* soft pink transparent */
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    border-color: rgba(254, 205, 211, 0.4); /* rose-200/40 */
-    color: #be123c; /* text-rose-700 */
+    border-color: rgba(254, 205, 211, 0.4);
+    /* rose-200/40 */
+    color: #be123c;
+    /* text-rose-700 */
 }
 
 .sidebar-item-active {
@@ -429,10 +456,8 @@ textarea:focus {
     body.sidebar-collapsed #app-sidebar {
         transform: translateX(-100%);
     }
+
     body.sidebar-collapsed #main-content-wrapper {
         padding-left: 0 !important;
     }
 }
-
-
-
