@@ -453,11 +453,116 @@ textarea:focus {
 
 /* Collapsible sidebar layout overrides */
 @media (min-width: 1024px) {
-    body.sidebar-collapsed #app-sidebar {
-        transform: translateX(-100%);
+    /* Smooth width transition for sidebar and padding transition for wrapper */
+    #app-sidebar {
+        width: 260px;
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    #main-content-wrapper {
+        padding-left: 260px !important;
+        transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
 
+    /* Mini compact state */
+    body.sidebar-collapsed #app-sidebar {
+        width: 80px;
+        transform: none !important; /* Keep visible on desktop! */
+        overflow: hidden;
+    }
+    
     body.sidebar-collapsed #main-content-wrapper {
+        padding-left: 80px !important;
+    }
+
+    /* Hide text contents and headers inside compact mode */
+    body.sidebar-collapsed .sidebar-text,
+    body.sidebar-collapsed .sidebar-section-header {
+        display: none !important;
+    }
+
+    /* Hide logo in compact mode */
+    body.sidebar-collapsed #sidebar-logo {
+        display: none !important;
+    }
+
+    /* Enlarge menu icons inside compact sidebar */
+    body.sidebar-collapsed #app-sidebar svg {
+        width: 22px !important;
+        height: 22px !important;
+    }
+
+    body.sidebar-collapsed .sidebar-item {
+        justify-content: center;
         padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* Hide session badge in compact mode */
+    body.sidebar-collapsed #sidebar-user-badge {
+        display: none !important;
+    }
+
+    /* Center logout button */
+    body.sidebar-collapsed #app-sidebar button[onclick="confirmLogout()"] {
+        justify-content: center;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* Allow tooltip projection beyond sidebar boundary */
+    body.sidebar-collapsed #app-sidebar,
+    body.sidebar-collapsed #app-sidebar .overflow-y-auto {
+        overflow: visible !important;
+    }
+
+    /* Styled native-app tooltips */
+    body.sidebar-collapsed [data-tooltip] {
+        position: relative;
+    }
+    
+    body.sidebar-collapsed [data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        top: 50%;
+        left: 100%;
+        transform: translateY(-50%) scale(0.9);
+        margin-left: 12px;
+        padding: 8px 12px;
+        background-color: #343434;
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 8px;
+        white-space: nowrap;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        z-index: 9999;
+    }
+
+    body.sidebar-collapsed [data-tooltip]::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 100%;
+        transform: translateY(-50%);
+        margin-left: 6px;
+        border-width: 6px 6px 6px 0;
+        border-style: solid;
+        border-color: transparent #343434 transparent transparent;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+        z-index: 9999;
+    }
+
+    body.sidebar-collapsed [data-tooltip]:hover::after {
+        opacity: 1;
+        transform: translateY(-50%) scale(1);
+    }
+
+    body.sidebar-collapsed [data-tooltip]:hover::before {
+        opacity: 1;
     }
 }

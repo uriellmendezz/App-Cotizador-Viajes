@@ -117,6 +117,7 @@ async function loadRecentQuotes() {
                 </div>
             `;
             recentSection.classList.remove('hidden');
+            recentSection.classList.add('app-fade-in');
             return;
         }
 
@@ -193,10 +194,12 @@ async function loadRecentQuotes() {
         });
 
         recentSection.classList.remove('hidden');
+        recentSection.classList.add('app-fade-in');
 
     } catch (e) {
         console.error("Error loading recent quotes on hub page:", e);
         recentSection.classList.add('hidden');
+        recentSection.classList.remove('app-fade-in');
     }
 }
 
