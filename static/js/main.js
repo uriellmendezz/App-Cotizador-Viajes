@@ -271,18 +271,12 @@ async function router() {
             wrapperEl.classList.add('lg:pl-[260px]');
             updateNavActiveState(path);
 
-            // Initialize toggle chevron rotation state
-            const chevron = document.getElementById('sidebar-toggle-chevron');
-            if (chevron) {
-                if (window.innerWidth >= 1024) {
-                    const isCollapsed = document.body.classList.contains('sidebar-collapsed');
-                    if (isCollapsed) chevron.classList.add('rotate-180');
-                    else chevron.classList.remove('rotate-180');
-                } else {
-                    const isDrawerOpen = sidebarEl.classList.contains('translate-x-0');
-                    if (isDrawerOpen) chevron.classList.remove('rotate-180');
-                    else chevron.classList.add('rotate-180');
-                }
+            // Initialize inner toggle chevron rotation state
+            const innerChevron = document.getElementById('sidebar-inner-chevron');
+            if (innerChevron) {
+                const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+                if (isCollapsed) innerChevron.classList.add('rotate-180');
+                else innerChevron.classList.remove('rotate-180');
             }
 
             // Fetch and apply agency configurations
@@ -644,7 +638,7 @@ window.closeConfirmModal = closeConfirmModal;
 // Sidebar toggle behavior (mobile drawer and desktop collapse)
 function toggleSidebar(force) {
     const isMobile = window.innerWidth < 1024;
-    const chevron = document.getElementById('sidebar-toggle-chevron');
+    const innerChevron = document.getElementById('sidebar-inner-chevron');
     
     if (isMobile) {
         // Mobile drawer behavior
@@ -660,13 +654,11 @@ function toggleSidebar(force) {
             sidebar.classList.add('translate-x-0');
             backdrop.classList.remove('hidden');
             backdrop.classList.add('block');
-            if (chevron) chevron.classList.remove('rotate-180');
         } else {
             sidebar.classList.add('-translate-x-full');
             sidebar.classList.remove('translate-x-0');
             backdrop.classList.remove('block');
             backdrop.classList.add('hidden');
-            if (chevron) chevron.classList.add('rotate-180');
         }
     } else {
         // Desktop collapse inline behavior
@@ -676,11 +668,11 @@ function toggleSidebar(force) {
         if (shouldCollapse) {
             body.classList.add('sidebar-collapsed');
             localStorage.setItem('sidebarCollapsed', 'true');
-            if (chevron) chevron.classList.add('rotate-180');
+            if (innerChevron) innerChevron.classList.add('rotate-180');
         } else {
             body.classList.remove('sidebar-collapsed');
             localStorage.setItem('sidebarCollapsed', 'false');
-            if (chevron) chevron.classList.remove('rotate-180');
+            if (innerChevron) innerChevron.classList.remove('rotate-180');
         }
     }
 

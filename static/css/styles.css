@@ -485,10 +485,19 @@ textarea:focus {
         display: none !important;
     }
 
-    /* Enlarge menu icons inside compact sidebar */
-    body.sidebar-collapsed #app-sidebar svg {
+    /* Enlarge menu icons inside compact sidebar (exclude inner collapse chevron) */
+    body.sidebar-collapsed .sidebar-item svg,
+    body.sidebar-collapsed button[onclick="confirmLogout()"] svg {
         width: 22px !important;
         height: 22px !important;
+    }
+
+    /* Centering and rotation for inner collapse button when collapsed */
+    body.sidebar-collapsed #sidebar-collapse-btn-desktop {
+        margin: 0 auto;
+    }
+    body.sidebar-collapsed #sidebar-inner-chevron {
+        transform: rotate(180deg);
     }
 
     body.sidebar-collapsed .sidebar-item {

@@ -64,11 +64,17 @@
         class="fixed top-0 left-0 bottom-0 w-[260px] sidebar-light text-slate-600 border-r z-50 flex flex-col justify-between -translate-x-full lg:translate-x-0 transition-transform duration-300 hidden">
         <!-- Top: Brand Logo & Section Grouping -->
         <div class="flex flex-col flex-1 py-6 px-4 space-y-8 overflow-y-auto">
-            <!-- Brand Logo -->
-            <div class="flex items-center gap-3 px-2">
+            <!-- Brand Logo & Inner Collapse Arrow -->
+            <div class="flex items-center justify-between px-2">
                 <img id="sidebar-logo" src="/assets/Banner%20letra%20O.png" alt="Logo"
                     class="h-14 w-auto object-contain cursor-pointer transition-transform hover:scale-105"
                     onclick="navigateTo('/inicio')">
+                <button onclick="toggleSidebar()" id="sidebar-collapse-btn-desktop"
+                    class="hidden lg:block p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer focus:outline-none transition-colors">
+                    <svg id="sidebar-inner-chevron" class="w-4 h-4 transition-transform duration-300 transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
             </div>
 
             <!-- Section 0: Inicio -->
@@ -172,23 +178,6 @@
         <header id="app-top-header"
             class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80 flex items-center justify-between px-6 h-16 w-full transition-all duration-300 hidden">
             <div class="flex items-center gap-4">
-                <!-- Sidebar Toggle Button (Chevron Arrow) -->
-                <button onclick="toggleSidebar()"
-                    class="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors focus:outline-none">
-                    <svg id="sidebar-toggle-chevron" class="w-6 h-6 transition-transform duration-300 transform"
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-                <!-- Inicio Button -->
-                <button id="top-nav-inicio-btn" onclick="navigateTo('/inicio')"
-                    class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer focus:outline-none hidden">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    Inicio
-                </button>
             </div>
             <!-- Dynamic Date & Time -->
             <div id="nav-date-time"
