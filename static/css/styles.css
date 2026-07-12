@@ -417,8 +417,8 @@ textarea:focus {
 
 /* Sidebar Light Theme & Glassmorphism states */
 .sidebar-light {
-    background-color: #f8fafc;
-    /* bg-slate-50 */
+    background-color: #ffffff;
+    /* white background */
     border-color: #e2e8f0;
     /* border-slate-200 */
 }
@@ -608,4 +608,46 @@ textarea:focus {
     #app-sidebar.hidden ~ #main-content-wrapper #app-loader-overlay {
         left: 0;
     }
+}
+
+/* Shimmer & Glow Effects for Welcome Logo */
+.shimmer-effect {
+    position: absolute;
+    inset: -50%;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.45) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: translate(-100%, 100%) rotate(45deg);
+    pointer-events: none;
+}
+
+@keyframes welcome-logo-shimmer {
+    0% {
+        transform: translate(-100%, 100%) rotate(45deg);
+    }
+    100% {
+        transform: translate(100%, -100%) rotate(45deg);
+    }
+}
+
+@keyframes welcome-logo-glow {
+    0%, 70%, 100% {
+        filter: brightness(1);
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+    85% {
+        filter: brightness(1.2) contrast(1.1);
+        box-shadow: 0 10px 15px -3px rgba(225, 29, 72, 0.15), 0 4px 6px -4px rgba(225, 29, 72, 0.15);
+    }
+}
+
+.shimmer-active .shimmer-effect {
+    animation: welcome-logo-shimmer 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.shimmer-active {
+    animation: welcome-logo-glow 1.5s ease-in-out forwards;
 }

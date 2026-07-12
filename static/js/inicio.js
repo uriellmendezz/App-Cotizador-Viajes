@@ -2,6 +2,12 @@ export async function initInicio() {
     const titleEl = document.getElementById('welcome-title');
     if (!titleEl) return;
 
+    // Clear any active welcome logo shimmer interval to avoid leaks
+    if (window.welcomeShimmerInterval) {
+        clearInterval(window.welcomeShimmerInterval);
+        window.welcomeShimmerInterval = null;
+    }
+
     // Capitalize Agent Name
     const username = window.loggedInUser || "Agente";
     const agentName = username.charAt(0).toUpperCase() + username.slice(1);
@@ -57,11 +63,42 @@ export async function initInicio() {
             span.appendChild(document.createTextNode(text2.charAt(j)));
             j++;
             setTimeout(typePart2, speed);
+        } else {
+            // Sincronizar aparición del logo al terminar el título
+            setTimeout(animateWelcomeLogo, 300);
         }
     }
 
     typePart1();
     loadRecentQuotes();
+}
+
+function animateWelcomeLogo() {
+    const logo = document.getElementById('welcome-logo-container');
+    if (logo) {
+        logo.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+        logo.classList.add('opacity-100', 'scale-100');
+        
+        startLogoShimmerLoop();
+    }
+}
+
+function startLogoShimmerLoop() {
+    if (window.welcomeShimmerInterval) {
+        clearInterval(window.welcomeShimmerInterval);
+        window.welcomeShimmerInterval = null;
+    }
+
+    const container = document.querySelector('#welcome-logo-container > div');
+    if (!container) return;
+
+    window.welcomeShimmerInterval = setInterval(() => {
+        container.classList.add('shimmer-active');
+        
+        setTimeout(() => {
+            container.classList.remove('shimmer-active');
+        }, 1500);
+    }, 10000); // bucle cada 10 segundos
 }
 
 async function loadRecentQuotes() {
@@ -85,122 +122,140 @@ async function loadRecentQuotes() {
         // Filter and sort detailed quotes (cotizaciones completas)
         const userQuotes = quotes
             .filter(q => (q.agente_nombre || '').toLowerCase() === currentUser)
-            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-            .slice(0, 2);
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
         // Filter and sort quick quotes (cotizaciones rapidas)
         const userBudgets = budgets
             .filter(b => (b.agente_id || '').toLowerCase() === currentUser)
-            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-            .slice(0, 2);
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
-        // Combine recent items
-        const recentItems = [];
-        userQuotes.forEach(q => recentItems.push({ ...q, isQuick: false }));
-        userBudgets.forEach(b => recentItems.push({ ...b, isQuick: true }));
-
-        // Sort combined recent items by created_at descending
-        recentItems.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-
-        if (recentItems.length === 0) {
-            container.innerHTML = `
-                <div class="col-span-1 md:col-span-2 bg-white/60 border border-dashed border-slate-200 rounded-3xl p-8 text-center space-y-4">
-                    <div class="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mx-auto">
-                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                    </div>
-                    <div class="space-y-1.5">
-                        <h4 class="font-bold text-slate-700 text-sm">No tienes cotizaciones recientes</h4>
-                        <p class="text-xs text-slate-400 font-semibold max-w-xs mx-auto">Comienza creando una nueva cotización rápida o completa en la barra lateral para ver tu historial reciente.</p>
-                    </div>
-                </div>
-            `;
-            recentSection.classList.remove('hidden');
-            recentSection.classList.add('app-fade-in');
-            return;
-        }
+        const latestQuote = userQuotes[0] || null;
+        const latestBudget = userBudgets[0] || null;
 
         container.innerHTML = '';
 
-        recentItems.forEach(item => {
-            const card = document.createElement('div');
-            card.className = "group cursor-pointer relative bg-white border border-slate-200/60 rounded-3xl p-6 shadow-sm hover:shadow-[0_15px_30px_-10px_rgba(0,0,0,0.08)] hover:border-slate-350 hover:-translate-y-1 transition-all duration-300 ease-out flex items-center justify-between gap-6";
-            
-            if (item.isQuick) {
-                card.onclick = () => {
-                    window.pendingEditQuickBudgetId = item.id;
-                    window.navigateTo('/cotizacion-rapida');
-                };
-            } else {
-                card.onclick = () => {
-                    window.navigateTo('/ver-cotizacion?id=' + item.id);
-                };
-            }
+        // Left Column: Latest Detailed Quote
+        if (latestQuote) {
+            container.appendChild(createQuoteCard(latestQuote, false));
+        } else {
+            container.appendChild(createPlaceholderCard('detailed'));
+        }
 
-            const iconHtml = item.isQuick 
-                ? `<div class="w-16 h-16 bg-gradient-to-br from-brand-primary/10 to-[#ff7f85]/5 rounded-2xl flex items-center justify-center text-brand-primary group-hover:scale-105 transition-transform duration-300 shrink-0 shadow-sm shadow-brand-primary/5">
-                     <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                         <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                     </svg>
-                   </div>`
-                : `<div class="w-16 h-16 bg-gradient-to-br from-brand-accent/10 to-[#fabf8f]/5 rounded-2xl flex items-center justify-center text-brand-accent group-hover:scale-105 transition-transform duration-300 shrink-0 shadow-sm shadow-brand-accent/5">
-                     <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                     </svg>
-                   </div>`;
-
-            const badgeHtml = item.isQuick 
-                ? `<span class="text-[10px] font-black uppercase tracking-wider text-brand-primary bg-rose-50 px-2.5 py-1 rounded-md">Rápida</span>`
-                : `<span class="text-[10px] font-black uppercase tracking-wider text-brand-accent bg-orange-50 px-2.5 py-1 rounded-md">Completa</span>`;
-
-            const title = item.isQuick ? item.pasajero_nombre : item.nombre_pax;
-            
-            // Extract destination from quick quote metadata if applicable
-            let destination = item.destino || 'Sin Destino';
-            if (item.isQuick && item.hoteles) {
-                const meta = item.hoteles.find(h => h.nombre === "METADATA_PRESUPUESTO_RAPIDO");
-                if (meta && meta.destino) {
-                    destination = meta.destino;
-                }
-            }
-
-            const total = item.isQuick ? item.total_cotizacion : item.costo_total;
-
-            card.innerHTML = `
-                <div class="flex items-center gap-5 min-w-0 flex-grow">
-                    ${iconHtml}
-                    <div class="space-y-1 min-w-0 flex-grow">
-                        <div class="flex items-center gap-2">
-                            <h4 class="font-bold text-slate-800 truncate text-base leading-snug group-hover:text-brand-primary transition-colors duration-200">${title || 'Sin Nombre'}</h4>
-                            ${badgeHtml}
-                        </div>
-                        <p class="text-slate-400 text-sm font-semibold truncate flex items-center gap-1.5">
-                            <svg class="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            ${destination}
-                        </p>
-                    </div>
-                </div>
-                <div class="text-right shrink-0 flex flex-col items-end gap-1">
-                    <span class="text-base font-black text-slate-700">USD ${window.formatPriceES(total)}</span>
-                    <span class="text-[10px] font-semibold text-slate-400">${formatCreatedAt(item.created_at)}</span>
-                </div>
-            `;
-
-            container.appendChild(card);
-        });
-
-        recentSection.classList.remove('hidden');
-        recentSection.classList.add('app-fade-in');
+        // Right Column: Latest Quick Quote
+        if (latestBudget) {
+            container.appendChild(createQuoteCard(latestBudget, true));
+        } else {
+            container.appendChild(createPlaceholderCard('quick'));
+        }
 
     } catch (e) {
         console.error("Error loading recent quotes on hub page:", e);
-        recentSection.classList.add('hidden');
-        recentSection.classList.remove('app-fade-in');
+    } finally {
+        const pageContainer = document.getElementById('inicio-page-container');
+        if (pageContainer) {
+            pageContainer.classList.remove('opacity-0');
+            pageContainer.classList.add('opacity-100');
+        }
     }
+}
+
+function createQuoteCard(item, isQuick) {
+    const card = document.createElement('div');
+    card.className = "group cursor-pointer relative bg-white border border-slate-200/60 rounded-3xl p-6 shadow-sm hover:shadow-[0_15px_30px_-10px_rgba(0,0,0,0.08)] hover:border-slate-350 hover:-translate-y-1 transition-all duration-300 ease-out flex items-center justify-between gap-6";
+
+    if (isQuick) {
+        card.onclick = () => {
+            window.pendingEditQuickBudgetId = item.id;
+            window.navigateTo('/cotizacion-rapida');
+        };
+    } else {
+        card.onclick = () => {
+            window.navigateTo('/ver-cotizacion?id=' + item.id);
+        };
+    }
+
+    const iconHtml = isQuick
+        ? `<div class="w-16 h-16 bg-gradient-to-br from-brand-primary/10 to-[#ff7f85]/5 rounded-2xl flex items-center justify-center text-brand-primary group-hover:scale-105 transition-transform duration-300 shrink-0 shadow-sm shadow-brand-primary/5">
+             <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+             </svg>
+           </div>`
+        : `<div class="w-16 h-16 bg-gradient-to-br from-brand-accent/10 to-[#fabf8f]/5 rounded-2xl flex items-center justify-center text-brand-accent group-hover:scale-105 transition-transform duration-300 shrink-0 shadow-sm shadow-brand-accent/5">
+             <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+             </svg>
+           </div>`;
+
+    const badgeHtml = isQuick
+        ? `<span class="text-[10px] font-black uppercase tracking-wider text-brand-primary bg-rose-50 px-2.5 py-1 rounded-md">Rápida</span>`
+        : `<span class="text-[10px] font-black uppercase tracking-wider text-brand-accent bg-orange-50 px-2.5 py-1 rounded-md">Completa</span>`;
+
+    const title = isQuick ? item.pasajero_nombre : item.nombre_pax;
+
+    // Extract destination from quick quote metadata if applicable
+    let destination = item.destino || 'Sin Destino';
+    if (isQuick && item.hoteles) {
+        const meta = item.hoteles.find(h => h.nombre === "METADATA_PRESUPUESTO_RAPIDO");
+        if (meta && meta.destino) {
+            destination = meta.destino;
+        }
+    }
+
+    const total = isQuick ? item.total_cotizacion : item.costo_total;
+
+    card.innerHTML = `
+        <div class="flex items-center gap-5 min-w-0 flex-grow">
+            ${iconHtml}
+            <div class="space-y-1 min-w-0 flex-grow">
+                <div class="flex items-center gap-2">
+                    <h4 class="font-bold text-slate-800 truncate text-base leading-snug group-hover:text-brand-primary transition-colors duration-200">${title || 'Sin Nombre'}</h4>
+                    ${badgeHtml}
+                </div>
+                <p class="text-slate-400 text-sm font-semibold truncate flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    ${destination}
+                </p>
+            </div>
+        </div>
+        <div class="text-right shrink-0 flex flex-col items-end gap-1">
+            <span class="text-base font-black text-slate-700">USD ${window.formatPriceES(total)}</span>
+            <span class="text-[10px] font-semibold text-slate-400">${formatCreatedAt(item.created_at)}</span>
+        </div>
+    `;
+    return card;
+}
+
+function createPlaceholderCard(type) {
+    const card = document.createElement('div');
+    card.className = "group cursor-pointer bg-white/60 border border-dashed border-slate-200 rounded-3xl p-6 hover:border-slate-350 hover:bg-white transition-all duration-300 flex flex-col items-center justify-center text-center gap-2 h-full min-h-[110px]";
+
+    if (type === 'quick') {
+        card.onclick = () => window.navigateTo('/cotizacion-rapida');
+        card.innerHTML = `
+            <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 group-hover:scale-105 transition-transform duration-300">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+            </div>
+            <h4 class="font-bold text-slate-700 text-xs">Sin cotización rápida reciente</h4>
+            <p class="text-[10px] text-slate-400 font-semibold max-w-xs">Haz clic aquí para crear tu primera cotización rápida.</p>
+        `;
+    } else {
+        card.onclick = () => window.navigateTo('/hacer-cotizacion');
+        card.innerHTML = `
+            <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 group-hover:scale-105 transition-transform duration-300">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+            </div>
+            <h4 class="font-bold text-slate-700 text-xs">Sin cotización completa reciente</h4>
+            <p class="text-[10px] text-slate-400 font-semibold max-w-xs">Haz clic aquí para crear tu primera cotización detallada.</p>
+        `;
+    }
+    return card;
 }
 
 function formatCreatedAt(isoStr) {

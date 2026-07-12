@@ -234,6 +234,12 @@ async function router() {
         hideLoader();
     }
 
+    // Clear welcome logo shimmer interval if user navigates away from inicio
+    if (window.welcomeShimmerInterval) {
+        clearInterval(window.welcomeShimmerInterval);
+        window.welcomeShimmerInterval = null;
+    }
+
     // Silently restore session via cookie once on startup if no token is in memory
     if (!window.authToken && !isSessionChecked) {
         isSessionChecked = true;

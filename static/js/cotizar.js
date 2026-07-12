@@ -1270,8 +1270,8 @@ function updateRealTimeSummary() {
     });
 
     container.innerHTML = `
-        <div class="w-full">
-            <table class="w-full text-left border-collapse text-[10px] font-medium">
+        <div class="w-full overflow-x-auto">
+            <table class="w-full min-w-max text-left border-collapse text-[10px] font-medium">
                 <thead>
                     <tr class="border-b border-slate-200 text-slate-500 font-bold">
                         <th class="py-2 pr-2 text-[9px] uppercase tracking-wider text-slate-400 w-[95px]">Concepto</th>
