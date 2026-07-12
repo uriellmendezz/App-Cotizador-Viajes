@@ -622,8 +622,10 @@ function switchTab(tabId) {
     });
 
     const activeTab = document.getElementById(tabId);
-    activeTab.classList.remove('hidden');
-    activeTab.classList.add('block');
+    if (activeTab) {
+        activeTab.classList.remove('hidden');
+        activeTab.classList.add('block');
+    }
 
     // Find matching button
     const btns = document.querySelectorAll('.tab-btn');
@@ -632,8 +634,10 @@ function switchTab(tabId) {
     else if (tabId === 'editar-tab') btnIdx = 1;
     else if (tabId === 'config-tab') btnIdx = 2;
 
-    btns[btnIdx].classList.add('active', 'bg-gradient-to-r', 'from-brand-primary', 'to-[#ff7f85]', 'text-white', 'shadow-lg', 'shadow-brand-primary/35');
-    btns[btnIdx].classList.remove('text-slate-500', 'hover:text-slate-800', 'hover:bg-slate-100');
+    if (btns && btns[btnIdx]) {
+        btns[btnIdx].classList.add('active', 'bg-gradient-to-r', 'from-brand-primary', 'to-[#ff7f85]', 'text-white', 'shadow-lg', 'shadow-brand-primary/35');
+        btns[btnIdx].classList.remove('text-slate-500', 'hover:text-slate-800', 'hover:bg-slate-100');
+    }
 }
 window.switchTab = switchTab;
 
@@ -3010,6 +3014,7 @@ function updateEditingIndicator() {
             indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Editando cotización guardada (ID #${currentQuoteId})</span>`;
 
             actionsContainer.innerHTML = `
+                <button type="button" onclick="saveQuoteChanges()" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-emerald-600/20">Guardar cambios</button>
                 <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
                 <button type="button" onclick="closeSavedQuoteView()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cancelar Edición</button>
             `;
@@ -3020,6 +3025,46 @@ function updateEditingIndicator() {
     }
 }
 window.updateEditingIndicator = updateEditingIndicator;
+
+async function saveQuoteChanges() {
+    if (!validateDates()) return;
+
+    const imgIda = document.getElementById('data-vuelo-ida').value;
+    const imgVuelta = document.getElementById('data-vuelo-vuelta').value;
+    if (!imgIda || !imgVuelta) {
+        showAlert('warning', 'Debe adjuntar una captura/foto obligatoria para cada tramo de vuelo (Ida y Vuelta).');
+        return;
+    }
+
+    const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
+    window.showLoader(`Guardando cambios para ${paxNameForLoading}...`);
+
+    let payload = _buildPayload();
+
+    try {
+        const saveRes = await authenticatedFetch('/api/cotizaciones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (saveRes.ok) {
+            const savedQuote = await saveRes.json();
+            currentQuoteId = savedQuote.id;
+            updateEditingIndicator();
+            window.hideLoader();
+            showAlert('success', '✔ Cambios guardados con éxito en la base de datos.');
+            // Regenerate PDF preview to match the saved changes
+            await generatePDFPreview(null, false);
+        } else {
+            const errData = await saveRes.json();
+            throw new Error(errData.detail || 'Error al guardar los cambios');
+        }
+    } catch (saveErr) {
+        window.hideLoader();
+        showAlert('danger', 'Error al guardar los cambios: ' + saveErr.message);
+    }
+}
+window.saveQuoteChanges = saveQuoteChanges;
 
 // ── Autenticación de Usuarios y Control de Sesión ────────────────────────────
 

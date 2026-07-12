@@ -20,10 +20,11 @@
                 <div id="editing-indicator"
                     class="hidden p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
                     <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
                         <span id="editing-indicator-text">Editando cotización guardada</span>
                     </div>
                     <div id="editing-indicator-actions" class="flex gap-2">
+                        <button type="button" onclick="saveQuoteChanges()"
+                            class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-all cursor-pointer">Guardar cambios</button>
                         <button type="button" onclick="duplicateCurrentQuote()"
                             class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer">Duplicar
                             como Nueva</button>
@@ -395,9 +396,10 @@
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
-                        GENERAR COTIZACIÓN
+                        GUARDAR Y GENERAR COTIZACIÓN
                     </button>
                 </div>
+
             </div>
 
             <!-- Resizer Bar (Desktop only) -->
