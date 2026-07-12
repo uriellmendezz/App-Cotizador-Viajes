@@ -225,6 +225,15 @@ async function loadHeaderConfig() {
 let isSessionChecked = false;
 
 async function router() {
+    // Abort active request and hide loader if user is navigating/routing
+    if (window.activeRequestController) {
+        try {
+            window.activeRequestController.abort();
+        } catch (e) {}
+        window.activeRequestController = null;
+        hideLoader();
+    }
+
     // Silently restore session via cookie once on startup if no token is in memory
     if (!window.authToken && !isSessionChecked) {
         isSessionChecked = true;
@@ -514,11 +523,54 @@ const loadingTravelIcons = [
     `<svg class="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><path d="M2 12h20"></path></svg>`
 ];
 
-function showLoader(text = 'Cargando...') {
-    const overlay = document.getElementById('loading-overlay');
-    const loadingText = document.getElementById('loading-text');
-    if (!overlay) return;
+// Variable global para controlar peticiones abortables
+window.activeRequestController = null;
 
+function getAbortSignal(forceNew = false) {
+    if (forceNew && window.activeRequestController) {
+        try {
+            window.activeRequestController.abort();
+        } catch (e) {}
+        window.activeRequestController = null;
+    }
+    if (!window.activeRequestController) {
+        window.activeRequestController = new AbortController();
+    }
+    return window.activeRequestController.signal;
+}
+window.getAbortSignal = getAbortSignal;
+
+function showLoader(text = 'Cargando...') {
+    const appEl = document.getElementById('app');
+    if (!appEl) return;
+
+    // Prevent body scrolling while loading
+    document.body.classList.add('overflow-hidden');
+
+    let overlay = document.getElementById('app-loader-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'app-loader-overlay';
+        overlay.className = 'bg-slate-50/80 backdrop-blur-sm flex flex-col items-center justify-center gap-6 transition-opacity duration-300 opacity-0';
+        overlay.innerHTML = `
+            <div class="relative flex items-center justify-center">
+                <span id="loading-travel-icon" class="block w-16 h-16 text-brand-primary transition-all duration-100 ease-in-out transform">
+                    <!-- Default compass icon -->
+                    <svg class="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88"></polygon>
+                    </svg>
+                </span>
+            </div>
+            <span id="loading-text" class="text-base font-bold text-slate-800 text-center max-w-xs select-none">Cargando...</span>
+        `;
+        appEl.appendChild(overlay);
+
+        // Force browser reflow to enable transition
+        overlay.offsetHeight;
+    }
+
+    const loadingText = overlay.querySelector('#loading-text');
     if (loadingText) {
         let formattedText = text.trim();
         // Convert to sentence case if it is sustained uppercase
@@ -531,24 +583,27 @@ function showLoader(text = 'Cargando...') {
         loadingText.innerText = formattedText || 'Cargando...';
     }
 
-    overlay.classList.remove('hidden');
-    overlay.classList.add('flex', 'opacity-100');
+    overlay.classList.remove('opacity-0');
+    overlay.classList.add('opacity-100');
 
     startLoaderIconCycling();
 }
 
 function hideLoader() {
-    const overlay = document.getElementById('loading-overlay');
+    // Restore scrolling
+    document.body.classList.remove('overflow-hidden');
+
+    const overlay = document.getElementById('app-loader-overlay');
     if (!overlay) return;
 
     overlay.classList.remove('opacity-100');
     overlay.classList.add('opacity-0');
 
     setTimeout(() => {
-        overlay.classList.remove('flex');
-        overlay.classList.add('hidden');
-        overlay.classList.remove('opacity-0');
-    }, 200);
+        if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+        }
+    }, 300);
 
     stopLoaderIconCycling();
 }

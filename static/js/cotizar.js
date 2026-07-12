@@ -1385,6 +1385,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
     }
 
     let payload = _buildPayload();
+    const signal = window.getAbortSignal(e !== null);
 
     // Auto-save to Supabase first before generating PDF preview
     // ONLY if the form is NOT in read-only mode (which means it has been edited or is a new quote)
@@ -1394,7 +1395,8 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
             const saveRes = await authenticatedFetch('/api/cotizaciones', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal
             });
             if (saveRes.ok) {
                 const savedQuote = await saveRes.json();
@@ -1406,6 +1408,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
                 console.warn("Auto-save to Supabase returned error status. Proceeding with preview.");
             }
         } catch (saveErr) {
+            if (saveErr.name === 'AbortError') throw saveErr;
             console.warn("Auto-save to Supabase failed (persistence disabled or network error):", saveErr);
         }
     } else {
@@ -1422,7 +1425,8 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         const res = await authenticatedFetch('/api/cotizar-pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal
         });
 
         if (!res.ok) {
@@ -1495,6 +1499,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         sessionStorage.removeItem('detailedQuoteFormState');
         navigateTo('/ver-cotizacion?id=' + currentQuoteId);
     } catch (err) {
+        if (err.name === 'AbortError') return;
         window.hideLoader();
         const formTab = document.getElementById('cotizacion-tab');
         if (formTab) {
@@ -2363,11 +2368,13 @@ async function loadSavedQuotesList() {
         wrapper.classList.remove('tab-transition-hidden');
     }
 
+    const signal = window.getAbortSignal(true);
+
     try {
         // Fetch detailed and quick budgets in parallel
         const [resQuotes, resQuick] = await Promise.all([
-            authenticatedFetch('/api/cotizaciones'),
-            authenticatedFetch('/api/presupuestos')
+            authenticatedFetch('/api/cotizaciones', { signal }),
+            authenticatedFetch('/api/presupuestos', { signal })
         ]);
 
         if (!resQuotes.ok) throw new Error("Error al obtener las cotizaciones detalladas.");
@@ -2391,6 +2398,7 @@ async function loadSavedQuotesList() {
             wrapper.classList.remove('tab-transition-hidden');
         }
     } catch (err) {
+        if (err.name === 'AbortError') return;
         if (wrapper) {
             wrapper.classList.add('tab-transition-hidden');
         }
@@ -2777,9 +2785,10 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
     const passengerName = cachedQuote ? cachedQuote.nombre_pax : 'Pasajero';
 
     window.showLoader(`Cargando cotización para ${passengerName}`);
+    const signal = window.getAbortSignal(true);
 
     try {
-        const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`);
+        const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`, { signal });
         if (!res.ok) throw new Error("No se pudo cargar la cotización solicitada.");
         const q = await res.json();
 
@@ -2899,6 +2908,7 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
         }
 
     } catch (err) {
+        if (err.name === 'AbortError') return;
         window.hideLoader();
         showAlert('warning', 'Error al cargar la cotización: ' + err.message);
     }
@@ -3040,12 +3050,14 @@ async function saveQuoteChanges() {
     window.showLoader(`Guardando cambios para ${paxNameForLoading}...`);
 
     let payload = _buildPayload();
+    const signal = window.getAbortSignal(true);
 
     try {
         const saveRes = await authenticatedFetch('/api/cotizaciones', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal
         });
         if (saveRes.ok) {
             const savedQuote = await saveRes.json();
@@ -3060,6 +3072,7 @@ async function saveQuoteChanges() {
             throw new Error(errData.detail || 'Error al guardar los cambios');
         }
     } catch (saveErr) {
+        if (saveErr.name === 'AbortError') return;
         window.hideLoader();
         showAlert('danger', 'Error al guardar los cambios: ' + saveErr.message);
     }
@@ -3269,6 +3282,7 @@ export async function initVerCotizacion() {
     }
 
     window.showLoader("Cargando cotización...");
+    const signal = window.getAbortSignal(true);
 
     try {
         let quote = null;
@@ -3280,7 +3294,7 @@ export async function initVerCotizacion() {
             pdfUrl = window.lastGeneratedPdfUrl;
         } else {
             // Fetch from database
-            const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`);
+            const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`, { signal });
             if (!res.ok) throw new Error("No se pudo cargar la cotización.");
             quote = await res.json();
 
@@ -3288,7 +3302,8 @@ export async function initVerCotizacion() {
             const pdfRes = await authenticatedFetch('/api/cotizar-pdf', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(quote)
+                body: JSON.stringify(quote),
+                signal
             });
             if (!pdfRes.ok) throw new Error("No se pudo generar el PDF de la cotización.");
             const blob = await pdfRes.blob();
@@ -3371,6 +3386,7 @@ export async function initVerCotizacion() {
 
         window.hideLoader();
     } catch (e) {
+        if (e.name === 'AbortError') return;
         window.hideLoader();
         showAlert('danger', "Error al cargar la cotización: " + e.message);
     }

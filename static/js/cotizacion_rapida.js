@@ -692,12 +692,14 @@ async function saveQuickQuote(andRedirect = false) {
     }
     
     window.showLoader("Guardando cotización rápida...");
+    const signal = window.getAbortSignal(true);
     
     try {
         const res = await window.authenticatedFetch('/api/presupuestos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal
         });
         
         if (!res.ok) {
@@ -736,6 +738,7 @@ async function saveQuickQuote(andRedirect = false) {
             saveQuickQuoteFormState();
         }
     } catch (err) {
+        if (err.name === 'AbortError') return;
         window.showAlert('warning', 'Error al procesar: ' + err.message);
     } finally {
         window.hideLoader();
@@ -764,8 +767,9 @@ async function loadQuickBudgetsList() {
         </tr>
     `;
 
+    const signal = window.getAbortSignal(true);
     try {
-        const res = await window.authenticatedFetch('/api/presupuestos');
+        const res = await window.authenticatedFetch('/api/presupuestos', { signal });
         if (!res.ok) throw new Error("Error al obtener las cotizaciones rápidas de la base de datos.");
         const budgets = await res.json();
 
@@ -773,6 +777,7 @@ async function loadQuickBudgetsList() {
         renderQuickBudgetsTable(allSavedQuickBudgets);
 
     } catch (err) {
+        if (err.name === 'AbortError') return;
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="p-8 text-center text-rose-500 font-bold">
@@ -884,9 +889,10 @@ async function loadQuickBudgetIntoForm(quoteId) {
     }
     
     window.showLoader("Cargando cotización rápida...");
+    const signal = window.getAbortSignal(true);
     
     try {
-        const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`);
+        const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`, { signal });
         if (!res.ok) throw new Error("No se pudo cargar la cotización rápida.");
         const q = await res.json();
         currentQuickQuoteId = q.id;
@@ -964,6 +970,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
         updateSaveButtonState();
         
     } catch (err) {
+        if (err.name === 'AbortError') return;
         window.showAlert('warning', 'Error al cargar: ' + err.message);
     } finally {
         window.hideLoader();

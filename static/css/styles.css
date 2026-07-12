@@ -584,3 +584,28 @@ textarea:focus {
         opacity: 1;
     }
 }
+
+/* App Loader Overlay responsive alignment with sidebar */
+#app-loader-overlay {
+    position: fixed !important;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 45;
+}
+
+@media (min-width: 1024px) {
+    #app-loader-overlay {
+        left: 260px;
+        transition: left 0.3s ease;
+    }
+    
+    body.sidebar-collapsed #app-loader-overlay {
+        left: 80px;
+    }
+    
+    #app-sidebar.hidden ~ #main-content-wrapper #app-loader-overlay {
+        left: 0;
+    }
+}
