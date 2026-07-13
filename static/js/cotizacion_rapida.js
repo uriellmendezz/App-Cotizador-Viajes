@@ -1,6 +1,7 @@
 let isQuickFeeLocked = true;
 let currentQuickQuoteId = null;
 let isRestoringState = false;
+let isQuickReadOnlyMode = false;
 
 // Ensure window.savedQuickQuoteState exists
 if (typeof window.savedQuickQuoteState === 'undefined') {
@@ -81,8 +82,13 @@ function updateSaveButtonState() {
     if (!btnSaveOnly) return;
 
     if (currentQuickQuoteId) {
-        btnSaveOnly.innerText = 'Editar';
-        btnSaveOnly.className = 'px-6 py-3.5 bg-brand-primary hover:bg-brand-primary/90 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer';
+        if (isQuickReadOnlyMode) {
+            btnSaveOnly.innerText = 'Editar';
+            btnSaveOnly.className = 'px-6 py-3.5 bg-brand-primary hover:bg-brand-primary/90 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer';
+        } else {
+            btnSaveOnly.innerText = 'Guardar cambios';
+            btnSaveOnly.className = 'px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer';
+        }
     } else {
         btnSaveOnly.innerText = 'Guardar';
         btnSaveOnly.className = 'px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer';
@@ -173,6 +179,15 @@ function updateResetButtonVisibility() {
 
 export function initCotizacionRapida() {
     currentQuickQuoteId = null;
+    window.currentQuickQuoteOwner = null;
+    isQuickReadOnlyMode = false;
+    
+    // Hide editing indicator initially
+    const indicator = document.getElementById('editing-indicator');
+    if (indicator) {
+        indicator.classList.add('hidden');
+        indicator.classList.remove('flex');
+    }
     // Bind main events
     const paxCountInput = document.getElementById('rapido-pax-count');
     if (paxCountInput) {
@@ -216,7 +231,13 @@ export function initCotizacionRapida() {
 
     const btnSaveOnly = document.getElementById('btn-save-quick-only');
     if (btnSaveOnly) {
-        btnSaveOnly.onclick = () => saveQuickQuote(false);
+        btnSaveOnly.onclick = () => {
+            if (isQuickReadOnlyMode) {
+                enableQuickFormEditing(true);
+            } else {
+                saveQuickQuote(false);
+            }
+        };
     }
 
     const btnSaveAndGo = document.getElementById('btn-save-quick-and-go');
@@ -734,8 +755,7 @@ async function saveQuickQuote(andRedirect = false) {
             window.savedQuickQuoteState = null;
             window.navigateTo('/cotizacion-completa');
         } else {
-            updateSaveButtonState();
-            saveQuickQuoteFormState();
+            enableQuickFormEditing(false);
         }
     } catch (err) {
         if (err.name === 'AbortError') return;
@@ -968,6 +988,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
         
         calculateQuickQuote();
         updateSaveButtonState();
+        enableQuickFormEditing(false);
         
     } catch (err) {
         if (err.name === 'AbortError') return;
@@ -1057,3 +1078,238 @@ function adjustQuickInputWidth(input) {
     document.body.removeChild(tempSpan);
 }
 window.adjustQuickInputWidth = adjustQuickInputWidth;
+
+export function enableQuickFormEditing(enabled) {
+    isQuickReadOnlyMode = !enabled;
+
+    // Enable/disable basic fields
+    const titleInput = document.getElementById('rapido-pasajero');
+    if (titleInput) titleInput.readOnly = !enabled;
+
+    const paxInput = document.getElementById('rapido-pax-count');
+    if (paxInput) paxInput.disabled = !enabled;
+
+    const destInput = document.getElementById('rapido-destino');
+    if (destInput) destInput.disabled = !enabled;
+
+    // Flatpickrs
+    ['rapido-fecha-salida', 'rapido-fecha-regreso'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el._flatpickr) {
+            el._flatpickr.input.disabled = !enabled;
+            if (el._flatpickr.altInput) {
+                el._flatpickr.altInput.disabled = !enabled;
+            }
+        }
+    });
+
+    // Enable/disable rows
+    const rows = document.querySelectorAll('#quick-budget-body tr.quick-row');
+    rows.forEach(tr => {
+        const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
+        const labelInput = tr.querySelector('.quick-row-label');
+        const montoInput = tr.querySelector('.quick-row-monto');
+        const btnDelete = tr.querySelector('.btn-delete-row');
+        const btnUnlock = tr.querySelector('.quick-row-fee-unlock');
+
+        if (labelInput) {
+            const isUndeletable = (tipo === 'fee-aereo' || tipo === 'admin');
+            if (isUndeletable) {
+                labelInput.readOnly = true;
+            } else {
+                labelInput.readOnly = !enabled;
+            }
+            if (enabled && !isUndeletable) {
+                labelInput.classList.remove('cursor-default', 'pointer-events-none');
+                labelInput.classList.add('cursor-text');
+            } else {
+                labelInput.classList.add('cursor-default', 'pointer-events-none');
+                labelInput.classList.remove('cursor-text');
+            }
+        }
+
+        if (montoInput) {
+            if (!enabled) {
+                montoInput.readOnly = true;
+                montoInput.classList.add('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
+                montoInput.classList.remove('bg-white');
+            } else {
+                if (tipo === 'admin') {
+                    montoInput.readOnly = true;
+                    montoInput.classList.add('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
+                    montoInput.classList.remove('bg-white');
+                } else if (tipo === 'fee-aereo') {
+                    if (isQuickFeeLocked) {
+                        montoInput.readOnly = true;
+                        montoInput.classList.add('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
+                        montoInput.classList.remove('bg-white');
+                    } else {
+                        montoInput.readOnly = false;
+                        montoInput.classList.remove('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
+                        montoInput.classList.add('bg-white');
+                    }
+                } else {
+                    montoInput.readOnly = false;
+                    montoInput.classList.remove('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
+                    montoInput.classList.add('bg-white');
+                }
+            }
+        }
+
+        if (btnDelete) {
+            const isUndeletable = (tipo === 'fee-aereo' || tipo === 'admin');
+            if (!isUndeletable) {
+                if (enabled) {
+                    btnDelete.classList.remove('invisible', 'pointer-events-none');
+                } else {
+                    btnDelete.classList.add('invisible', 'pointer-events-none');
+                }
+            }
+        }
+
+        if (btnUnlock) {
+            if (enabled) {
+                btnUnlock.disabled = false;
+                btnUnlock.classList.remove('pointer-events-none', 'opacity-50');
+            } else {
+                btnUnlock.disabled = true;
+                btnUnlock.classList.add('pointer-events-none', 'opacity-50');
+            }
+        }
+    });
+
+    const addConceptBtn = document.getElementById('quick-add-concept-container');
+    if (addConceptBtn) {
+        if (enabled) {
+            addConceptBtn.classList.remove('hidden');
+        } else {
+            addConceptBtn.classList.add('hidden');
+        }
+    }
+
+    const btnReset = document.getElementById('btn-reset-quick-budget');
+    if (btnReset) {
+        if (enabled) {
+            updateResetButtonVisibility();
+        } else {
+            btnReset.classList.add('hidden');
+            btnReset.classList.remove('flex');
+        }
+    }
+
+    const btnSaveAndGo = document.getElementById('btn-save-quick-and-go');
+    if (btnSaveAndGo) {
+        if (enabled) {
+            btnSaveAndGo.classList.remove('hidden');
+        } else {
+            btnSaveAndGo.classList.add('hidden');
+        }
+    }
+
+    updateQuickEditingIndicator();
+    updateSaveButtonState();
+}
+window.enableQuickFormEditing = enableQuickFormEditing;
+
+export function updateQuickEditingIndicator() {
+    const indicator = document.getElementById('editing-indicator');
+    const indicatorText = document.getElementById('editing-indicator-text');
+    const actionsContainer = document.getElementById('editing-indicator-actions');
+    if (!indicator || !indicatorText || !actionsContainer) return;
+
+    if (currentQuickQuoteId) {
+        indicator.classList.remove('hidden');
+        indicator.classList.add('flex');
+
+        const currentUser = (window.loggedInUser || '').toLowerCase();
+        const quoteOwner = (window.currentQuickQuoteOwner || '').toLowerCase();
+        const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+
+        if (isQuickReadOnlyMode) {
+            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando cotización rápida guardada (ID #${currentQuickQuoteId})</span>`;
+
+            const editBtnHtml = isOwner ? `
+                <button type="button" onclick="window.enableQuickFormEditing(true)" class="px-3 py-1 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-brand-primary/20">Editar Cotización</button>
+            ` : '';
+
+            actionsContainer.innerHTML = `
+                ${editBtnHtml}
+                <button type="button" onclick="window.duplicateCurrentQuickQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
+                <button type="button" onclick="window.closeSavedQuickQuoteView()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cerrar</button>
+            `;
+        } else {
+            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Editando cotización rápida guardada (ID #${currentQuickQuoteId})</span>`;
+
+            actionsContainer.innerHTML = `
+                <button type="button" onclick="window.saveQuickQuoteChanges()" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-emerald-600/20">Guardar cambios</button>
+                <button type="button" onclick="window.duplicateCurrentQuickQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
+                <button type="button" onclick="window.cancelEditingQuickQuote()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cancelar Edición</button>
+            `;
+        }
+    } else {
+        indicator.classList.add('hidden');
+        indicator.classList.remove('flex');
+    }
+}
+window.updateQuickEditingIndicator = updateQuickEditingIndicator;
+
+export function duplicateCurrentQuickQuote() {
+    currentQuickQuoteId = null;
+    window.currentQuickQuoteOwner = null;
+    enableQuickFormEditing(true);
+    window.showAlert('success', 'Cotización rápida duplicada como nueva. Los cambios se guardarán como un registro nuevo.');
+    updateQuickEditingIndicator();
+    updateSaveButtonState();
+    saveQuickQuoteFormState();
+}
+window.duplicateCurrentQuickQuote = duplicateCurrentQuickQuote;
+
+export async function cancelEditingQuickQuote() {
+    if (currentQuickQuoteId) {
+        await loadQuickBudgetIntoForm(currentQuickQuoteId);
+        enableQuickFormEditing(false);
+    } else {
+        enableQuickFormEditing(true);
+    }
+}
+window.cancelEditingQuickQuote = cancelEditingQuickQuote;
+
+export function closeSavedQuickQuoteView() {
+    currentQuickQuoteId = null;
+    window.currentQuickQuoteOwner = null;
+    isQuickReadOnlyMode = false;
+    
+    // Clear fields to defaults
+    const passengerInput = document.getElementById('rapido-pasajero');
+    if (passengerInput) passengerInput.value = '';
+    const paxCountInput = document.getElementById('rapido-pax-count');
+    if (paxCountInput) paxCountInput.value = 2;
+    const destInput = document.getElementById('rapido-destino');
+    if (destInput) destInput.value = '';
+    const depPickerInput = document.getElementById('rapido-fecha-salida');
+    if (depPickerInput && depPickerInput._flatpickr) depPickerInput._flatpickr.clear();
+    const retPickerInput = document.getElementById('rapido-fecha-regreso');
+    if (retPickerInput && retPickerInput._flatpickr) retPickerInput._flatpickr.clear();
+    
+    const tbody = document.getElementById('quick-budget-body');
+    if (tbody) tbody.innerHTML = '';
+    loadDefaultQuickQuoteRows();
+    calculateQuickQuote();
+    saveQuickQuoteFormState();
+    
+    // Hide indicator
+    const indicator = document.getElementById('editing-indicator');
+    if (indicator) {
+        indicator.classList.add('hidden');
+        indicator.classList.remove('flex');
+    }
+    
+    navigateTo('/editar?tab=rapidos');
+}
+window.closeSavedQuickQuoteView = closeSavedQuickQuoteView;
+
+export async function saveQuickQuoteChanges() {
+    await saveQuickQuote(false);
+    enableQuickFormEditing(false);
+}
+window.saveQuickQuoteChanges = saveQuickQuoteChanges;

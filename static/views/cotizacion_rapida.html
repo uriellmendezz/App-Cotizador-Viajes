@@ -9,6 +9,17 @@
         </button>
     </div>
 
+    <!-- Active Editing Indicator -->
+    <div id="editing-indicator"
+        class="hidden p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm mb-6">
+        <div class="flex items-center gap-2">
+            <span id="editing-indicator-text">Editando cotización guardada</span>
+        </div>
+        <div id="editing-indicator-actions" class="flex gap-2">
+            <!-- Botones dinámicos -->
+        </div>
+    </div>
+
     <!-- Header Section -->
     <div class="space-y-4">
         <div class="flex items-center gap-3">
@@ -106,7 +117,7 @@
                     </button>
 
                     <!-- Hover Dropdown Menu -->
-                    <div class="relative group inline-block">
+                    <div id="quick-add-concept-container" class="relative group inline-block">
                         <button type="button"
                             class="px-4 py-2 bg-brand-primary/10 hover:bg-brand-primary hover:text-white text-brand-primary rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-sm">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"

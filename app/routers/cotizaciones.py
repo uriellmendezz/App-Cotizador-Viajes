@@ -214,7 +214,7 @@ def api_cotizar(quote: dict, current_user: str = Depends(verify_agent_user)):
     redondear = quote.get("redondear", True)
     
     for hotel in hoteles:
-        costo_hotel = float(hotel.get("costo", 0.0))
+        costo_hotel = float(hotel.get("costo_neto")) if "costo_neto" in hotel else float(hotel.get("costo", 0.0))
         gastos_admin = (costo_hotel + monto_traslados) * 0.05
         costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
         precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
@@ -350,7 +350,7 @@ def api_cotizar_pdf(quote: dict, current_user: str = Depends(verify_agent_user))
     redondear = quote.get("redondear", True)
     
     for hotel in hoteles:
-        costo_hotel = safe_float(hotel.get("costo", 0.0))
+        costo_hotel = safe_float(hotel.get("costo_neto")) if "costo_neto" in hotel else safe_float(hotel.get("costo", 0.0))
         gastos_admin = (costo_hotel + monto_traslados) * 0.05
         costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
         precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
@@ -506,7 +506,7 @@ def api_save_cotizacion(payload: dict, current_user: str = Depends(verify_agent_
     redondear = payload.get("redondear", True)
     
     for hotel in hoteles:
-        costo_hotel = safe_float(hotel.get("costo", 0.0))
+        costo_hotel = safe_float(hotel.get("costo_neto")) if "costo_neto" in hotel else safe_float(hotel.get("costo", 0.0))
         gastos_admin = (costo_hotel + monto_traslados) * 0.05
         costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
         precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
