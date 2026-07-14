@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.perfiles (
     nombre TEXT NOT NULL,
     username TEXT UNIQUE,
     email TEXT UNIQUE NOT NULL,
+    contrasena TEXT,
     rol user_role NOT NULL DEFAULT 'AGENTE_SUCURSAL',
     sucursal_id UUID REFERENCES public.sucursales(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -52,12 +53,13 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  INSERT INTO public.perfiles (id, nombre, username, email, rol, sucursal_id)
+  INSERT INTO public.perfiles (id, nombre, username, email, contrasena, rol, sucursal_id)
   VALUES (
     new.id,
     coalesce(new.raw_user_meta_data->>'nombre', 'Nuevo Agente'),
     coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
     new.email,
+    new.raw_user_meta_data->>'contrasena',
     coalesce((new.raw_user_meta_data->>'rol')::public.user_role, 'AGENTE_SUCURSAL'::public.user_role),
     CASE 
       WHEN new.raw_user_meta_data->>'sucursal_id' IS NOT NULL 

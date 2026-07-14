@@ -125,6 +125,7 @@ def create_agente(payload: dict, current_admin: dict = Depends(verify_admin_glob
         user_meta = {
             "nombre": nombre,
             "username": username_val,
+            "contrasena": password,
             "rol": rol,
             "sucursal_id": sucursal_id
         }
