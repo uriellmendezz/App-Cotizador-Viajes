@@ -43,6 +43,10 @@ def get_sucursales(current_admin: dict = Depends(verify_admin_global)):
 @router.post("/sucursales")
 def create_sucursal(payload: dict, current_admin: dict = Depends(verify_admin_global)):
     nombre = payload.get("nombre", "").strip()
+    logo = payload.get("logo")
+    ubicacion = payload.get("ubicacion", "").strip()
+    owner_id = payload.get("owner_id")
+    
     if not nombre:
         raise HTTPException(status_code=400, detail="El nombre de la sucursal es obligatorio.")
         
@@ -51,7 +55,13 @@ def create_sucursal(payload: dict, current_admin: dict = Depends(verify_admin_gl
         raise HTTPException(status_code=500, detail="Supabase client not configured.")
         
     try:
-        res = client.table("sucursales").insert({"nombre": nombre}).execute()
+        insert_data = {
+            "nombre": nombre,
+            "logo": logo if logo else None,
+            "ubicacion": ubicacion if ubicacion else None,
+            "owner_id": owner_id if owner_id else None
+        }
+        res = client.table("sucursales").insert(insert_data).execute()
         if res and hasattr(res, "data") and res.data:
             return res.data[0]
         raise HTTPException(status_code=400, detail="No se pudo registrar la sucursal.")
@@ -80,7 +90,7 @@ def get_agentes(current_admin: dict = Depends(verify_admin_global)):
         
     try:
         # Traer perfiles de los agentes con los datos de sus sucursales
-        res = client.table("perfiles").select("*, sucursales(nombre)").order("nombre").execute()
+        res = client.table("perfiles").select("*, sucursales!perfiles_sucursal_id_fkey(nombre)").order("nombre").execute()
         return res.data if res and hasattr(res, "data") else []
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al listar agentes: {str(e)}")
@@ -151,7 +161,7 @@ def create_agente(payload: dict, current_admin: dict = Depends(verify_admin_glob
         time.sleep(0.5)
         
         client = get_supabase_admin_client()
-        profile_res = client.table("perfiles").select("*, sucursales(nombre)").eq("id", user_id).execute()
+        profile_res = client.table("perfiles").select("*, sucursales!perfiles_sucursal_id_fkey(nombre)").eq("id", user_id).execute()
         if profile_res and hasattr(profile_res, "data") and profile_res.data:
             return profile_res.data[0]
             
@@ -182,3 +192,75 @@ def delete_agente(agente_id: str, current_admin: dict = Depends(verify_admin_glo
         return {"status": "success", "message": "Agente eliminado correctamente del sistema."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al eliminar agente: {str(e)}")
+
+@router.put("/agentes/{agente_id}")
+def update_agente(agente_id: str, payload: dict, current_admin: dict = Depends(verify_admin_global)):
+    nombre = payload.get("nombre", "").strip()
+    username_val = payload.get("username", "").strip().lower()
+    email = payload.get("email", "").strip().lower()
+    password = payload.get("password")
+    rol = payload.get("rol", "AGENTE_SUCURSAL")
+    sucursal_id = payload.get("sucursal_id")
+    
+    if not nombre or not username_val or not email:
+        raise HTTPException(status_code=400, detail="Nombre completo, nombre de usuario y email son obligatorios.")
+        
+    if rol == "AGENTE_SUCURSAL" and not sucursal_id:
+        raise HTTPException(status_code=400, detail="Los agentes de sucursal deben pertenecer a una sucursal.")
+        
+    admin_client = get_supabase_admin_client()
+    if not admin_client:
+        raise HTTPException(status_code=500, detail="Supabase admin client not configured.")
+        
+    # Verificar que el nombre de usuario no esté registrado por otro agente
+    try:
+        user_check = admin_client.table("perfiles").select("id").ilike("username", username_val).neq("id", agente_id).execute()
+        if user_check and hasattr(user_check, "data") and user_check.data:
+            raise HTTPException(status_code=400, detail="El nombre de usuario ya está registrado por otro agente de viajes.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error checking username existence during update: {e}")
+        
+    try:
+        # 1. Actualizar usuario en Supabase Auth
+        user_meta = {
+            "nombre": nombre,
+            "username": username_val,
+            "rol": rol,
+            "sucursal_id": sucursal_id
+        }
+        if password:
+            user_meta["contrasena"] = password
+            
+        auth_data = {
+            "email": email,
+            "user_metadata": user_meta,
+            "app_metadata": {"rol": rol, "sucursal_id": sucursal_id}
+        }
+        if password:
+            auth_data["password"] = password
+            
+        admin_client.auth.admin.update_user_by_id(agente_id, auth_data)
+        
+        # 2. Actualizar la fila en public.perfiles
+        profile_data = {
+            "nombre": nombre,
+            "username": username_val,
+            "email": email,
+            "rol": rol,
+            "sucursal_id": sucursal_id
+        }
+        if password:
+            profile_data["contrasena"] = password
+            
+        admin_client.table("perfiles").update(profile_data).eq("id", agente_id).execute()
+        
+        # Devolver el perfil actualizado
+        profile_res = admin_client.table("perfiles").select("*, sucursales!perfiles_sucursal_id_fkey(nombre)").eq("id", agente_id).execute()
+        if profile_res and hasattr(profile_res, "data") and profile_res.data:
+            return profile_res.data[0]
+            
+        return {"status": "success", "message": "Agente actualizado correctamente."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar agente: {str(e)}")

@@ -203,3 +203,8 @@ CREATE POLICY admin_modify_sucursales ON public.sucursales
         (auth.jwt() -> 'app_metadata' ->> 'rol') = 'ADMIN_GLOBAL' OR
         (auth.jwt() -> 'user_metadata' ->> 'rol') = 'ADMIN_GLOBAL'
     );
+
+-- 10. Agregar nuevos campos premium a la tabla sucursales si no existen
+ALTER TABLE public.sucursales ADD COLUMN IF NOT EXISTS logo TEXT;
+ALTER TABLE public.sucursales ADD COLUMN IF NOT EXISTS ubicacion TEXT;
+ALTER TABLE public.sucursales ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES public.perfiles(id) ON DELETE SET NULL;

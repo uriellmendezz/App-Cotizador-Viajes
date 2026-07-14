@@ -167,7 +167,7 @@ def api_login(payload: dict, response: Response):
             if auth_res and auth_res.user:
                 user_id = auth_res.user.id
                 # Obtener perfil del agente
-                profile_res = supabase.table("perfiles").select("*, sucursales(nombre)").eq("id", user_id).execute()
+                profile_res = supabase.table("perfiles").select("*, sucursales!perfiles_sucursal_id_fkey(nombre)").eq("id", user_id).execute()
                 if profile_res.data:
                     profile = profile_res.data[0]
                     sucursal_data = profile.get("sucursales")

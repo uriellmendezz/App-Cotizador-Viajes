@@ -4,6 +4,8 @@
 
 let agentesCache = [];
 let sucursalesCache = [];
+let editingAgenteId = null;
+let sucursalLogoBase64 = null;
 
 export async function initAdmin() {
     const pageContainer = document.getElementById('admin-page-container');
@@ -29,6 +31,42 @@ export async function initAdmin() {
 
     if (formAgente) {
         formAgente.addEventListener('submit', handleCreateAgente);
+    }
+
+    // Bind file input for logo
+    const logoInput = document.getElementById('sucursal-logo');
+    const logoLabel = document.getElementById('logo-file-label');
+    if (logoInput && logoLabel) {
+        logoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                logoLabel.innerText = `Logo: ${file.name}`;
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    sucursalLogoBase64 = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                logoLabel.innerText = "Subir Logo (Drag & Drop)";
+                sucursalLogoBase64 = null;
+            }
+        });
+    }
+
+    // Bind modal close events
+    const modal = document.getElementById('modal-sucursal-agentes');
+    const modalClose = document.getElementById('modal-close-btn');
+    const modalCloseFooter = document.getElementById('modal-close-btn-footer');
+    if (modal && modalClose && modalCloseFooter) {
+        const closeModal = () => {
+            modal.classList.add('opacity-0');
+            modal.querySelector('.transform').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        };
+        modalClose.addEventListener('click', closeModal);
+        modalCloseFooter.addEventListener('click', closeModal);
     }
     
     if (logoutBtn) {
@@ -142,7 +180,7 @@ async function loadSucursales() {
         if (data.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="4" class="py-6 text-center text-xs text-slate-400 font-medium">
+                    <td colspan="5" class="py-6 text-center text-xs text-slate-400 font-medium">
                         No hay sucursales registradas.
                     </td>
                 </tr>
@@ -156,14 +194,25 @@ async function loadSucursales() {
             tr.className = 'hover:bg-rose-50/10 transition-colors';
             
             const agentCount = agentesCache.filter(a => a.sucursal_id === s.id).length;
+            const dateObj = s.created_at ? new Date(s.created_at) : null;
+            const formattedDate = dateObj 
+                ? `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}` 
+                : '-';
+            const locationStr = s.ubicacion || 'Sin definir';
 
             tr.innerHTML = `
                 <td class="py-3 pl-2">
-                    <span class="font-extrabold text-slate-800">${s.nombre}</span>
+                    <div class="flex items-center gap-2">
+                        ${s.logo ? `<img src="${s.logo}" class="h-6 w-6 rounded-md object-cover border border-slate-100" />` : ''}
+                        <span class="font-extrabold text-slate-800">${s.nombre}</span>
+                    </div>
                 </td>
-                <td class="py-3 text-slate-400 font-mono text-[10px] select-all">${s.id}</td>
+                <td class="py-3 text-slate-500 font-semibold text-xs">${locationStr}</td>
+                <td class="py-3 text-slate-400 font-semibold text-xs">${formattedDate}</td>
                 <td class="py-3 text-center">
-                    <span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold text-[10px] rounded-md">${agentCount}</span>
+                    <button type="button" class="btn-view-branch-agents px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-rose-600 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-100 rounded-lg transition-all cursor-pointer shadow-sm">
+                        Ver (${agentCount})
+                    </button>
                 </td>
                 <td class="py-3 pr-2 text-right">
                     <button type="button" class="btn-delete-sucursal p-1.5 hover:bg-rose-50 text-rose-500 hover:text-rose-600 rounded-lg cursor-pointer transition-colors" data-id="${s.id}" data-name="${s.nombre}">
@@ -174,6 +223,11 @@ async function loadSucursales() {
                 </td>
             `;
             
+            // View agents listener
+            tr.querySelector('.btn-view-branch-agents').addEventListener('click', () => {
+                openSucursalAgentesModal(s);
+            });
+
             // Delete button listener
             tr.querySelector('.btn-delete-sucursal').addEventListener('click', (e) => {
                 const btn = e.currentTarget;
@@ -210,6 +264,18 @@ async function loadAgentes() {
 
         // Update Stat count
         if (statCount) statCount.innerText = data.length;
+
+        // Populate sucursal owners dropdown list
+        const ownerSelect = document.getElementById('sucursal-owner');
+        if (ownerSelect) {
+            ownerSelect.innerHTML = '<option value="">Seleccione un agente...</option>';
+            data.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.innerText = `${a.nombre} (@${a.username || a.email.split('@')[0]})`;
+                ownerSelect.appendChild(opt);
+            });
+        }
 
         if (data.length === 0) {
             tableBody.innerHTML = `
@@ -255,7 +321,12 @@ async function loadAgentes() {
                 </td>
                 <td class="py-3">${roleBadge}</td>
                 <td class="py-3 font-bold text-slate-600 text-xs">${sucursalNombre}</td>
-                <td class="py-3 pr-4 text-right">
+                <td class="py-3 pr-4 text-right flex justify-end gap-1.5 items-center">
+                    <button type="button" class="btn-edit-agente p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-700 rounded-lg cursor-pointer transition-colors" data-id="${a.id}">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </button>
                     <button type="button" class="btn-delete-agente p-1.5 hover:bg-rose-50 text-rose-500 hover:text-rose-600 rounded-lg cursor-pointer transition-colors" data-id="${a.id}" data-name="${a.nombre}">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -263,6 +334,11 @@ async function loadAgentes() {
                     </button>
                 </td>
             `;
+
+            // Edit button listener
+            tr.querySelector('.btn-edit-agente').addEventListener('click', () => {
+                startEditAgente(a);
+            });
 
             // Toggle Password visibility logic
             const btnToggle = tr.querySelector('.btn-toggle-pwd');
@@ -325,9 +401,15 @@ async function loadAgentes() {
 async function handleCreateSucursal(e) {
     e.preventDefault();
     const nombreInput = document.getElementById('sucursal-nombre');
+    const ubicacionInput = document.getElementById('sucursal-ubicacion');
+    const ownerSelect = document.getElementById('sucursal-owner');
+    
     if (!nombreInput) return;
 
     const nombre = nombreInput.value.trim();
+    const ubicacion = ubicacionInput ? ubicacionInput.value.trim() : '';
+    const owner_id = ownerSelect ? ownerSelect.value : null;
+
     if (!nombre) return;
 
     window.showLoader('Registrando sucursal...');
@@ -335,12 +417,20 @@ async function handleCreateSucursal(e) {
         const res = await window.authenticatedFetch('/api/admin/sucursales', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre })
+            body: JSON.stringify({ 
+                nombre, 
+                logo: sucursalLogoBase64, 
+                ubicacion, 
+                owner_id: owner_id ? owner_id : null 
+            })
         });
 
         if (res.ok) {
             window.showAlert('success', `Sucursal "${nombre}" registrada correctamente.`);
-            nombreInput.value = '';
+            document.getElementById('form-sucursal').reset();
+            const logoLabel = document.getElementById('logo-file-label');
+            if (logoLabel) logoLabel.innerText = "Subir Logo (Drag & Drop)";
+            sucursalLogoBase64 = null;
             await loadSucursales();
         } else {
             const err = await res.json();
@@ -364,36 +454,148 @@ async function handleCreateAgente(e) {
     const sucursalSelect = document.getElementById('agente-sucursal');
     const sucursal_id = rol === 'ADMIN_GLOBAL' ? null : sucursalSelect.value;
 
-    if (!nombre || !username || !email || !password) return;
+    if (!nombre || !username || !email) return;
+    if (!editingAgenteId && !password) {
+        window.showAlert('warning', 'La contraseña es obligatoria para nuevos agentes.');
+        return;
+    }
     if (rol === 'AGENTE_SUCURSAL' && !sucursal_id) {
         window.showAlert('warning', 'Debes asignar una sucursal para este agente.');
         return;
     }
 
-    window.showLoader('Registrando y configurando agente...');
+    const isEdit = !!editingAgenteId;
+    const msg = isEdit ? 'Guardando cambios del agente...' : 'Registrando y configurando agente...';
+    window.showLoader(msg);
+    
     try {
-        const res = await window.authenticatedFetch('/api/admin/agentes', {
-            method: 'POST',
+        const url = isEdit ? `/api/admin/agentes/${editingAgenteId}` : '/api/admin/agentes';
+        const method = isEdit ? 'PUT' : 'POST';
+        const payload = { nombre, username, email, rol, sucursal_id };
+        if (password) {
+            payload.password = password;
+        }
+
+        const res = await window.authenticatedFetch(url, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, username, email, password, rol, sucursal_id })
+            body: JSON.stringify(payload)
         });
 
         if (res.ok) {
-            window.showAlert('success', `Agente "${nombre}" creado y enrolado con éxito.`);
-            document.getElementById('form-agente').reset();
-            // Trigger role toggle to restore sucursal selection visibility
-            document.getElementById('agente-sucursal-wrapper').classList.remove('hidden');
+            window.showAlert('success', isEdit ? `Agente "${nombre}" modificado correctamente.` : `Agente "${nombre}" creado con éxito.`);
+            resetAgenteForm();
             await loadAgentes();
+            await loadSucursales(); // Reload sucursales as well since agent list changes impact agent count and owners list
         } else {
             const err = await res.json();
-            window.showAlert('error', `Error al registrar agente: ${err.detail || 'Error desconocido'}`);
+            window.showAlert('error', `Error en la operación: ${err.detail || 'Error desconocido'}`);
         }
     } catch (err) {
         console.error(err);
-        window.showAlert('error', 'Error de red al registrar el agente de viajes.');
+        window.showAlert('error', 'Error de red al procesar el agente de viajes.');
     } finally {
         window.hideLoader();
     }
+}
+
+// ── CRUD EDIT/VIEW HELPERS ───────────────────────────────────────────────────
+
+function startEditAgente(agent) {
+    editingAgenteId = agent.id;
+    
+    document.getElementById('agente-nombre').value = agent.nombre;
+    document.getElementById('agente-username').value = agent.username || '';
+    document.getElementById('agente-email').value = agent.email;
+    document.getElementById('agente-password').value = ''; // Let it be blank unless they want to override
+    document.getElementById('agente-password').required = false; // Optional password during edit
+    document.getElementById('agente-password').placeholder = "Dejar en blanco para conservar";
+    document.getElementById('agente-rol').value = agent.rol;
+    
+    const wrapper = document.getElementById('agente-sucursal-wrapper');
+    const select = document.getElementById('agente-sucursal');
+    if (agent.rol === 'ADMIN_GLOBAL') {
+        if (wrapper) wrapper.classList.add('hidden');
+        if (select) {
+            select.value = '';
+            select.required = false;
+        }
+    } else {
+        if (wrapper) wrapper.classList.remove('hidden');
+        if (select) {
+            select.value = agent.sucursal_id || '';
+            select.required = true;
+        }
+    }
+
+    const titleEl = document.getElementById('agente-form-title');
+    const submitBtn = document.getElementById('agente-submit-btn');
+    if (titleEl) titleEl.innerText = "Editar Agente";
+    if (submitBtn) submitBtn.innerText = "Guardar Cambios";
+    
+    // Smooth scroll to form container on mobile
+    document.getElementById('form-agente')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetAgenteForm() {
+    editingAgenteId = null;
+    document.getElementById('form-agente').reset();
+    document.getElementById('agente-password').required = true;
+    document.getElementById('agente-password').placeholder = "Mínimo 6 caracteres";
+    
+    const titleEl = document.getElementById('agente-form-title');
+    const submitBtn = document.getElementById('agente-submit-btn');
+    if (titleEl) titleEl.innerText = "Crear Agente";
+    if (submitBtn) submitBtn.innerText = "Registrar Agente";
+}
+
+function openSucursalAgentesModal(sucursal) {
+    const modal = document.getElementById('modal-sucursal-agentes');
+    if (!modal) return;
+
+    const modalTitle = document.getElementById('modal-sucursal-title');
+    const modalSubtitle = document.getElementById('modal-sucursal-subtitle');
+    const modalTableBody = document.getElementById('modal-agentes-table-body');
+    
+    if (modalTitle) modalTitle.innerText = `Agentes: ${sucursal.nombre}`;
+    if (modalSubtitle) modalSubtitle.innerText = `Dirección: ${sucursal.ubicacion || 'Sin dirección física registrada'}`;
+
+    if (modalTableBody) {
+        modalTableBody.innerHTML = '';
+        const filtered = agentesCache.filter(a => a.sucursal_id === sucursal.id);
+
+        if (filtered.length === 0) {
+            modalTableBody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="py-8 text-center text-slate-400 font-medium">
+                        No hay agentes asignados a esta sucursal.
+                    </td>
+                </tr>
+            `;
+        } else {
+            filtered.forEach(a => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition-colors border-b border-slate-100';
+                
+                const roleBadge = a.rol === 'ADMIN_GLOBAL'
+                    ? '<span class="px-2 py-0.5 bg-purple-50 text-purple-700 font-extrabold text-[9px] uppercase tracking-wider rounded-md border border-purple-100">Admin Global</span>'
+                    : '<span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold text-[9px] uppercase tracking-wider rounded-md">Agente</span>';
+
+                tr.innerHTML = `
+                    <td class="py-3 pl-2 font-bold text-slate-800">${a.nombre}</td>
+                    <td class="py-3 text-slate-500 font-medium">${a.email}</td>
+                    <td class="py-3">${roleBadge}</td>
+                `;
+                modalTableBody.appendChild(tr);
+            });
+        }
+    }
+
+    // Display modal with animation classes
+    modal.classList.remove('hidden');
+    modal.offsetHeight; // Force reflow
+    modal.classList.remove('opacity-0');
+    modal.querySelector('.transform').classList.remove('scale-95');
 }
 
 // ── CONFIRMATIONS & DELETIONS ────────────────────────────────────────────────
