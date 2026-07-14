@@ -1,6 +1,9 @@
 // Client-side Session State
 let authToken = localStorage.getItem('authToken') || null;
 let loggedInUser = localStorage.getItem('loggedInUser') || null;
+let userRole = localStorage.getItem('userRole') || null;
+let userSucursalId = localStorage.getItem('userSucursalId') || null;
+let userSucursalNombre = localStorage.getItem('userSucursalNombre') || null;
 
 // Initialize sidebar collapse state on desktop early
 if (window.innerWidth >= 1024) {
@@ -11,19 +14,71 @@ if (window.innerWidth >= 1024) {
 
 window.authToken = authToken;
 window.loggedInUser = loggedInUser;
+window.userRole = userRole;
+window.userSucursalId = userSucursalId;
+window.userSucursalNombre = userSucursalNombre;
 
 // Session Management Helpers
+function decodeTokenPayload(token) {
+    if (!token) return null;
+    try {
+        const base64Url = token.split('.')[0];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        console.error("Error decoding token payload:", e);
+        return null;
+    }
+}
+window.decodeTokenPayload = decodeTokenPayload;
+
 function setSession(token, username) {
     authToken = token;
     loggedInUser = username;
     window.authToken = token;
     window.loggedInUser = username;
-    if (token) {
+    
+    const payload = decodeTokenPayload(token);
+    if (payload) {
+        userRole = payload.rol || null;
+        userSucursalId = payload.sucursal_id || null;
+        userSucursalNombre = payload.sucursal_nombre || null;
+        window.userRole = userRole;
+        window.userSucursalId = userSucursalId;
+        window.userSucursalNombre = userSucursalNombre;
         localStorage.setItem('authToken', token);
         localStorage.setItem('loggedInUser', username);
+        if (userRole) localStorage.setItem('userRole', userRole);
+        else localStorage.removeItem('userRole');
+        if (userSucursalId) localStorage.setItem('userSucursalId', userSucursalId);
+        else localStorage.removeItem('userSucursalId');
+        if (userSucursalNombre) localStorage.setItem('userSucursalNombre', userSucursalNombre);
+        else localStorage.removeItem('userSucursalNombre');
     } else {
+        userRole = null;
+        userSucursalId = null;
+        userSucursalNombre = null;
+        window.userRole = null;
+        window.userSucursalId = null;
+        window.userSucursalNombre = null;
         localStorage.removeItem('authToken');
         localStorage.removeItem('loggedInUser');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userSucursalId');
+        localStorage.removeItem('userSucursalNombre');
+    }
+    
+    // Toggle admin button visibility
+    const adminBtn = document.getElementById('sidebar-btn-admin');
+    if (adminBtn) {
+        if (window.userRole === 'ADMIN_GLOBAL') {
+            adminBtn.classList.remove('hidden');
+        } else {
+            adminBtn.classList.add('hidden');
+        }
     }
 }
 window.setSession = setSession;
@@ -113,6 +168,7 @@ const routeNames = {
     '/editar': 'Archivos',
     '/config': 'Configuración',
     '/ver-cotizacion': 'Ver Cotización',
+    '/admin': 'Administración',
 };
 
 // SPA Router implementation
@@ -180,7 +236,9 @@ const routes = {
     '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
     '/config': { html: '/static/views/configuracion.html', js: '/static/js/cotizar.js', init: 'initConfig' },
-    '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' }
+    '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
+    '/admin': { html: '/static/views/admin.html', js: '/static/js/admin.js', init: 'initAdmin' },
+    '/admin-login': { html: '/static/views/admin_login.html', js: '/static/js/admin_login.js', init: 'initAdminLogin' }
 };
 
 let isConfigLoaded = false;
@@ -257,15 +315,39 @@ async function router() {
     let path = window.location.pathname;
 
     // Auth Guards
-    if (!window.authToken && path !== '/login') {
-        history.pushState(null, null, '/login');
-        path = '/login';
-    } else if (window.authToken && (path === '/login' || path === '/')) {
-        history.pushState(null, null, '/inicio');
-        path = '/inicio';
-    } else if (path === '/cotizaciones-rapidas') {
-        history.pushState(null, null, '/editar?tab=rapidos');
-        path = '/editar';
+    if (!window.authToken) {
+        if (path === '/admin') {
+            history.pushState(null, null, '/admin-login');
+            path = '/admin-login';
+        } else if (path !== '/login' && path !== '/admin-login') {
+            history.pushState(null, null, '/login');
+            path = '/login';
+        }
+    } else {
+        // Authenticated
+        if (path === '/login' || path === '/') {
+            history.pushState(null, null, '/inicio');
+            path = '/inicio';
+        } else if (path === '/admin-login') {
+            const payload = decodeTokenPayload(window.authToken);
+            if (payload && payload.rol === 'ADMIN_GLOBAL') {
+                history.pushState(null, null, '/admin');
+                path = '/admin';
+            } else {
+                history.pushState(null, null, '/inicio');
+                path = '/inicio';
+            }
+        } else if (path === '/admin') {
+            const payload = decodeTokenPayload(window.authToken);
+            if (!payload || payload.rol !== 'ADMIN_GLOBAL') {
+                setTimeout(() => showAlert('error', 'Acceso denegado. Se requieren permisos de Administrador Global.'), 100);
+                history.pushState(null, null, '/admin-login');
+                path = '/admin-login';
+            }
+        } else if (path === '/cotizaciones-rapidas') {
+            history.pushState(null, null, '/editar?tab=rapidos');
+            path = '/editar';
+        }
     }
 
     const route = routes[path] || routes['/inicio'];
@@ -276,7 +358,7 @@ async function router() {
     const headerEl = document.getElementById('app-top-header');
 
     if (sidebarEl && wrapperEl) {
-        if (path === '/login') {
+        if (path === '/login' || path === '/admin-login' || path === '/admin') {
             sidebarEl.classList.add('hidden');
             if (headerEl) headerEl.classList.add('hidden');
             wrapperEl.classList.remove('lg:pl-[260px]');
@@ -285,6 +367,16 @@ async function router() {
             if (headerEl) headerEl.classList.remove('hidden');
             wrapperEl.classList.add('lg:pl-[260px]');
             updateNavActiveState(path);
+
+            // Toggle admin button visibility
+            const adminBtn = document.getElementById('sidebar-btn-admin');
+            if (adminBtn) {
+                if (window.userRole === 'ADMIN_GLOBAL') {
+                    adminBtn.classList.remove('hidden');
+                } else {
+                    adminBtn.classList.add('hidden');
+                }
+            }
 
             // Initialize inner toggle chevron rotation state
             const innerChevron = document.getElementById('sidebar-inner-chevron');
@@ -401,6 +493,7 @@ function updateNavActiveState(path) {
     else if (path === '/cotizacion-completa') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
     else if (path === '/config') btnId = 'sidebar-btn-config';
+    else if (path === '/admin') btnId = 'sidebar-btn-admin';
 
     const activeBtn = document.getElementById(btnId);
     if (activeBtn) {

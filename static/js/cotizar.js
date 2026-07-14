@@ -783,7 +783,7 @@ function addHotelCard(data = null) {
     const starsVal = data ? (data.estrellas || data.hotel_estrellas || "★★★★☆") : "★★★★☆";
 
     const regimenVal = data ? (data.hotel_regimen || data.regimen || 'Desayuno incluido') : 'Desayuno incluido';
-    const standardRegimens = ["All Inclusive", "Desayuno incluido", "Solo alojamiento", "Media Pension", "Desayuno y Cena incluidos"];
+    const standardRegimens = ["All Inclusive", "Desayuno incluido", "Solo alojamiento", "Media Pensión", "Desayuno y Cena incluidos"];
 
     let isRegimenMapped = false;
     let regimenOptionsHtml = "";
@@ -2468,15 +2468,15 @@ function updateTabButtonsUI() {
 
 function getAgentBadge(agentName) {
     if (!agentName || agentName === '-') return '<span class="text-slate-400 font-semibold">-</span>';
-    
+
     const name = agentName.trim();
     const cleanName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-    
+
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
         hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
-    
+
     const colors = [
         { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-600' },
         { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-600' },
@@ -2486,10 +2486,10 @@ function getAgentBadge(agentName) {
         { bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-600' },
         { bg: 'bg-cyan-50', border: 'border-cyan-100', text: 'text-cyan-600' }
     ];
-    
+
     const index = Math.abs(hash) % colors.length;
     const color = colors[index];
-    
+
     return `<span onclick="event.stopPropagation(); filterByAgent('${name}')" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${color.bg} ${color.border} ${color.text} shadow-sm cursor-pointer hover:brightness-95 transition-all" title="Filtrar por este agente">${cleanName}</span>`;
 }
 
@@ -2540,12 +2540,12 @@ function renderAgentFilters() {
     agentsSet.forEach(agentName => {
         const name = agentName.trim();
         const cleanName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-        
+
         let hash = 0;
         for (let i = 0; i < name.length; i++) {
             hash = name.charCodeAt(i) + ((hash << 5) - hash);
         }
-        
+
         const colors = [
             { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-600' },
             { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-600' },
@@ -2555,7 +2555,7 @@ function renderAgentFilters() {
             { bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-600' },
             { bg: 'bg-cyan-50', border: 'border-cyan-100', text: 'text-cyan-600' }
         ];
-        
+
         const index = Math.abs(hash) % colors.length;
         const color = colors[index];
 

@@ -1,4 +1,4 @@
-# Contexto del Proyecto: Sistema de Cotizaciones - One Trip Giordano
+# Contexto de la Aplicación: Sistema de Cotizaciones - One Trip Giordano
 
 Este documento proporciona una explicación exhaustiva y detallada de la arquitectura, funcionamiento, lógica interna, flujo de datos y componentes de la aplicación. Está diseñado para servir como referencia de contexto definitiva para desarrolladores o Modelos de Lenguaje (LLMs) que trabajen en el mantenimiento o expansión del sistema.
 
@@ -6,9 +6,9 @@ Este documento proporciona una explicación exhaustiva y detallada de la arquite
 
 ## 1. Propósito del Proyecto
 
-El sistema es una herramienta web interna y premium para la agencia de viajes **One Trip Giordano**. Su objetivo principal es facilitar a los agentes de viajes la creación de cotizaciones profesionales y estéticamente atractivas en dos formatos:
-1. **Presentaciones en Google Slides**: Diapositivas dinámicas creadas mediante copia de plantillas en la nube.
-2. **Documentos PDF Profesionales**: Archivos descargables tamaño A4 Vertical, diseñados con estética premium y adaptados dinámicamente según la cantidad de opciones cotizadas.
+El sistema es una herramienta web interna y premium para la agencia de viajes **One Trip Giordano**. Su objetivo principal es facilitar a los agentes de viajes la creación de cotizaciones profesionales y estéticamente atractivas en formato digital:
+1. **Documentos PDF Profesionales**: Archivos descargables tamaño A4 Vertical, diseñados con estética premium, con soporte para hasta 3 opciones de alojamiento y adaptados dinámicamente según la cantidad de opciones cotizadas.
+2. **Reimportación de PDF**: Capacidad de arrastrar o cargar un PDF de cotización previamente generado para reconstruir y editar el formulario de forma instantánea mediante la extracción de metadatos incrustados (`/CotizacionData`).
 
 ---
 
@@ -19,17 +19,17 @@ El sistema es una herramienta web interna y premium para la agencia de viajes **
 - **Uvicorn**: Servidor ASGI para correr FastAPI.
 - **Jinja2**: Motor de plantillas utilizado para inyectar datos dinámicos en el template HTML del PDF.
 - **WeasyPrint**: Motor de renderizado que convierte HTML5 y CSS3 en archivos PDF A4 Portrait. Requiere dependencias de sistema de GTK (Cairo, Pango, GdkPixbuf).
-- **Google API Client (`google-auth`, `google-api-python-client`)**: SDK para interactuar con Google Slides y Google Drive APIs.
-- **Supabase**: Base de datos Postgres en la nube para persistir y almacenar los registros de cotizaciones generadas.
-- **Python-PPTX**: Generación local y manipulación de archivos PowerPoint (.pptx).
+- **pypdf**: Librería utilizada para inyectar y extraer metadatos de cotización (`/CotizacionData`) en formato JSON directamente en los archivos PDF generados.
+- **Supabase**: Base de datos Postgres en la nube para persistir y almacenar los registros de cotizaciones generadas y los presupuestos rápidos.
 - **Python-dotenv**: Carga de variables de entorno desde un archivo `.env` o `.env.local`.
 
 ### Frontend (Vanilla JS + HTML5 + CSS)
-- **HTML5 & CSS (Tailwind CSS)**: Interfaz de usuario limpia, moderna y completamente adaptable (responsiva) para dispositivos móviles y computadoras.
-- **JavaScript (ES6)**: Controla el estado del formulario, realiza cálculos matemáticos complejos en tiempo real y gestiona las llamadas asíncronas de guardado, actualización y visualización.
+- **HTML5 & CSS (Tailwind CSS CDN + Estilos personalizados)**: Interfaz de usuario limpia, moderna y completamente adaptable (responsiva) para dispositivos móviles y computadoras.
+- **Flatpickr**: Librería ligera y potente para la selección interactiva de fechas.
+- **JavaScript (ES6)**: Controla el estado del formulario, realiza cálculos matemáticos complejos en tiempo real y gestiona las llamadas asíncronas de guardado, actualización, visualización y extracción de PDFs.
 
 ### Despliegue e Infraestructura
-- **Dockerfile (Python Slim + GTK)**: Configuración para levantar la aplicación en plataformas de contenedores (Railway, Render, Fly.io) asegurando que las dependencias nativas para WeasyPrint (GTK) estén correctamente instaladas en Linux.
+- **Dockerfile (Python Slim + GTK)**: Configuración para levantar la aplicación en plataformas de contenedores (Railway, Render, Fly.io, Hugging Face) asegurando que las dependencias nativas para WeasyPrint (GTK) estén correctamente instaladas en Linux.
 - **Vercel Config (`vercel.json`)**: Configuración para hosting serverless tradicional (Nota: WeasyPrint requiere librerías compartidas de GTK que no están disponibles nativamente en AWS Lambda de Vercel, por lo que se prefiere el despliegue Docker).
 
 ---
@@ -43,25 +43,28 @@ El sistema es una herramienta web interna y premium para la agencia de viajes **
 ├── requirements.txt            # Dependencias del backend de Python
 ├── vercel.json                 # Configuración de despliegue en Vercel
 ├── app.py                      # Punto de entrada para levantar la aplicación localmente
-├── estructura-v3.json          # Archivo de estructura para la plantilla de Google Slides
 ├── app/
-│   ├── main.py                 # Endpoints de la API y lógica de negocio principal
+│   ├── main.py                 # Endpoints de la API y configuración de la aplicación
 │   ├── database.py             # Integración y persistencia de cotizaciones en Supabase
-│   ├── parser.py               # Lector y parseador de archivos Excel y CSV
-│   ├── pdf_generator.py        # Generador de PDFs mediante WeasyPrint (renderiza el template de Jinja)
-│   └── google_slides/
-│       ├── generator.py        # Creador de presentaciones en Google Slides desde cero
-│       ├── mcp.py              # Creador de presentaciones en Google Slides usando copias de plantillas
-│       ├── exporter.py         # Script utilitario para exportar estructuras JSON de Slides
-│       └── pptx_generator.py   # Generador local de archivos PPTX
+│   ├── parser.py               # Lector y parseador de archivos Excel y CSV para importaciones rápidas
+│   ├── pdf_generator.py        # Generador de PDFs mediante WeasyPrint (renderiza el template de Jinja y usa pypdf para inyectar metadatos)
+│   └── routers/
+│       ├── auth.py             # Rutas para el control de acceso y manejo de sesiones de agentes/invitados
+│       ├── cotizaciones.py     # Endpoints principales de cotizaciones, PDF y extracción
+│       └── presupuestos.py     # Endpoints para presupuestos rápidos
 ├── templates/
 │   └── cotizacion_pdf_v2.html  # Plantilla HTML/CSS de la cotización para Weasyprint (A4 Vertical)
 ├── static/
-│   ├── index.html              # Interfaz de usuario principal (Formulario del agente)
+│   ├── index.html              # Interfaz de usuario principal (Single Page Application)
 │   ├── css/
-│   │   └── style.css           # Estilos personalizados adicionales de la UI
+│   │   ├── style.css           # Estilos personalizados adicionales de la UI
+│   │   └── styles.css          # Estilos adicionales globales y específicos
 │   └── js/
-│       └── main.js             # Lógica del frontend (cálculos en tiempo real y comunicación API)
+│       ├── main.js             # Enrutamiento del frontend y barra lateral
+│       ├── cotizar.js          # Lógica de creación de cotizaciones, cálculos y comunicación API PDF/Supabase
+│       ├── cotizacion_rapida.js# Módulo de cotizaciones rápidas (presupuesto estilo hoja de cálculo)
+│       ├── inicio.js           # Panel de cotizaciones guardadas (CRUD en frontend)
+│       └── login.js            # Lógica de inicio de sesión de agentes e invitados
 ├── Montserrat/                 # Directorio de fuentes tipográficas oficiales en formato .ttf
 └── assets/                     # Banners institucionales e iconos SVG de servicios del PDF
 ```
@@ -134,29 +137,34 @@ Dado que el backend procesa el costo del hotel calculando el total acumulado y r
 - **Cálculo de Comisión Automática**: Suma el 5% de gastos administrativos sobre el total de servicios terrestres netos de forma inalterable y obligatoria.
 - **Flujo Puente de Integración**: Ofrece un botón de "Continuar a Cotización Completa" que almacena el presupuesto rápido para el historial y autocompleta el formulario principal, mapeando y consolidando los montos (vuelos consolidados netos + fee, traslados si el nombre contiene 'traslado', y hoteles secuenciales) dejando las descripciones, estrellas e imágenes en blanco para el enriquecimiento estético por parte del agente.
 
+### F. Importación y Reconstrucción desde PDF (Drag & Drop)
+- **Extracción de Metadatos**: El sistema permite arrastrar un archivo de cotización PDF generado previamente directamente sobre la aplicación.
+- **Carga Automática**: El backend analiza los metadatos del PDF utilizando la librería `pypdf`, recupera el JSON con el payload de cotización completo y el frontend rellena de forma instantánea el formulario. Esto facilita la edición y actualización rápida de cotizaciones existentes sin recurrir a la base de datos si se tiene el archivo físico.
+
 ---
 
-## 6. Endpoints de la API (`app/main.py`)
+## 6. Endpoints de la API (`app/routers/` y `app/main.py`)
 
 ### 1. `GET /api/config` & `POST /api/config`
-Gestiona la información de marca de la agencia (colores primarios, nombre de la agencia, base64 del banner y los IDs de carpetas/plantillas de Google Slides). Los datos se guardan localmente en `config/agency_config.json`.
+Gestiona la información de marca de la agencia (colores primarios, nombre de la agencia, base64 del logo, etc.). Los datos se guardan localmente en `config/agency_config.json`.
 
 ### 2. `POST /api/optimizar-descripcion`
 Envía la descripción de un hotel ingresada por el agente a la API de **Groq** utilizando el modelo `mistral-7b-instruct` (con fallbacks automáticos). El prompt instruye a la IA a reescribir la descripción con un estilo enfocado en turismo de lujo y premium en un límite estricto de 60-80 palabras.
 
-### 3. `POST /api/cotizaciones`
-Guarda o actualiza una cotización en Supabase. Si el payload contiene un ID, realiza un `UPDATE` en la fila coincidente, de lo contrario realiza un `INSERT` de un nuevo registro. Detecta de forma automática el agente activo a través de la sesión.
+### 3. `POST /api/cotizaciones` (GET / POST / DELETE)
+Permite el CRUD completo de cotizaciones en la base de datos de Supabase. Detecta automáticamente al agente que realiza la acción mediante su token de sesión. El `POST` realiza un `INSERT` o `UPDATE` dependiendo de si se pasa un ID en el payload.
 
-### 4. `POST /api/cotizaciones-rapidas`
-Almacena un registro de presupuesto rápido con tramos de vuelo y servicios de hotel en formato JSONB en la tabla `cotizaciones_rapidas` de Supabase. Requiere sesión activa de agente y asocia automáticamente el `agente_id` a la fila de datos.
+### 4. `POST /api/presupuestos` (GET / POST / DELETE)
+Permite almacenar y gestionar los registros de presupuestos rápidos (módulo rápido) en la tabla `cotizaciones_rapidas` de Supabase. Requiere sesión activa de agente y asocia automáticamente el `agente_id` a la fila de datos.
 
-### 5. `POST /api/cotizar`
-Genera una presentación en Google Slides:
-- Copia una presentación plantilla de Slides existente y reemplaza las variables dinámicas (del tipo `<<PASAJERO>>`, `<<DESTINO>>`) mediante peticiones por lotes (`batchUpdate`).
-- Devuelve la URL de edición del Google Slide generado.
+### 5. `POST /api/importar-excel`
+Permite subir un archivo Excel (`.xlsx`) o CSV para pre-cargar datos de múltiples opciones y servicios en la aplicación.
 
 ### 6. `POST /api/cotizar-pdf`
-Genera y descarga el PDF en tiempo real compilando el HTML con WeasyPrint e inyectando las imágenes temporales de los tramos de vuelo y alojamientos.
+Genera el PDF en tiempo real compilando el HTML con WeasyPrint e inyectando las imágenes temporales de los tramos de vuelo y alojamientos. Antes de devolver los bytes, inyecta los datos de cotización en formato JSON como metadatos en la propiedad `/CotizacionData` del PDF.
+
+### 7. `POST /api/extraer-pdf`
+Endpoint que procesa un archivo PDF subido por el usuario, extrae la propiedad de metadatos `/CotizacionData` y devuelve el JSON original de la cotización para su reconstrucción en el frontend.
 
 ---
 
@@ -170,4 +178,3 @@ Genera y descarga el PDF en tiempo real compilando el HTML con WeasyPrint e inye
   - Para cotizaciones con múltiples hoteles, las imágenes de los vuelos permanecen en dos columnas normales.
 - **Badges de Servicio**: Muestra categorías, régimen y estrellas del hotel de manera gráfica. En el caso de las estrellas, renderiza caracteres de estrella amarillos (`★`, `☆`) acordes a la categoría seleccionada en el formulario.
 - **Control de superposición**: La descripción corta del hotel está limitada a un ancho máximo (`max-width: 72%`) para garantizar que nunca se superponga con el bloque de precios en la esquina inferior derecha.
-

@@ -13,7 +13,9 @@ export async function initInicio() {
     // Determine Franchise Name
     let franchiseName = "One Trip Giordano";
     let configPromise = Promise.resolve();
-    if (window.agencyConfig && window.agencyConfig.nombre_agencia) {
+    if (window.userSucursalNombre) {
+        franchiseName = `One Trip ${window.userSucursalNombre}`;
+    } else if (window.agencyConfig && window.agencyConfig.nombre_agencia) {
         franchiseName = window.agencyConfig.nombre_agencia;
     } else {
         configPromise = fetch('/api/config', {
@@ -24,7 +26,11 @@ export async function initInicio() {
           .then(config => {
               if (config) {
                   window.agencyConfig = config;
-                  franchiseName = config.nombre_agencia || franchiseName;
+                  if (window.userSucursalNombre) {
+                      franchiseName = `One Trip ${window.userSucursalNombre}`;
+                  } else {
+                      franchiseName = config.nombre_agencia || franchiseName;
+                  }
               }
           }).catch(e => console.error("Error fetching config in initInicio:", e));
     }

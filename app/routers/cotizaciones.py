@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 
 # Import our custom modules
-from app.routers.auth import get_current_user, verify_agent_user
+from app.routers.auth import get_current_user, verify_agent_user, get_current_active_agent, verify_admin_global
 from app.parser import parse_excel_or_csv
 from app.database import save_cotizacion, get_cotizaciones, get_cotizacion_by_id, delete_cotizacion
 from app.google_slides.mcp import create_presentation_from_template
@@ -223,10 +223,13 @@ async def importar_excel(file: UploadFile = File(...), current_user: str = Depen
             os.remove(temp_path)
 
 @router.post("/cotizar")
-def api_cotizar(quote: dict, current_user: str = Depends(verify_agent_user)):
+def api_cotizar(quote: dict, current_user: dict = Depends(get_current_active_agent)):
     config = load_agency_config()
     
     quote["agencia_nombre"] = config.get("nombre_agencia", "ONE TRIP GIORDANO")
+    quote["sucursal_id"] = current_user.get("sucursal_id")
+    quote["agente_id"] = current_user.get("id")
+    quote["agente_nombre"] = current_user.get("nombre")
     quote["agencia_logo_base64"] = config.get("logo_base64")
     quote["colores"] = config.get("colores")
     
@@ -359,13 +362,12 @@ def api_cotizar(quote: dict, current_user: str = Depends(verify_agent_user)):
     }
 
 @router.post("/cotizar-pdf")
-def api_cotizar_pdf(quote: dict, current_user: str = Depends(verify_agent_user)):
+def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active_agent)):
     config = load_agency_config()
     
-    if current_user == "guest":
-        quote["agente_nombre"] = "Invitado"
-    else:
-        quote["agente_nombre"] = current_user.capitalize()
+    quote["agente_id"] = current_user.get("id")
+    quote["sucursal_id"] = current_user.get("sucursal_id")
+    quote["agente_nombre"] = current_user.get("nombre")
         
     quote["agencia_nombre"] = config.get("nombre_agencia", "ONE TRIP GIORDANO")
     quote["agencia_logo_base64"] = config.get("logo_base64")
@@ -499,11 +501,17 @@ async def api_extraer_pdf(file: UploadFile = File(...), current_user: str = Depe
         raise HTTPException(status_code=500, detail=f"Error procesando PDF: {str(e)}")
 
 @router.get("/cotizaciones")
-def api_get_cotizaciones(current_user: str = Depends(verify_agent_user)):
-    return get_cotizaciones()
+def api_get_cotizaciones(current_user: dict = Depends(get_current_active_agent)):
+    if current_user.get("rol") == "ADMIN_GLOBAL":
+        return get_cotizaciones()
+    
+    sucursal_id = current_user.get("sucursal_id")
+    if not sucursal_id:
+        raise HTTPException(status_code=400, detail="El agente no tiene una sucursal asignada.")
+    return get_cotizaciones(sucursal_id=sucursal_id)
 
 @router.get("/cotizaciones/{quote_id}")
-def api_get_cotizacion(quote_id: str, current_user: str = Depends(verify_agent_user)):
+def api_get_cotizacion(quote_id: str, current_user: dict = Depends(get_current_active_agent)):
     try:
         quote_id_typed = int(quote_id)
     except ValueError:
@@ -512,10 +520,16 @@ def api_get_cotizacion(quote_id: str, current_user: str = Depends(verify_agent_u
     quote = get_cotizacion_by_id(quote_id_typed)
     if not quote:
         raise HTTPException(status_code=404, detail=f"Cotización con ID {quote_id} no encontrada.")
+        
+    # Validar aislamiento por sucursal
+    if current_user.get("rol") != "ADMIN_GLOBAL":
+        if str(quote.get("sucursal_id")) != str(current_user.get("sucursal_id")):
+            raise HTTPException(status_code=403, detail="No tienes permisos para acceder a esta cotización.")
+            
     return quote
 
 @router.post("/cotizaciones")
-def api_save_cotizacion(payload: dict, current_user: str = Depends(verify_agent_user)):
+def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_active_agent)):
     quote_id = payload.get("id")
     if quote_id:
         try:
@@ -524,14 +538,13 @@ def api_save_cotizacion(payload: dict, current_user: str = Depends(verify_agent_
             quote_id_typed = quote_id
         existing = get_cotizacion_by_id(quote_id_typed)
         if existing:
-            owner = existing.get("agente_nombre") or ""
-            if owner.lower() != current_user.lower():
-                raise HTTPException(status_code=403, detail="No puedes modificar una cotización de otro agente.")
+            if current_user.get("rol") != "ADMIN_GLOBAL":
+                if str(existing.get("sucursal_id")) != str(current_user.get("sucursal_id")):
+                    raise HTTPException(status_code=403, detail="No puedes modificar una cotización de otra sucursal.")
 
-    if current_user == "guest":
-        payload["agente_nombre"] = "Invitado"
-    else:
-        payload["agente_nombre"] = current_user.capitalize()
+    payload["agente_id"] = current_user.get("id")
+    payload["sucursal_id"] = current_user.get("sucursal_id")
+    payload["agente_nombre"] = current_user.get("nombre")
         
     cant_pax = safe_int(payload.get("cantidad_pasajeros", 1))
     monto_vuelos = safe_float(payload.get("monto_vuelos", 0.0))
@@ -603,7 +616,7 @@ def api_save_cotizacion(payload: dict, current_user: str = Depends(verify_agent_
     return saved_quote
 
 @router.delete("/cotizaciones/{quote_id}")
-def api_delete_cotizacion(quote_id: str, current_user: str = Depends(verify_agent_user)):
+def api_delete_cotizacion(quote_id: str, current_user: dict = Depends(get_current_active_agent)):
     try:
         quote_id_typed = int(quote_id)
     except ValueError:
@@ -613,9 +626,9 @@ def api_delete_cotizacion(quote_id: str, current_user: str = Depends(verify_agen
     if not quote:
         raise HTTPException(status_code=404, detail=f"Cotización con ID {quote_id} no encontrada.")
         
-    owner = quote.get("agente_nombre") or ""
-    if owner.lower() != current_user.lower():
-        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar esta cotización.")
+    if current_user.get("rol") != "ADMIN_GLOBAL":
+        if str(quote.get("sucursal_id")) != str(current_user.get("sucursal_id")):
+            raise HTTPException(status_code=403, detail="No tienes permisos para eliminar esta cotización.")
 
     success = delete_cotizacion(quote_id_typed)
     if not success:
