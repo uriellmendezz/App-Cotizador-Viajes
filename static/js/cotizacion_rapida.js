@@ -202,7 +202,7 @@ export function initCotizacionRapida() {
         flatpickr("#rapido-fecha-salida", {
             dateFormat: "Y-m-d",
             altInput: true,
-            altFormat: "d/m/Y",
+            altFormat: "d/m/y",
             disableMobile: "true",
             placeholder: "Opcional",
             onChange: function (selectedDates, dateStr, instance) {
@@ -220,7 +220,7 @@ export function initCotizacionRapida() {
         flatpickr("#rapido-fecha-regreso", {
             dateFormat: "Y-m-d",
             altInput: true,
-            altFormat: "d/m/Y",
+            altFormat: "d/m/y",
             disableMobile: "true",
             placeholder: "Opcional",
             onChange: function (selectedDates, dateStr, instance) {

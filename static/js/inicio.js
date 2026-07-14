@@ -1,12 +1,12 @@
 export async function initInicio() {
+    const pageContainer = document.getElementById('inicio-page-container');
+    if (pageContainer) {
+        pageContainer.classList.remove('opacity-0');
+        pageContainer.classList.add('opacity-100');
+    }
+
     const titleEl = document.getElementById('welcome-title');
     if (!titleEl) return;
-
-    // Clear any active welcome logo shimmer interval to avoid leaks
-    if (window.welcomeShimmerInterval) {
-        clearInterval(window.welcomeShimmerInterval);
-        window.welcomeShimmerInterval = null;
-    }
 
     // Capitalize Agent Name
     const username = window.loggedInUser || "Agente";
@@ -63,42 +63,11 @@ export async function initInicio() {
             span.appendChild(document.createTextNode(text2.charAt(j)));
             j++;
             setTimeout(typePart2, speed);
-        } else {
-            // Sincronizar aparición del logo al terminar el título
-            setTimeout(animateWelcomeLogo, 300);
         }
     }
 
     typePart1();
     loadRecentQuotes();
-}
-
-function animateWelcomeLogo() {
-    const logo = document.getElementById('welcome-logo-container');
-    if (logo) {
-        logo.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
-        logo.classList.add('opacity-100', 'scale-100');
-        
-        startLogoShimmerLoop();
-    }
-}
-
-function startLogoShimmerLoop() {
-    if (window.welcomeShimmerInterval) {
-        clearInterval(window.welcomeShimmerInterval);
-        window.welcomeShimmerInterval = null;
-    }
-
-    const container = document.querySelector('#welcome-logo-container > div');
-    if (!container) return;
-
-    window.welcomeShimmerInterval = setInterval(() => {
-        container.classList.add('shimmer-active');
-        
-        setTimeout(() => {
-            container.classList.remove('shimmer-active');
-        }, 1500);
-    }, 10000); // bucle cada 10 segundos
 }
 
 async function loadRecentQuotes() {
@@ -150,12 +119,6 @@ async function loadRecentQuotes() {
 
     } catch (e) {
         console.error("Error loading recent quotes on hub page:", e);
-    } finally {
-        const pageContainer = document.getElementById('inicio-page-container');
-        if (pageContainer) {
-            pageContainer.classList.remove('opacity-0');
-            pageContainer.classList.add('opacity-100');
-        }
     }
 }
 

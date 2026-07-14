@@ -30,23 +30,28 @@ def get_supabase_client() -> Client:
 
 def parse_date_to_iso(date_str):
     """
-    Converts date string from DD/MM/YYYY (from frontend) 
+    Converts date string from DD/MM/YYYY or DD/MM/YY (from frontend) 
     to YYYY-MM-DD (PostgreSQL date format).
     """
     if not date_str:
         return None
     try:
+        # Check if ISO timestamp
+        if "T" in date_str:
+            date_str = date_str.split("T")[0]
         # Check if already in YYYY-MM-DD format
         if "-" in date_str:
             parts = date_str.split("-")
             if len(parts) == 3 and len(parts[0]) == 4:
                 return date_str
-        # Parse from DD/MM/YYYY
+        # Parse from DD/MM/YYYY or DD/MM/YY
         if "/" in date_str:
             parts = date_str.split("/")
             if len(parts) == 3:
-                # DD/MM/YYYY -> YYYY-MM-DD
-                return f"{parts[2]}-{parts[1]}-{parts[0]}"
+                year = parts[2]
+                if len(year) == 2:
+                    year = "20" + year
+                return f"{year}-{parts[1]}-{parts[0]}"
     except Exception as e:
         print(f"Supabase Client: Error parsing date '{date_str}': {e}")
     return None

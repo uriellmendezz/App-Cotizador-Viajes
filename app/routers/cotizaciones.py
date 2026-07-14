@@ -29,7 +29,7 @@ TOKEN_FILE = os.path.join(BASE_DIR, "token.json")
 
 # Load default logo base64
 DEFAULT_LOGO_BASE64 = ""
-default_logo_path = os.path.join(BASE_DIR, "assets", "Banner letra O.png")
+default_logo_path = os.path.join(BASE_DIR, "assets", "Logo ONE TRIP.png")
 if os.path.exists(default_logo_path):
     try:
         with open(default_logo_path, "rb") as f:
@@ -102,6 +102,32 @@ def safe_int(val, default=1):
         return int(val)
     except (ValueError, TypeError):
         return default
+
+def parse_date(date_str):
+    if not date_str:
+        return None
+    if isinstance(date_str, datetime):
+        return date_str
+    date_str = str(date_str).strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            pass
+    if "T" in date_str:
+        try:
+            return datetime.strptime(date_str.split("T")[0], "%Y-%m-%d")
+        except ValueError:
+            pass
+    return None
+
+def format_to_dd_mm_yy(date_val):
+    if not date_val:
+        return ""
+    dt = parse_date(date_val)
+    if dt:
+        return dt.strftime("%d/%m/%y")
+    return str(date_val)
 
 @router.get("/config")
 def get_config(current_user: str = Depends(get_current_user)):
@@ -242,18 +268,19 @@ def api_cotizar(quote: dict, current_user: str = Depends(verify_agent_user)):
     elif cant_pax > 4: base_habitacion = "Grupal"
     quote["base_habitacion"] = base_habitacion
     
+    fecha_ida_dt = parse_date(quote.get("fecha_vuelo_ida"))
+    fecha_vuelta_dt = parse_date(quote.get("fecha_vuelo_vuelta"))
     noches_alojamiento = "7 noches"
-    fecha_ida = quote.get("fecha_vuelo_ida")
-    fecha_vuelta = quote.get("fecha_vuelo_vuelta")
-    if fecha_ida and fecha_vuelta:
-        try:
-            d_ida = datetime.strptime(fecha_ida, "%d/%m/%Y")
-            d_vuelta = datetime.strptime(fecha_vuelta, "%d/%m/%Y")
-            noches = abs((d_vuelta - d_ida).days)
-            noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
-        except Exception:
-            pass
+    if fecha_ida_dt and fecha_vuelta_dt:
+        noches = abs((fecha_vuelta_dt - fecha_ida_dt).days)
+        noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
     quote["noches_alojamiento"] = noches_alojamiento
+    
+    quote["fecha_vuelo_ida"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_ida"))
+    quote["fecha_vuelo_vuelta"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_vuelta"))
+    quote["fecha_salida"] = format_to_dd_mm_yy(quote.get("fecha_salida"))
+    if "validez_cotizacion" in quote:
+        quote["validez_cotizacion"] = format_to_dd_mm_yy(quote.get("validez_cotizacion"))
     
     equipaje = quote.get("equipaje", [])
     baggage_parts = []
@@ -378,18 +405,19 @@ def api_cotizar_pdf(quote: dict, current_user: str = Depends(verify_agent_user))
     elif cant_pax > 4: base_habitacion = "Grupal"
     quote["base_habitacion"] = base_habitacion
     
+    fecha_ida_dt = parse_date(quote.get("fecha_vuelo_ida"))
+    fecha_vuelta_dt = parse_date(quote.get("fecha_vuelo_vuelta"))
     noches_alojamiento = "7 noches"
-    fecha_ida = quote.get("fecha_vuelo_ida")
-    fecha_vuelta = quote.get("fecha_vuelo_vuelta")
-    if fecha_ida and fecha_vuelta:
-        try:
-            d_ida = datetime.strptime(fecha_ida, "%d/%m/%Y")
-            d_vuelta = datetime.strptime(fecha_vuelta, "%d/%m/%Y")
-            noches = abs((d_vuelta - d_ida).days)
-            noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
-        except Exception:
-            pass
+    if fecha_ida_dt and fecha_vuelta_dt:
+        noches = abs((fecha_vuelta_dt - fecha_ida_dt).days)
+        noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
     quote["noches_alojamiento"] = noches_alojamiento
+    
+    quote["fecha_vuelo_ida"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_ida"))
+    quote["fecha_vuelo_vuelta"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_vuelta"))
+    quote["fecha_salida"] = format_to_dd_mm_yy(quote.get("fecha_salida"))
+    if "validez_cotizacion" in quote:
+        quote["validez_cotizacion"] = format_to_dd_mm_yy(quote.get("validez_cotizacion"))
     
     equipaje = quote.get("equipaje", [])
     baggage_parts = []
@@ -535,18 +563,19 @@ def api_save_cotizacion(payload: dict, current_user: str = Depends(verify_agent_
     elif cant_pax > 4: base_habitacion = "Grupal"
     payload["base_habitacion"] = base_habitacion
     
+    fecha_ida_dt = parse_date(payload.get("fecha_vuelo_ida"))
+    fecha_vuelta_dt = parse_date(payload.get("fecha_vuelo_vuelta"))
     noches_alojamiento = "7 noches"
-    fecha_ida = payload.get("fecha_vuelo_ida")
-    fecha_vuelta = payload.get("fecha_vuelo_vuelta")
-    if fecha_ida and fecha_vuelta:
-        try:
-            d_ida = datetime.strptime(fecha_ida, "%d/%m/%Y")
-            d_vuelta = datetime.strptime(fecha_vuelta, "%d/%m/%Y")
-            noches = abs((d_vuelta - d_ida).days)
-            noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
-        except Exception:
-            pass
+    if fecha_ida_dt and fecha_vuelta_dt:
+        noches = abs((fecha_vuelta_dt - fecha_ida_dt).days)
+        noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
     payload["noches_alojamiento"] = noches_alojamiento
+    
+    payload["fecha_vuelo_ida"] = format_to_dd_mm_yy(payload.get("fecha_vuelo_ida"))
+    payload["fecha_vuelo_vuelta"] = format_to_dd_mm_yy(payload.get("fecha_vuelo_vuelta"))
+    payload["fecha_salida"] = format_to_dd_mm_yy(payload.get("fecha_salida"))
+    if "validez_cotizacion" in payload:
+        payload["validez_cotizacion"] = format_to_dd_mm_yy(payload.get("validez_cotizacion"))
     
     saved_quote = save_cotizacion(payload)
     if not saved_quote:

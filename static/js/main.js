@@ -424,11 +424,11 @@ function logoutAgent(notifyServer = true) {
     }
     const navLogo = document.getElementById('sidebar-logo');
     if (navLogo) {
-        navLogo.src = '/assets/Banner%20letra%20O.png';
+        navLogo.src = '/assets/Logo%20ONE%20TRIP.png';
     }
     const mobileLogo = document.getElementById('mobile-logo');
     if (mobileLogo) {
-        mobileLogo.src = '/assets/Banner%20letra%20O.png';
+        mobileLogo.src = '/assets/Logo%20ONE%20TRIP.png';
     }
 
     navigateTo('/login');

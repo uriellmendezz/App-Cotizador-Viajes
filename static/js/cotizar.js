@@ -280,7 +280,7 @@ window.addEventListener('load', () => {
     flatpickr("#fecha_vuelo_ida", {
         dateFormat: "Y-m-d",
         altInput: true,
-        altFormat: "d/m/Y",
+        altFormat: "d/m/y",
         disableMobile: "true",
         onChange: function (selectedDates, dateStr, instance) {
             const returnPicker = document.getElementById('fecha_vuelo_vuelta')._flatpickr;
@@ -297,7 +297,7 @@ window.addEventListener('load', () => {
     flatpickr("#fecha_vuelo_vuelta", {
         dateFormat: "Y-m-d",
         altInput: true,
-        altFormat: "d/m/Y",
+        altFormat: "d/m/y",
         disableMobile: "true",
         onOpen: function (selectedDates, dateStr, instance) {
             const departureVal = getDatePickerValue('fecha_vuelo_ida');
@@ -409,7 +409,7 @@ window.addEventListener('load', () => {
     flatpickr("#validez_cotizacion", {
         dateFormat: "d/m/Y",
         altInput: true,
-        altFormat: "d/m/Y",
+        altFormat: "d/m/y",
         disableMobile: "true"
     });
 
@@ -1623,14 +1623,22 @@ function formatDatePickerDate(val) {
     if (!val) return "";
     val = val.trim();
     if (val.includes('/')) {
+        const parts = val.split('/');
+        if (parts.length === 3) {
+            const year = parts[2];
+            const yy = year.length === 4 ? year.slice(-2) : year;
+            return `${parts[0]}/${parts[1]}/${yy}`;
+        }
         return val;
     }
     if (val.includes('-')) {
         const parts = val.split('-');
         if (parts[0].length === 4) {
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            const yy = parts[0].slice(-2);
+            return `${parts[2]}/${parts[1]}/${yy}`;
         } else {
-            return `${parts[0]}/${parts[1]}/${parts[2]}`;
+            const yy = parts[2].length === 4 ? parts[2].slice(-2) : parts[2];
+            return `${parts[0]}/${parts[1]}/${yy}`;
         }
     }
     return val;
@@ -3090,7 +3098,7 @@ export function initCotizar() {
     flatpickr("#fecha_vuelo_ida", {
         dateFormat: "Y-m-d",
         altInput: true,
-        altFormat: "d/m/Y",
+        altFormat: "d/m/y",
         disableMobile: "true",
         onChange: function (selectedDates, dateStr, instance) {
             const returnPicker = document.getElementById("fecha_vuelo_vuelta")?._flatpickr;
@@ -3109,7 +3117,7 @@ export function initCotizar() {
     flatpickr("#fecha_vuelo_vuelta", {
         dateFormat: "Y-m-d",
         altInput: true,
-        altFormat: "d/m/Y",
+        altFormat: "d/m/y",
         disableMobile: "true",
         onOpen: function (selectedDates, dateStr, instance) {
             const departureVal = getDatePickerValue("fecha_vuelo_ida");
@@ -3125,7 +3133,7 @@ export function initCotizar() {
     flatpickr("#validez_cotizacion", {
         dateFormat: "Y-m-d",
         altInput: true,
-        altFormat: "d/m/Y",
+        altFormat: "d/m/y",
         disableMobile: "true",
         onChange: function (selectedDates, dateStr, instance) {
             saveDetailedQuoteFormState();
