@@ -234,8 +234,19 @@ def generate_pdf(data: dict) -> bytes:
         if img_vuelta_uri:
             temp_files.append(img_vuelta_uri)
 
+    # Detect currency
+    hoteles_raw = data.get("hoteles", [])
+    moneda = data.get("moneda")
+    if not moneda:
+        for h in hoteles_raw:
+            if h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+                moneda = h.get("moneda")
+                break
+    if not moneda:
+        moneda = "USD"
+
     # ── Process hotel data ─────────────────────────────────────────────────
-    hoteles = data.get("hoteles", [])
+    hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     processed_hotels = []
 
     for idx, hotel in enumerate(hoteles[:3]):  # Max 3 hotels
@@ -298,6 +309,7 @@ def generate_pdf(data: dict) -> bytes:
         "banner_path": banner_uri,
         # Header
         "fecha_generacion": fecha_generacion,
+        "moneda": moneda,
         # Title
         "destino": destino,
         "destino_font_size": destino_font_size,

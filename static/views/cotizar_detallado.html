@@ -70,7 +70,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
                         <div class="flex flex-col gap-2">
                             <label for="origen"
                                 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
@@ -114,6 +114,14 @@
                             </label>
                             <input type="date" id="validez_cotizacion"
                                 class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="moneda_seleccionada" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Moneda</label>
+                            <select id="moneda_seleccionada" onchange="updateRealTimeSummary()"
+                                class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                                <option value="USD">USD (Dólares)</option>
+                                <option value="ARS">ARS (Pesos)</option>
+                            </select>
                         </div>
                         <div class="flex flex-col gap-2">
                             <label
@@ -301,7 +309,7 @@
                                 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Vuelo</label>
                             <div class="relative flex items-center">
                                 <span
-                                    class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
+                                    class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none currency-label">USD</span>
                                 <input type="number" id="monto_vuelos" min="0" step="0.01" value="" placeholder="0.00"
                                     required oninput="calculateAutoFee(); updateRealTimeSummary();"
                                     class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
@@ -321,7 +329,7 @@
                                 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Fee</label>
                             <div class="relative flex items-center">
                                 <span
-                                    class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
+                                    class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none currency-label">USD</span>
                                 <input type="number" id="fee_aereo_monto" min="0" step="0.01" value=""
                                     placeholder="0.00" required oninput="updateRealTimeSummary();"
                                     class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
@@ -363,7 +371,7 @@
                             In/Out</label>
                         <div class="relative flex items-center">
                             <span
-                                class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
+                                class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none currency-label">USD</span>
                             <input type="number" id="monto_traslados" min="0" step="0.01" value="" placeholder="0.00"
                                 required oninput="updateRealTimeSummary();"
                                 class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">

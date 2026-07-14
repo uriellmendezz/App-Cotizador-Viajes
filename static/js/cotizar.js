@@ -62,7 +62,8 @@ function saveDetailedQuoteFormState() {
         monto_traslados: document.getElementById('monto_traslados')?.value || '',
         fee_aereo_tipo: document.getElementById('fee_aereo_tipo')?.value || '',
         selectedBaggage: selectedBaggage,
-        hotels: hotels
+        hotels: hotels,
+        moneda: document.getElementById('moneda_seleccionada')?.value || 'USD'
     };
 
     sessionStorage.setItem('detailedQuoteFormState', JSON.stringify(state));
@@ -98,6 +99,11 @@ function restoreDetailedQuoteFormState() {
 
         const redondeoEl = document.getElementById('aplicar_redondeo');
         if (redondeoEl) redondeoEl.checked = state.aplicar_redondeo !== false;
+
+        const monedaSelect = document.getElementById('moneda_seleccionada');
+        if (monedaSelect && state.moneda) {
+            monedaSelect.value = state.moneda;
+        }
 
         // Set Flatpickr dates
         const setDateSafe = (id, val) => {
@@ -430,6 +436,13 @@ window.addEventListener('load', () => {
     document.getElementById('fecha_vuelo_vuelta').addEventListener('change', updateRealTimeSummary);
     if (document.getElementById('validez_cotizacion')) {
         document.getElementById('validez_cotizacion').addEventListener('change', updateRealTimeSummary);
+    }
+    if (document.getElementById('moneda_seleccionada')) {
+        document.getElementById('moneda_seleccionada').addEventListener('change', () => {
+            updateCurrencyLabels();
+            updateRealTimeSummary();
+            saveDetailedQuoteFormState();
+        });
     }
 
     // Setup cost input focus/blur helpers
@@ -865,7 +878,7 @@ function addHotelCard(data = null) {
             <div class="flex flex-col gap-1">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Costo</label>
                 <div class="relative flex items-center">
-                    <span class="absolute left-3 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
+                    <span class="absolute left-3 text-xs font-bold text-slate-400 pointer-events-none currency-label">${document.getElementById('moneda_seleccionada')?.value || 'USD'}</span>
                     <input type="number" class="hotel-costo-val w-full border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary transition-all bg-white" min="0" step="0.01" required value="${costVal}" placeholder="0.00" oninput="updateRealTimeSummary()">
                 </div>
             </div>
@@ -898,6 +911,7 @@ function addHotelCard(data = null) {
 
     container.appendChild(card);
     updateRemoveButtons();
+    updateCurrencyLabels();
 
     // Add Drag and Drop listeners to all new dropzones
     card.querySelectorAll('.dropzone').forEach(dz => {
@@ -1153,6 +1167,7 @@ function checkIfFormHasData() {
 
 // Real-time Cost Calculation and Sidebar Updates
 function updateRealTimeSummary() {
+    const currency = document.getElementById('moneda_seleccionada')?.value || 'USD';
     const cantPax = parseInt(document.getElementById('cantidad_pasajeros').value) || 1;
     const flightsCost = parseFloat(document.getElementById('monto_vuelos').value) || 0;
     const flightsFee = parseFloat(document.getElementById('fee_aereo_monto').value) || 0;
@@ -1237,35 +1252,35 @@ function updateRealTimeSummary() {
         `;
 
         flightsHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(flightsCost)}</td>
+            <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(flightsCost)}</td>
         `;
 
         feeHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">${flightsFee > 0 ? 'USD ' + formatPriceES(flightsFee) : '<span class="text-slate-300">—</span>'}</td>
+            <td class="py-2 px-2 text-right font-semibold text-slate-700">${flightsFee > 0 ? currency + ' ' + formatPriceES(flightsFee) : '<span class="text-slate-300">—</span>'}</td>
         `;
 
         hotelCostsHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(hotelCost)}</td>
+            <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(hotelCost)}</td>
         `;
 
         transfersHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(transfersCost)}</td>
+            <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(transfersCost)}</td>
         `;
 
         adminFeesHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(adminFee)}</td>
+            <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(adminFee)}</td>
         `;
 
         roundingHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(totalRoundingAdded)}</td>
+            <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(totalRoundingAdded)}</td>
         `;
 
         totalsHtml += `
-            <td class="py-2.5 px-2 text-right text-xs ${isRecomendado ? 'text-brand-primary' : 'text-slate-800'} font-extrabold">USD ${formatPriceES(roundedTotal)}</td>
+            <td class="py-2.5 px-2 text-right text-xs ${isRecomendado ? 'text-brand-primary' : 'text-slate-800'} font-extrabold">${currency} ${formatPriceES(roundedTotal)}</td>
         `;
 
         perPersonHtml += `
-            <td class="py-2.5 px-2 text-right text-xs text-brand-primary font-extrabold">USD ${formatPriceES(roundedPerPerson)}</td>
+            <td class="py-2.5 px-2 text-right text-xs text-brand-primary font-extrabold">${currency} ${formatPriceES(roundedPerPerson)}</td>
         `;
     });
 
@@ -1477,10 +1492,11 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         const roundedPerPerson = aplicarRedondeo ? (Math.ceil(perPerson / 10) * 10) : perPerson;
         const roundedTotal = aplicarRedondeo ? (roundedPerPerson * cantPax) : total;
 
+        const selectedCurrency = document.getElementById('moneda_seleccionada')?.value || 'USD';
         const elTotal = document.getElementById('res-total-price');
-        if (elTotal) elTotal.innerText = `USD ${formatPriceES(roundedTotal)}`;
+        if (elTotal) elTotal.innerText = `${selectedCurrency} ${formatPriceES(roundedTotal)}`;
         const elPax = document.getElementById('res-pax-price');
-        if (elPax) elPax.innerText = `USD ${formatPriceES(roundedPerPerson)} / Pax`;
+        if (elPax) elPax.innerText = `${selectedCurrency} ${formatPriceES(roundedPerPerson)} / Pax`;
         updateBaseLabel();
 
         window.lastGeneratedPdfUrl = url;
@@ -1601,6 +1617,12 @@ function _buildPayload() {
             imagen3: "",
             redondear: aplicarRedondeo
         });
+    });
+
+    const monedaVal = document.getElementById('moneda_seleccionada')?.value || 'USD';
+    payload.hoteles.push({
+        nombre: "METADATA_COTIZACION",
+        moneda: monedaVal
     });
 
     return payload;
@@ -2888,13 +2910,23 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
 
         const hotels = q.hoteles || [];
         isRestoringStateDetailed = true;
-        if (hotels.length === 0) {
-            addHotelCard();
-        } else {
-            hotels.forEach(h => {
+        let hasRealHotels = false;
+        hotels.forEach(h => {
+            if (h.nombre !== "METADATA_COTIZACION") {
                 addHotelCard(h);
-            });
+                hasRealHotels = true;
+            } else {
+                const currency = h.moneda || 'USD';
+                const monedaSelect = document.getElementById('moneda_seleccionada');
+                if (monedaSelect) {
+                    monedaSelect.value = currency;
+                }
+            }
+        });
+        if (!hasRealHotels) {
+            addHotelCard();
         }
+        updateCurrencyLabels();
         isRestoringStateDetailed = false;
 
         // Update edit state and read-only / editing modes
@@ -3408,3 +3440,11 @@ export function editQuoteFromView() {
     navigateTo('/cotizacion-completa');
 }
 window.editQuoteFromView = editQuoteFromView;
+
+function updateCurrencyLabels() {
+    const selectedCurrency = document.getElementById('moneda_seleccionada')?.value || 'USD';
+    document.querySelectorAll('.currency-label').forEach(el => {
+        el.innerText = selectedCurrency;
+    });
+}
+window.updateCurrencyLabels = updateCurrencyLabels;

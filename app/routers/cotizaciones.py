@@ -129,6 +129,14 @@ def format_to_dd_mm_yy(date_val):
         return dt.strftime("%d/%m/%y")
     return str(date_val)
 
+def extract_currency(hoteles):
+    if not hoteles:
+        return "USD"
+    for h in hoteles:
+        if h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+            return h.get("moneda", "USD")
+    return "USD"
+
 @router.get("/config")
 def get_config(current_user: str = Depends(get_current_user)):
     return load_agency_config()
@@ -233,7 +241,11 @@ def api_cotizar(quote: dict, current_user: str = Depends(verify_agent_user)):
         fee_aereo_percent = float(quote.get("fee_aereo_percent", 10.0))
         fee_aereo = monto_vuelos * (fee_aereo_percent / 100.0)
     
-    hoteles = quote.get("hoteles", [])
+    hoteles_raw = quote.get("hoteles", [])
+    moneda = extract_currency(hoteles_raw)
+    quote["moneda"] = moneda
+    
+    hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     if not hoteles:
         raise HTTPException(status_code=400, detail="Se requiere al menos una opción de hotel.")
     
@@ -370,7 +382,11 @@ def api_cotizar_pdf(quote: dict, current_user: str = Depends(verify_agent_user))
         fee_aereo_percent = safe_float(quote.get("fee_aereo_percent", 10.0))
         fee_aereo = monto_vuelos * (fee_aereo_percent / 100.0)
         
-    hoteles = quote.get("hoteles", [])
+    hoteles_raw = quote.get("hoteles", [])
+    moneda = extract_currency(hoteles_raw)
+    quote["moneda"] = moneda
+    
+    hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     if not hoteles:
         raise HTTPException(status_code=400, detail="Se requiere al menos una opción de hotel.")
         
@@ -530,7 +546,11 @@ def api_save_cotizacion(payload: dict, current_user: str = Depends(verify_agent_
         
     payload["fee_aereo"] = fee_aereo
     
-    hoteles = payload.get("hoteles", [])
+    hoteles_raw = payload.get("hoteles", [])
+    moneda = extract_currency(hoteles_raw)
+    payload["moneda"] = moneda
+    
+    hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     redondear = payload.get("redondear", True)
     
     for hotel in hoteles:

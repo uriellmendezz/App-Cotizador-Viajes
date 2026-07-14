@@ -429,7 +429,8 @@ def create_presentation_from_template(template_id: str, folder_id: str, quote_da
             requests.append({"deleteObject": {"objectId": extra_slide["objectId"]}})
     
     # Deleting empty hotel options
-    hotels = quote_data.get("hoteles", [])
+    hoteles_raw = quote_data.get("hoteles", [])
+    hotels = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     if is_v2:
         if len(hotels) < 3:
             print("[Slides] Removing empty Hotel 3 group...")
@@ -459,12 +460,22 @@ def create_presentation_from_template(template_id: str, folder_id: str, quote_da
     costo_total = float(quote_data.get("costo_total", 0.0))
     precio_persona = float(quote_data.get("precio_persona", 0.0))
     
+    # Detect currency
+    moneda = quote_data.get("moneda")
+    if not moneda:
+        for h in hoteles_raw:
+            if h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+                moneda = h.get("moneda")
+                break
+    if not moneda:
+        moneda = "USD"
+
     # Formatting values
     def fmt_curr(val):
         try:
-            return f"USD ${float(val):,.2f}".replace(",", ".")
+            return f"{moneda} ${float(val):,.2f}".replace(",", ".")
         except (ValueError, TypeError):
-            return "USD $0.00"
+            return f"{moneda} $0.00"
             
     today_str = datetime.now().strftime("%d/%m/%Y")
     

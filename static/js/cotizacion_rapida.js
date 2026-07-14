@@ -29,6 +29,7 @@ function saveQuickQuoteFormState() {
         destino: document.getElementById('rapido-destino')?.value || '',
         fechaSalida: document.getElementById('rapido-fecha-salida')?.value || '',
         fechaRegreso: document.getElementById('rapido-fecha-regreso')?.value || '',
+        moneda: document.getElementById('rapido-moneda')?.value || 'USD',
         rows: rows
     };
 
@@ -64,6 +65,11 @@ function restoreQuickQuoteFormState() {
         retPickerInput._flatpickr.setDate(window.savedQuickQuoteState.fechaRegreso);
     }
 
+    const monedaInput = document.getElementById('rapido-moneda');
+    if (monedaInput && window.savedQuickQuoteState.moneda) {
+        monedaInput.value = window.savedQuickQuoteState.moneda;
+    }
+
     window.savedQuickQuoteState.rows.forEach(r => {
         addQuickBudgetRow({ 
             tipo: r.tipo, 
@@ -74,6 +80,7 @@ function restoreQuickQuoteFormState() {
     });
 
     isRestoringState = false;
+    updateQuickCurrencyLabels();
     calculateQuickQuote();
 }
 
@@ -192,6 +199,15 @@ export function initCotizacionRapida() {
     const paxCountInput = document.getElementById('rapido-pax-count');
     if (paxCountInput) {
         paxCountInput.addEventListener('input', () => {
+            calculateQuickQuote();
+            saveQuickQuoteFormState();
+        });
+    }
+
+    const monedaInput = document.getElementById('rapido-moneda');
+    if (monedaInput) {
+        monedaInput.addEventListener('change', () => {
+            updateQuickCurrencyLabels();
             calculateQuickQuote();
             saveQuickQuoteFormState();
         });
@@ -377,6 +393,7 @@ function addQuickBudgetRow(data = null) {
     const tbody = document.getElementById('quick-budget-body');
     if (!tbody) return;
     
+    const currency = document.getElementById('rapido-moneda')?.value || 'USD';
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50/50 transition-colors quick-row border-b border-slate-100';
     
@@ -405,12 +422,12 @@ function addQuickBudgetRow(data = null) {
                     </button>
                 </span>
                 <div class="relative flex items-center justify-end w-full">
-                    <span class="absolute left-2.5 text-[10px] font-extrabold text-slate-400 pointer-events-none">USD</span>
+                    <span class="absolute left-2.5 text-[10px] font-extrabold text-slate-400 pointer-events-none quick-currency-label">${currency}</span>
                     <input type="number" step="0.01" min="0" class="quick-row-monto border border-slate-200 rounded-xl pl-9 pr-2.5 py-1.5 text-right w-full text-sm font-semibold focus:outline-none focus:border-brand-primary" placeholder="0.00" value="${montoVal}">
                 </div>
             </div>
         </td>
-        <td class="quick-row-pax py-3.5 text-right font-semibold text-slate-500 pr-3">USD 0,00</td>
+        <td class="quick-row-pax py-3.5 text-right font-semibold text-slate-500 pr-3">${currency} 0,00</td>
         <td class="py-3.5 text-center">
             <button type="button" class="btn-delete-row text-rose-500 hover:text-rose-700 focus:outline-none cursor-pointer p-1 ${isUndeletable ? 'invisible pointer-events-none' : ''}">
                 <svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -421,6 +438,7 @@ function addQuickBudgetRow(data = null) {
     `;
     
     tbody.appendChild(tr);
+    updateQuickCurrencyLabels();
     
     // Bind dynamic row elements events
     const montoInput = tr.querySelector('.quick-row-monto');
@@ -569,7 +587,14 @@ function getQuickHotelsAndTrasladosSum() {
 
 function calculateQuickQuote() {
     const paxCount = parseInt(document.getElementById('rapido-pax-count')?.value) || 2;
+    const currency = document.getElementById('rapido-moneda')?.value || 'USD';
     
+    // Update headers text
+    const hdrTotal = document.getElementById('hdr-total');
+    if (hdrTotal) hdrTotal.innerText = `Total (${currency})`;
+    const hdrPax = document.getElementById('hdr-pax');
+    if (hdrPax) hdrPax.innerText = `Por Persona (${currency})`;
+
     const flightsSum = getQuickVuelosSum();
     const hotelsAndTransfersSum = getQuickHotelsAndTrasladosSum();
     const adminVal = hotelsAndTransfersSum * 0.05;
@@ -605,17 +630,17 @@ function calculateQuickQuote() {
         
         const paxCell = tr.querySelector('.quick-row-pax');
         if (paxCell) {
-            paxCell.innerText = `USD ${window.formatPriceES(monto / paxCount)}`;
+            paxCell.innerText = `${currency} ${window.formatPriceES(monto / paxCount)}`;
         }
     });
     
     const totalFinal = totalAereo + totalTerrestreNeto + totalAdminFee;
     
     const elTotalFinal = document.getElementById('rapido-total-final');
-    if (elTotalFinal) elTotalFinal.innerText = `USD ${window.formatPriceES(totalFinal)}`;
+    if (elTotalFinal) elTotalFinal.innerText = `${currency} ${window.formatPriceES(totalFinal)}`;
     
     const elTotalPax = document.getElementById('rapido-total-pax');
-    if (elTotalPax) elTotalPax.innerText = `USD ${window.formatPriceES(totalFinal / paxCount)}`;
+    if (elTotalPax) elTotalPax.innerText = `${currency} ${window.formatPriceES(totalFinal / paxCount)}`;
 
     saveQuickQuoteFormState();
 }
@@ -684,7 +709,8 @@ async function saveQuickQuote(andRedirect = false) {
             costo: 0,
             destino: destino,
             fecha_salida: fechaSalida,
-            fecha_regreso: fechaRegreso
+            fecha_regreso: fechaRegreso,
+            moneda: document.getElementById('rapido-moneda')?.value || 'USD'
         }
     ];
     
@@ -971,12 +997,18 @@ async function loadQuickBudgetIntoForm(quoteId) {
                     if (h.fecha_regreso && retPickerInput && retPickerInput._flatpickr) {
                         retPickerInput._flatpickr.setDate(h.fecha_regreso);
                     }
+                    const currency = h.moneda || 'USD';
+                    const monedaSelect = document.getElementById('rapido-moneda');
+                    if (monedaSelect) {
+                        monedaSelect.value = currency;
+                    }
                     return;
                 }
                 const tipo = h.nombre.toLowerCase().includes('traslado') ? 'traslado' : 'hotel';
                 addQuickBudgetRow({ tipo: tipo, label: h.nombre, monto: h.costo });
             });
         }
+        updateQuickCurrencyLabels();
         
         // Add Admin row
         addQuickBudgetRow({ tipo: 'admin' });
@@ -1313,3 +1345,11 @@ export async function saveQuickQuoteChanges() {
     enableQuickFormEditing(false);
 }
 window.saveQuickQuoteChanges = saveQuickQuoteChanges;
+
+function updateQuickCurrencyLabels() {
+    const selectedCurrency = document.getElementById('rapido-moneda')?.value || 'USD';
+    document.querySelectorAll('.quick-currency-label').forEach(el => {
+        el.innerText = selectedCurrency;
+    });
+}
+window.updateQuickCurrencyLabels = updateQuickCurrencyLabels;
