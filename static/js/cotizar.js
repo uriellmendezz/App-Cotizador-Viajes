@@ -614,7 +614,7 @@ function updateHotelBadges() {
         const radioLabel = card.querySelector('.hotel-recommended-label');
         if (radioLabel) {
             if (isRecommended) {
-                radioLabel.className = 'hotel-recommended-label flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand-primary/10 text-brand-primary border border-brand-primary/20 cursor-pointer text-[10px] font-extrabold uppercase tracking-wider transition-all select-none';
+                radioLabel.className = 'hotel-recommended-label hidden';
             } else {
                 radioLabel.className = 'hotel-recommended-label flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 cursor-pointer text-[10px] font-bold uppercase tracking-wider hover:bg-slate-200 transition-all select-none';
             }
@@ -834,7 +834,7 @@ function addHotelCard(data = null) {
                 </svg>
                 Recomendar
             </label>
-            <button type="button" class="remove-hotel-btn text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 bg-rose-50 border border-rose-100 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all" onclick="removeHotelCard('${cardId}')">Eliminar Opción</button>
+            <button type="button" class="remove-hotel-btn ml-auto text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 bg-rose-50 border border-rose-100 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all" onclick="removeHotelCard('${cardId}')">Eliminar Opción</button>
         </div>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
@@ -888,7 +888,7 @@ function addHotelCard(data = null) {
             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Descripción</label>
             <div class="relative flex flex-col w-full">
                 <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[80px] pr-28 resize-y w-full" required placeholder="Ej. Frente al mar..." style="line-height: 1.3;">${data ? (data.hotel_descripcion || data.descripcion || '') : ''}</textarea>
-                <button type="button" class="btn-ia-optimize absolute bottom-1.5 right-1.5 text-[9px] px-2 py-1 bg-gradient-to-r from-brand-primary to-brand-accent text-white font-bold rounded-lg hover:shadow-sm active:scale-95 transition-all" onclick="optimizeDescription(this)">
+                <button type="button" class="btn-ia-optimize absolute bottom-1.5 right-1.5 text-[9px] px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg hover:shadow-sm active:scale-95 transition-all cursor-pointer" onclick="optimizeDescription(this)">
                     Mejorar con IA
                 </button>
             </div>
@@ -2466,6 +2466,109 @@ function updateTabButtonsUI() {
     }
 }
 
+function getAgentBadge(agentName) {
+    if (!agentName || agentName === '-') return '<span class="text-slate-400 font-semibold">-</span>';
+    
+    const name = agentName.trim();
+    const cleanName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    const colors = [
+        { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-600' },
+        { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-600' },
+        { bg: 'bg-purple-50', border: 'border-purple-100', text: 'text-purple-600' },
+        { bg: 'bg-amber-50', border: 'border-amber-100', text: 'text-amber-600' },
+        { bg: 'bg-indigo-50', border: 'border-indigo-100', text: 'text-indigo-600' },
+        { bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-600' },
+        { bg: 'bg-cyan-50', border: 'border-cyan-100', text: 'text-cyan-600' }
+    ];
+    
+    const index = Math.abs(hash) % colors.length;
+    const color = colors[index];
+    
+    return `<span onclick="event.stopPropagation(); filterByAgent('${name}')" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${color.bg} ${color.border} ${color.text} shadow-sm cursor-pointer hover:brightness-95 transition-all" title="Filtrar por este agente">${cleanName}</span>`;
+}
+
+function filterByAgent(agentName) {
+    const searchInput = document.getElementById('quote-search-input');
+    if (searchInput) {
+        searchInput.value = agentName;
+        filterSavedQuotes();
+    }
+}
+window.filterByAgent = filterByAgent;
+
+function renderAgentFilters() {
+    const container = document.getElementById('agent-filters-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const list = savedQuotesActiveTab === 'detalladas' ? allSavedQuotes : allSavedQuickQuotes;
+    const key = savedQuotesActiveTab === 'detalladas' ? 'agente_nombre' : 'agente_id';
+
+    const agentsSet = new Set();
+    list.forEach(q => {
+        const val = q[key];
+        if (val && val !== '-') {
+            agentsSet.add(val.trim());
+        }
+    });
+
+    if (agentsSet.size === 0) return;
+
+    const label = document.createElement('span');
+    label.className = 'text-[10px] font-bold text-slate-450 uppercase tracking-wider mr-1';
+    label.innerText = 'Filtrar Agente:';
+    container.appendChild(label);
+
+    const allBadge = document.createElement('span');
+    allBadge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border border-slate-200 bg-slate-50 text-slate-600 shadow-sm cursor-pointer hover:bg-slate-100 transition-all select-none';
+    allBadge.innerText = 'Todos';
+    allBadge.onclick = () => {
+        const searchInput = document.getElementById('quote-search-input');
+        if (searchInput) {
+            searchInput.value = '';
+            filterSavedQuotes();
+        }
+    };
+    container.appendChild(allBadge);
+
+    agentsSet.forEach(agentName => {
+        const name = agentName.trim();
+        const cleanName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+        
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        
+        const colors = [
+            { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-600' },
+            { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-600' },
+            { bg: 'bg-purple-50', border: 'border-purple-100', text: 'text-purple-600' },
+            { bg: 'bg-amber-50', border: 'border-amber-100', text: 'text-amber-600' },
+            { bg: 'bg-indigo-50', border: 'border-indigo-100', text: 'text-indigo-600' },
+            { bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-600' },
+            { bg: 'bg-cyan-50', border: 'border-cyan-100', text: 'text-cyan-600' }
+        ];
+        
+        const index = Math.abs(hash) % colors.length;
+        const color = colors[index];
+
+        const badge = document.createElement('span');
+        badge.className = `inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${color.bg} ${color.border} ${color.text} shadow-sm cursor-pointer hover:brightness-95 transition-all select-none`;
+        badge.innerText = cleanName;
+        badge.onclick = () => {
+            filterByAgent(name);
+        };
+        container.appendChild(badge);
+    });
+}
+
 function switchSavedQuotesTab(tabName) {
     if (savedQuotesActiveTab === tabName) return;
 
@@ -2500,6 +2603,10 @@ function renderActiveTabTable(customFilteredList = null) {
 
     thead.innerHTML = '';
     tbody.innerHTML = '';
+
+    if (customFilteredList === null) {
+        renderAgentFilters();
+    }
 
     if (savedQuotesActiveTab === 'detalladas') {
         // Detailed headers (no text for delete column header)
@@ -2557,13 +2664,22 @@ function renderActiveTabTable(customFilteredList = null) {
                 </button>
             ` : `<span class="text-slate-300 select-none">-</span>`;
 
+            let currency = 'USD';
+            if (q.hoteles) {
+                const meta = q.hoteles.find(h => h.nombre === "METADATA_COTIZACION");
+                if (meta && meta.moneda) {
+                    currency = meta.moneda;
+                }
+            }
+            const agentBadgeHtml = getAgentBadge(q.agente_nombre);
+
             tr.innerHTML = `
                 <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
                 <td class="p-3 font-semibold text-slate-800">${q.nombre_pax || 'Sin Nombre'}</td>
                 <td class="p-3">${q.destino || 'Sin Destino'}</td>
-                <td class="p-3 hidden md:table-cell">${q.agente_nombre || '-'}</td>
+                <td class="p-3 hidden md:table-cell">${agentBadgeHtml}</td>
                 <td class="p-3 hidden sm:table-cell">${fechaSalidaFormatted}</td>
-                <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
+                <td class="p-3 text-right font-semibold text-brand-primary">${currency} ${formatPriceES(totalUSD)}</td>
                 <td class="p-3 flex justify-center">
                     ${deleteButtonHtml}
                 </td>
@@ -2619,11 +2735,20 @@ function renderActiveTabTable(customFilteredList = null) {
                 </button>
             ` : `<span class="text-slate-300 select-none">-</span>`;
 
+            let currency = 'USD';
+            if (q.hoteles) {
+                const meta = q.hoteles.find(h => h.nombre === "METADATA_PRESUPUESTO_RAPIDO");
+                if (meta && meta.moneda) {
+                    currency = meta.moneda;
+                }
+            }
+            const agentBadgeHtml = getAgentBadge(q.agente_id);
+
             tr.innerHTML = `
                 <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
                 <td class="p-3 font-semibold text-slate-800">${q.pasajero_nombre || 'Sin Nombre'}</td>
-                <td class="p-3 hidden md:table-cell">${q.agente_id || '-'}</td>
-                <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
+                <td class="p-3 hidden md:table-cell">${agentBadgeHtml}</td>
+                <td class="p-3 text-right font-semibold text-brand-primary">${currency} ${formatPriceES(totalUSD)}</td>
                 <td class="p-3 flex justify-center">
                     ${deleteButtonHtml}
                 </td>
@@ -2645,7 +2770,8 @@ function filterSavedQuotes() {
         const filtered = allSavedQuotes.filter(q => {
             const name = (q.nombre_pax || '').toLowerCase();
             const dest = (q.destino || '').toLowerCase();
-            return name.includes(query) || dest.includes(query);
+            const agent = (q.agente_nombre || '').toLowerCase();
+            return name.includes(query) || dest.includes(query) || agent.includes(query);
         });
         renderActiveTabTable(filtered);
     } else {
@@ -2655,7 +2781,8 @@ function filterSavedQuotes() {
         }
         const filtered = allSavedQuickQuotes.filter(q => {
             const name = (q.pasajero_nombre || '').toLowerCase();
-            return name.includes(query);
+            const agent = (q.agente_id || '').toLowerCase();
+            return name.includes(query) || agent.includes(query);
         });
         renderActiveTabTable(filtered);
     }

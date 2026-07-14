@@ -1,10 +1,5 @@
 export async function initInicio() {
     const pageContainer = document.getElementById('inicio-page-container');
-    if (pageContainer) {
-        pageContainer.classList.remove('opacity-0');
-        pageContainer.classList.add('opacity-100');
-    }
-
     const titleEl = document.getElementById('welcome-title');
     if (!titleEl) return;
 
@@ -12,25 +7,35 @@ export async function initInicio() {
     const username = window.loggedInUser || "Agente";
     const agentName = username.charAt(0).toUpperCase() + username.slice(1);
 
+    // Start loading quotes in parallel
+    const quotesPromise = loadRecentQuotes();
+
     // Determine Franchise Name
     let franchiseName = "One Trip Giordano";
+    let configPromise = Promise.resolve();
     if (window.agencyConfig && window.agencyConfig.nombre_agencia) {
         franchiseName = window.agencyConfig.nombre_agencia;
     } else {
-        try {
-            const res = await fetch('/api/config', {
-                headers: {
-                    'Authorization': `Bearer ${window.authToken || ''}`
-                }
-            });
-            if (res.ok) {
-                const config = await res.json();
-                window.agencyConfig = config;
-                franchiseName = config.nombre_agencia || franchiseName;
+        configPromise = fetch('/api/config', {
+            headers: {
+                'Authorization': `Bearer ${window.authToken || ''}`
             }
-        } catch (e) {
-            console.error("Error fetching config in initInicio:", e);
-        }
+        }).then(res => res.ok ? res.json() : null)
+          .then(config => {
+              if (config) {
+                  window.agencyConfig = config;
+                  franchiseName = config.nombre_agencia || franchiseName;
+              }
+          }).catch(e => console.error("Error fetching config in initInicio:", e));
+    }
+
+    // Wait for both calculations to finish
+    await Promise.all([quotesPromise, configPromise]);
+
+    // Now reveal the page container smoothly
+    if (pageContainer) {
+        pageContainer.classList.remove('opacity-0');
+        pageContainer.classList.add('opacity-100');
     }
 
     // Start Typewriter
@@ -67,7 +72,6 @@ export async function initInicio() {
     }
 
     typePart1();
-    loadRecentQuotes();
 }
 
 async function loadRecentQuotes() {

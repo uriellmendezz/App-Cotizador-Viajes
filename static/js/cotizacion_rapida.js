@@ -406,10 +406,50 @@ function addQuickBudgetRow(data = null) {
     const labelTitle = isUndeletable ? '' : 'title="Haz clic para renombrar este concepto"';
     const cursorClass = isUndeletable ? 'cursor-default pointer-events-none' : 'cursor-text';
     
+    let helpIconHtml = '';
+    if (selectedTipo === 'fee-aereo') {
+        helpIconHtml = `
+            <div class="relative group inline-block flex-shrink-0 ml-1">
+                <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
+                    Se calcula automáticamente como el 10% del total de vuelos.
+                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                </div>
+            </div>
+        `;
+    } else if (selectedTipo === 'admin') {
+        helpIconHtml = `
+            <div class="relative group inline-block flex-shrink-0 ml-1">
+                <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
+                    Se calcula automáticamente como el 5% sobre el total terrestre.
+                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    let labelCellHtml = '';
+    if (isUndeletable) {
+        labelCellHtml = `
+            <span class="text-sm font-semibold text-slate-700 bg-transparent py-1 pl-2 select-none">${labelVal}</span>
+            ${helpIconHtml}
+            <input type="hidden" class="quick-row-label" value="${labelVal}">
+        `;
+    } else {
+        labelCellHtml = `
+            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none m-0 w-full ${cursorClass}" value="${labelVal}" ${labelTitle} style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 4px 8px !important; margin: 0 !important;" autocomplete="off">
+        `;
+    }
+
     tr.innerHTML = `
-        <td class="py-3.5 font-bold text-slate-700 flex items-center gap-2 pl-3 bg-white">
+        <td class="py-3.5 font-bold text-slate-700 flex items-center gap-1.5 pl-3 bg-white">
             <span class="quick-row-icon flex items-center justify-center">${conceptTypes[selectedTipo].icon}</span>
-            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none m-0 w-full ${cursorClass}" value="${labelVal}" ${labelTitle} ${isLabelReadOnly} style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 4px 8px !important; margin: 0 !important;" autocomplete="off">
+            ${labelCellHtml}
             <input type="hidden" class="quick-row-tipo" value="${selectedTipo}">
         </td>
         <td class="py-3.5 text-right relative">
