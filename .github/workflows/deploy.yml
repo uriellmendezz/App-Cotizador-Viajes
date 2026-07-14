@@ -3,7 +3,7 @@ name: Deploy to Hugging Face Spaces
 on:
   push:
     branches:
-      - version-4 # <-- CAMBIADO AQUÍ: Ahora reacciona a los pushes en esta rama
+      - v1 # <-- CAMBIADO AQUÍ: Ahora reacciona a los pushes en esta rama
   workflow_dispatch: # Permite disparar el deploy manualmente desde GitHub
 
 jobs:
@@ -24,8 +24,8 @@ jobs:
           # Eliminar el historial de Git local en el workspace de la acción para limpiar binarios históricos
           rm -rf .git
           
-          # Inicializar un nuevo repositorio Git limpio desde cero en la rama version-4
-          git init -b version-4 # <-- CAMBIADO AQUÍ: Inicializa la rama local de la acción como version-4
+          # Inicializar un nuevo repositorio Git limpio desde cero en la rama v1
+          git init -b v1 # <-- CAMBIADO AQUÍ: Inicializa la rama local de la acción como v1
           
           # Configurar identidad de Git para el commit de despliegue
           git config --global user.email "github-actions@github.com"
@@ -47,6 +47,6 @@ jobs:
           # Crear un único commit limpio con los punteros LFS configurados desde el inicio
           git commit -m "Deploy version: ${{ github.sha }}"
           
-          # Agregar el remoto de Hugging Face y empujar con fuerza apuntando a version-4
+          # Agregar el remoto de Hugging Face y empujar con fuerza apuntando a v1
           git remote add hf https://user:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE_PATH
-          git push hf version-4:main --force # <-- CAMBIADO AQUÍ: Empuja tu rama local 'version-4' a la rama 'main' de Hugging Face
+          git push hf v1:main --force # <-- CAMBIADO AQUÍ: Empuja tu rama local 'v1' a la rama 'main' de Hugging Face
