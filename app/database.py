@@ -95,7 +95,11 @@ def save_cotizacion(quote_data: dict) -> dict | None:
             "equipaje": quote_data.get("equipaje", []),
             
             # Save hotels list as a JSON array (including base64 hotel images)
-            "hoteles": quote_data.get("hoteles", [])
+            "hoteles": quote_data.get("hoteles", []),
+            
+            # RBAC and Branch fields
+            "sucursal_id": quote_data.get("sucursal_id"),
+            "agente_id": quote_data.get("agente_id")
         }
         
         quote_id = quote_data.get("id")
@@ -117,18 +121,23 @@ def save_cotizacion(quote_data: dict) -> dict | None:
         print(f"Supabase Client: Operation failed. Error details: {e}")
         return None
 
-def get_cotizaciones() -> list:
+def get_cotizaciones(sucursal_id: str = None) -> list:
     """
     Retrieves all saved detailed quotes metadata from Supabase.
+    Can be filtered by sucursal_id for isolation.
     """
     client = get_supabase_client()
     if not client:
         print("Supabase Client: Client not configured. Skipping get operation.")
         return []
     try:
-        response = client.table("cotizaciones").select(
-            "id, nombre_pax, destino, cantidad_pasajeros, fecha_salida, origen, agente_nombre, costo_total, precio_persona, created_at, base_habitacion"
-        ).order("created_at", desc=True).execute()
+        query = client.table("cotizaciones").select(
+            "id, nombre_pax, destino, cantidad_pasajeros, fecha_salida, origen, agente_nombre, costo_total, precio_persona, created_at, base_habitacion, sucursal_id"
+        )
+        if sucursal_id:
+            query = query.eq("sucursal_id", sucursal_id)
+            
+        response = query.order("created_at", desc=True).execute()
         
         if response and hasattr(response, 'data') and response.data:
             # Filter out quick budgets
@@ -207,7 +216,11 @@ def save_cotizacion_rapida(quote_data: dict) -> dict | None:
             "gastos_iva": float(quote_data.get("gastos_iva", 0.0)),
             "noches_alojamiento": "",
             "img_vuelo_ida": "",
-            "img_vuelo_vuelta": ""
+            "img_vuelo_vuelta": "",
+            
+            # RBAC and Branch fields
+            "sucursal_id": quote_data.get("sucursal_id"),
+            "agente_id": quote_data.get("agente_id")
         }
         
         quote_id = quote_data.get("id")
@@ -240,18 +253,24 @@ def save_cotizacion_rapida(quote_data: dict) -> dict | None:
         print(f"Supabase Client: Operation failed. Error: {e}")
         return None
 
-def get_cotizaciones_rapidas() -> list:
+def get_cotizaciones_rapidas(sucursal_id: str = None) -> list:
     """
     Retrieves all saved quick quotes metadata from the cotizaciones Supabase table.
+    Can be filtered by sucursal_id.
     """
     client = get_supabase_client()
     if not client:
         print("Supabase Client: Client not configured. Skipping get operation.")
         return []
     try:
-        response = client.table("cotizaciones").select(
-            "id, nombre_pax, cantidad_pasajeros, costo_total, agente_nombre, base_habitacion, created_at"
-        ).eq("base_habitacion", "PRESUPUESTO_RAPIDO").order("created_at", desc=True).execute()
+        query = client.table("cotizaciones").select(
+            "id, nombre_pax, cantidad_pasajeros, costo_total, agente_nombre, base_habitacion, created_at, sucursal_id"
+        ).eq("base_habitacion", "PRESUPUESTO_RAPIDO")
+        
+        if sucursal_id:
+            query = query.eq("sucursal_id", sucursal_id)
+            
+        response = query.order("created_at", desc=True).execute()
         
         if response and hasattr(response, 'data'):
             # Map schema to match quick quote list structure

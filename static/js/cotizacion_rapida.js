@@ -768,7 +768,9 @@ async function saveQuickQuote(andRedirect = false) {
     
     const currentUser = (window.loggedInUser || '').toLowerCase();
     const quoteOwner = (window.currentQuickQuoteOwner || '').toLowerCase();
-    if (currentQuickQuoteId && currentUser && quoteOwner && currentUser !== quoteOwner) {
+    const isOwner = (currentUser && quoteOwner && (currentUser === quoteOwner)) ||
+                    (window.userId && quoteOwner && (window.userId.toLowerCase() === quoteOwner));
+    if (currentQuickQuoteId && quoteOwner && !isOwner) {
         currentQuickQuoteId = null;
         window.currentQuickQuoteOwner = null;
         window.showAlert('info', 'Esta cotización pertenece a otro agente. Se ha guardado como una copia nueva bajo tu usuario.');
@@ -778,6 +780,7 @@ async function saveQuickQuote(andRedirect = false) {
         payload.id = currentQuickQuoteId;
     }
     
+    window.changeFavicon('loading');
     window.showLoader("Guardando cotización rápida...");
     const signal = window.getAbortSignal(true);
     
@@ -798,6 +801,7 @@ async function saveQuickQuote(andRedirect = false) {
         currentQuickQuoteId = saved.id;
         window.currentQuickQuoteOwner = saved.agente_id;
         
+        window.changeFavicon('success');
         window.showAlert('success', 'Cotización rápida guardada correctamente.');
         
         if (andRedirect) {
@@ -825,6 +829,7 @@ async function saveQuickQuote(andRedirect = false) {
         }
     } catch (err) {
         if (err.name === 'AbortError') return;
+        window.changeFavicon('error');
         window.showAlert('warning', 'Error al procesar: ' + err.message);
     } finally {
         window.hideLoader();
@@ -1295,7 +1300,8 @@ export function updateQuickEditingIndicator() {
 
         const currentUser = (window.loggedInUser || '').toLowerCase();
         const quoteOwner = (window.currentQuickQuoteOwner || '').toLowerCase();
-        const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+        const isOwner = (currentUser && quoteOwner && (currentUser === quoteOwner)) ||
+                        (window.userId && quoteOwner && (window.userId.toLowerCase() === quoteOwner));
 
         if (isQuickReadOnlyMode) {
             indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando cotización rápida guardada (ID #${currentQuickQuoteId})</span>`;

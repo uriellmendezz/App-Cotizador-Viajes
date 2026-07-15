@@ -592,7 +592,7 @@ textarea:focus {
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 45;
+    z-index: 9999;
 }
 
 @media (min-width: 1024px) {
@@ -607,6 +607,10 @@ textarea:focus {
     
     #app-sidebar.hidden ~ #main-content-wrapper #app-loader-overlay {
         left: 0;
+    }
+
+    #app-sidebar.hidden ~ #main-content-wrapper {
+        padding-left: 0 !important;
     }
 }
 
