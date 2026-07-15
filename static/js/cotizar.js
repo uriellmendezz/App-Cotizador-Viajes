@@ -685,83 +685,191 @@ function showAlert(type, message, preventScroll = false) {
     }, 5000);
 }
 
-// Load Agency Configurations
+// Load Franchise Configurations
 async function loadConfig() {
     try {
         const res = await authenticatedFetch('/api/config');
-        agencyConfig = await res.json();
-
-        // Update Configuration Form inputs
-        document.getElementById('config_nombre_agencia').value = agencyConfig.nombre_agencia;
-        document.getElementById('config_nombre_agencia_legal').value = agencyConfig.nombre_agencia_legal;
-        document.getElementById('color_primary').value = agencyConfig.colores[0];
-        document.getElementById('color_secondary').value = agencyConfig.colores[1];
-        document.getElementById('color_neutral').value = agencyConfig.colores[2];
-        const slidesTemplateInput = document.getElementById('config_slides_template_id');
-        if (slidesTemplateInput) {
-            slidesTemplateInput.value = agencyConfig.google_slides_template_id || '';
+        const data = await res.json();
+        
+        const accessDeniedEl = document.getElementById('config-access-denied');
+        const ownerPanelEl = document.getElementById('config-owner-panel');
+        
+        if (!data.is_owner) {
+            if (accessDeniedEl) accessDeniedEl.classList.remove('hidden');
+            if (ownerPanelEl) ownerPanelEl.classList.add('hidden');
+            return;
         }
-        const slidesFolderInput = document.getElementById('config_slides_folder_id');
-        if (slidesFolderInput) {
-            slidesFolderInput.value = agencyConfig.google_slides_folder_id || '';
+        
+        if (accessDeniedEl) accessDeniedEl.classList.add('hidden');
+        if (ownerPanelEl) ownerPanelEl.classList.remove('hidden');
+        
+        // Render Agent Colors List
+        const listContainer = document.getElementById('agent-colors-list');
+        if (listContainer) {
+            listContainer.innerHTML = '';
+            if (data.agentes && data.agentes.length > 0) {
+                data.agentes.forEach(agente => {
+                    const color = agente.tag_color || '#cbd5e1';
+                    const name = agente.nombre || agente.username || 'Agente';
+                    const cleanName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+                    const username = agente.username || '-';
+                    
+                    const div = document.createElement('div');
+                    div.className = "flex flex-col gap-3 p-4 bg-slate-50 border border-slate-200/60 rounded-2xl shadow-sm hover:border-slate-350 transition-colors duration-200";
+                    div.innerHTML = `
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="truncate text-left">
+                                <h4 class="text-xs font-black text-slate-800 truncate">${cleanName}</h4>
+                                <span class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">@${username}</span>
+                            </div>
+                            <input type="color" data-agent-id="${agente.id}" value="${color}" onchange="updateTagColorPreview(this)"
+                                class="w-9 h-9 rounded-xl border-0 cursor-pointer shadow-sm hover:scale-105 transition-transform">
+                        </div>
+                        <div class="flex items-center justify-center p-2.5 bg-white border border-slate-100 rounded-xl min-h-[42px]">
+                            <span id="preview-badge-${agente.id}" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border shadow-sm transition-all" 
+                                style="background-color: ${color}15; border-color: ${color}30; color: ${color};">
+                                ${cleanName}
+                            </span>
+                        </div>
+                    `;
+                    listContainer.appendChild(div);
+                });
+            } else {
+                listContainer.innerHTML = `
+                    <div class="col-span-full py-8 text-center text-slate-400 font-semibold text-xs">
+                        No hay agentes asignados a esta franquicia.
+                    </div>
+                `;
+            }
         }
-
-        // Update header navbar title & colors
-        const navAgencyName = document.getElementById('nav-agency-name');
-        if (navAgencyName) {
-            navAgencyName.innerText = agencyConfig.nombre_agencia.toUpperCase();
-        }
-        document.documentElement.style.setProperty('--primary-color', agencyConfig.colores[0]);
-        document.documentElement.style.setProperty('--secondary-color', agencyConfig.colores[1]);
-        document.documentElement.style.setProperty('--accent-color', agencyConfig.colores[2]);
-
-        if (agencyConfig.logo_base64) {
-            const logoPreview = document.getElementById('preview-logo');
-            logoPreview.src = 'data:image/png;base64,' + agencyConfig.logo_base64;
-            logoPreview.classList.remove('hidden');
-            document.getElementById('data-logo').value = 'data:image/png;base64,' + agencyConfig.logo_base64;
-
-            // Header Logo
-            const navLogo = document.getElementById('nav-logo');
-            navLogo.src = 'data:image/png;base64,' + agencyConfig.logo_base64;
-            navLogo.classList.remove('hidden');
-        }
+        
     } catch (err) {
         console.error("Error loading brand configuration:", err);
     }
 }
 
-// Save Agency Configurations
-async function saveConfig(e) {
-    e.preventDefault();
-    const configData = {
-        nombre_agencia: document.getElementById('config_nombre_agencia').value,
-        nombre_agencia_legal: document.getElementById('config_nombre_agencia_legal').value,
-        colores: [
-            document.getElementById('color_primary').value,
-            document.getElementById('color_secondary').value,
-            document.getElementById('color_neutral').value
-        ],
-        logo_base64: document.getElementById('data-logo').value.includes('base64') ? document.getElementById('data-logo').value.split(',')[1] : document.getElementById('data-logo').value,
-        google_slides_template_id: document.getElementById('config_slides_template_id') ? document.getElementById('config_slides_template_id').value : '',
-        google_slides_folder_id: document.getElementById('config_slides_folder_id') ? document.getElementById('config_slides_folder_id').value : ''
-    };
+// Live preview update for color pickers
+function updateTagColorPreview(picker) {
+    const agentId = picker.dataset.agentId;
+    const color = picker.value;
+    const badge = document.getElementById(`preview-badge-${agentId}`);
+    if (badge) {
+        badge.style.backgroundColor = `${color}15`;
+        badge.style.borderColor = `${color}30`;
+        badge.style.color = color;
+    }
+}
+window.updateTagColorPreview = updateTagColorPreview;
 
+// Save Agent Tag Colors
+async function saveAgentColors(e) {
+    if (e) e.preventDefault();
+    
+    const pickers = document.querySelectorAll('#agent-colors-list input[type="color"]');
+    const colores_agentes = {};
+    pickers.forEach(picker => {
+        const agentId = picker.dataset.agentId;
+        if (agentId) {
+            colores_agentes[agentId] = picker.value;
+        }
+    });
+    
+    window.showLoader("Guardando colores de etiquetas...");
     try {
         const res = await authenticatedFetch('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(configData)
+            body: JSON.stringify({ colores_agentes })
         });
         const result = await res.json();
-        if (result.status === 'success') {
-            showAlert('success', 'Configuración de marca guardada de forma exitosa.');
-            loadConfig(); // Reload styles and values
+        if (res.ok && result.status === 'success') {
+            showAlert('success', 'Colores de etiquetas actualizados de forma exitosa.');
+            
+            // Re-map local colors in memory to reflect changes instantly on badges
+            if (!window.agentColors) window.agentColors = {};
+            pickers.forEach(picker => {
+                const agentId = picker.dataset.agentId;
+                const color = picker.value;
+                const parent = picker.closest('div.flex-col');
+                const header = parent ? parent.querySelector('h4') : null;
+                const cleanName = header ? header.innerText.trim().toLowerCase() : '';
+                const usernameSpan = parent ? parent.querySelector('span') : null;
+                const cleanUsername = usernameSpan ? usernameSpan.innerText.replace('@', '').trim().toLowerCase() : '';
+                
+                if (cleanName) window.agentColors[cleanName] = color;
+                if (cleanUsername) window.agentColors[cleanUsername] = color;
+            });
+            
+            loadConfig();
+        } else {
+            throw new Error(result.detail || 'Error al guardar los cambios');
         }
     } catch (err) {
         showAlert('warning', 'Error al guardar la configuración: ' + err.message);
+    } finally {
+        window.hideLoader();
     }
 }
+window.saveAgentColors = saveAgentColors;
+window.saveConfig = saveAgentColors;
+
+// Submit New Agent Addition Request
+async function submitAgentRequest(e) {
+    if (e) e.preventDefault();
+    
+    const nombre = document.getElementById('new_agent_name').value.trim();
+    const email = document.getElementById('new_agent_email').value.trim();
+    const rol = document.getElementById('new_agent_role').value;
+    const notas = document.getElementById('new_agent_notes').value.trim();
+    
+    if (!nombre || !email) {
+        showAlert('warning', 'Por favor complete todos los campos obligatorios del formulario.');
+        return;
+    }
+    
+    const submitBtn = document.getElementById('btn-request-agent-submit');
+    let originalBtnHtml = '';
+    if (submitBtn) {
+        originalBtnHtml = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Enviando solicitud...
+        `;
+    }
+    
+    window.showLoader("Enviando solicitud de alta...");
+    try {
+        const res = await authenticatedFetch('/api/config/solicitar-agente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, email, rol, notas })
+        });
+        const result = await res.json();
+        if (res.ok && result.status === 'success') {
+            showAlert('success', '✔ Solicitud de alta enviada correctamente al Administrador Global.');
+            
+            // Clear form
+            document.getElementById('new_agent_name').value = '';
+            document.getElementById('new_agent_email').value = '';
+            document.getElementById('new_agent_notes').value = '';
+        } else {
+            throw new Error(result.detail || 'Error al procesar la solicitud');
+        }
+    } catch (err) {
+        showAlert('danger', 'Error al solicitar alta: ' + err.message);
+    } finally {
+        window.hideLoader();
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHtml;
+        }
+    }
+}
+window.submitAgentRequest = submitAgentRequest;
 
 // Dynamic Hotel Cards Additions
 function addHotelCard(data = null) {
@@ -2474,6 +2582,15 @@ function getAgentBadge(agentName) {
 
     const name = agentName.trim();
     const cleanName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+
+    // Check if we have a custom color in our global agentColors dictionary
+    const key = name.toLowerCase();
+    let hexColor = (window.agentColors && window.agentColors[key]) || null;
+
+    if (hexColor) {
+        const style = `background-color: ${hexColor}15; border-color: ${hexColor}30; color: ${hexColor};`;
+        return `<span onclick="event.stopPropagation(); filterByAgent('${name}')" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border shadow-sm cursor-pointer hover:brightness-95 transition-all" style="${style}" title="Filtrar por este agente">${cleanName}</span>`;
+    }
 
     let hash = 0;
     for (let i = 0; i < name.length; i++) {

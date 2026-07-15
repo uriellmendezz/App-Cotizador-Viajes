@@ -9,88 +9,81 @@
         </button>
     </div>
 
-    <div id="config-tab" class="tab-content">
-        <div class="bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-sm">
-            <h2 class="font-display font-extrabold text-lg text-slate-800 tracking-tight uppercase mb-6">Configuración
-                de Marca y Sincronización</h2>
+    <!-- Access Denied Message Container -->
+    <div id="config-access-denied" class="hidden bg-white border border-slate-200 rounded-3xl p-8 text-center max-w-md mx-auto mt-12 shadow-sm space-y-6">
+        <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto shadow-sm">
+            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m0-6v2m0-5a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="space-y-2">
+            <h3 class="font-display font-black text-xl text-slate-800 uppercase tracking-tight">Acceso Restringido</h3>
+            <p class="text-xs text-slate-500 font-semibold leading-relaxed">Esta sección está disponible únicamente para el Dueño o Encargado de la Franquicia.</p>
+        </div>
+    </div>
 
-            <form id="config-form" onsubmit="saveConfig(event)" class="space-y-8">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <!-- Branding and colors -->
-                    <div class="space-y-6">
-                        <h3
-                            class="font-display font-bold text-sm uppercase text-slate-500 tracking-wider border-b border-slate-100 pb-2">
-                            Identidad Visual</h3>
-
-                        <div class="flex flex-col gap-2">
-                            <label for="config_nombre_agencia"
-                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre Comercial de la
-                                Agencia</label>
-                            <input type="text" id="config_nombre_agencia" required
-                                class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
-                        </div>
-
-                        <div class="flex flex-col gap-2">
-                            <label for="config_nombre_agencia_legal"
-                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre Legal (Razón
-                                Social)</label>
-                            <input type="text" id="config_nombre_agencia_legal" required
-                                class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
-                        </div>
-
-                        <div class="flex flex-col gap-2">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Colores de
-                                Marca</label>
-                            <div class="grid grid-cols-3 gap-4">
-                                <div class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 bg-white">
-                                    <input type="color" id="color_primary"
-                                        class="w-8 h-8 rounded-full border-0 cursor-pointer">
-                                    <span class="text-xs font-bold text-slate-600">Primario</span>
-                                </div>
-                                <div class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 bg-white">
-                                    <input type="color" id="color_secondary"
-                                        class="w-8 h-8 rounded-full border-0 cursor-pointer">
-                                    <span class="text-xs font-bold text-slate-600">Secundario</span>
-                                </div>
-                                <div class="flex items-center gap-2 border border-slate-200 rounded-xl p-2 bg-white">
-                                    <input type="color" id="color_neutral"
-                                        class="w-8 h-8 rounded-full border-0 cursor-pointer">
-                                    <span class="text-xs font-bold text-slate-600">Neutro</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Logo integration -->
-                    <div class="space-y-6">
-                        <h3
-                            class="font-display font-bold text-sm uppercase text-slate-500 tracking-wider border-b border-slate-100 pb-2">
-                            Logo de Agencia</h3>
-
-                        <div class="flex flex-col gap-2">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Logo de la
-                                Agencia</label>
-                            <div class="flex items-center gap-4">
-                                <div class="flex-1 dropzone border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-4 text-center cursor-pointer min-h-[90px] flex flex-col items-center justify-center transition-all"
-                                    onclick="triggerFileInput('config_logo')">
-                                    <span class="text-xs text-slate-500 font-bold">Subir nuevo logo</span>
-                                    <input type="file" id="config_logo" accept="image/*" class="hidden"
-                                        onchange="handleImageUpload(this, 'preview-logo', 'data-logo')">
-                                    <input type="hidden" id="data-logo">
-                                </div>
-                                <div
-                                    class="w-20 h-20 border border-slate-200 rounded-xl p-2 flex items-center justify-center bg-slate-50">
-                                    <img id="preview-logo" class="max-w-full max-h-full object-contain hidden" alt="">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <!-- Owner Settings Panel -->
+    <div id="config-owner-panel" class="hidden space-y-8">
+        <!-- Colores de Etiquetas de Agentes -->
+        <div class="bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-sm space-y-6">
+            <div class="border-b border-slate-100 pb-3">
+                <h3 class="font-display font-black text-base text-slate-800 uppercase tracking-wide">Personalización de Etiquetas</h3>
+                <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Asigna colores personalizados a los agentes de tu sucursal para identificarlos visualmente.</p>
+            </div>
+            
+            <form id="agent-colors-form" onsubmit="saveAgentColors(event)" class="space-y-6">
+                <div id="agent-colors-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <!-- Se poblará dinámicamente -->
                 </div>
-
+                
                 <div class="flex justify-end pt-4 border-t border-slate-100">
                     <button type="submit"
-                        class="px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-300">Guardar
-                        Configuración</button>
+                        class="px-6 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-300 cursor-pointer">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Solicitar Alta de Nuevo Agente -->
+        <div class="bg-white border border-slate-200 rounded-3xl p-6 lg:p-8 shadow-sm space-y-6">
+            <div class="border-b border-slate-100 pb-3">
+                <h3 class="font-display font-black text-base text-slate-800 uppercase tracking-wide">Solicitar Alta de Agente</h3>
+                <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Envía una solicitud formal al Administrador Global para registrar un nuevo agente bajo tu franquicia.</p>
+            </div>
+            
+            <form id="request-agent-form" onsubmit="submitAgentRequest(event)" class="space-y-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div class="flex flex-col gap-1.5">
+                        <label for="new_agent_name" class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest pl-1">Nombre Completo</label>
+                        <input type="text" id="new_agent_name" required placeholder="Ej. Juan Pérez"
+                            class="w-full border border-slate-200 bg-slate-50/50 hover:bg-slate-50/80 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="new_agent_email" class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest pl-1">Email Institucional</label>
+                        <input type="email" id="new_agent_email" required placeholder="Ej. juanp@onetrip.com"
+                            class="w-full border border-slate-200 bg-slate-50/50 hover:bg-slate-50/80 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label for="new_agent_role" class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest pl-1">Rol Sugerido</label>
+                        <select id="new_agent_role" required
+                            class="w-full border border-slate-200 bg-slate-50/50 hover:bg-slate-50/80 rounded-xl px-4 py-3 text-sm font-semibold text-slate-850 focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
+                            <option value="AGENTE_SUCURSAL" selected>Agente de Sucursal</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col gap-1.5">
+                    <label for="new_agent_notes" class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest pl-1">Notas / Justificación</label>
+                    <textarea id="new_agent_notes" rows="4" placeholder="Indica el motivo de la incorporación o detalles del puesto..."
+                        class="w-full border border-slate-200 bg-slate-50/50 hover:bg-slate-50/80 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all"></textarea>
+                </div>
+                
+                <div class="flex justify-end pt-2">
+                    <button type="submit" id="btn-request-agent-submit"
+                        class="px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-300 cursor-pointer">
+                        Enviar Solicitud
+                    </button>
                 </div>
             </form>
         </div>

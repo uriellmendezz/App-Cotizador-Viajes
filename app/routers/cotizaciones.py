@@ -137,14 +137,251 @@ def extract_currency(hoteles):
             return h.get("moneda", "USD")
     return "USD"
 
+def send_notification_email(sender_franchise: str, owner_name: str, owner_email: str, agent_name: str, agent_email: str, agent_role: str, notes: str):
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = os.getenv("SMTP_PORT", "587")
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    admin_email = os.getenv("GLOBAL_ADMIN_EMAIL", "admin@onetrip.com")
+    
+    body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #334155; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <h2 style="color: #ff545d; margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Solicitud de Alta de Agente</h2>
+            <p style="font-size: 12px; color: #94a3b8; font-weight: 600; margin: 4px 0 0 0;">One Trip Giordano · Portal de Franquicias</p>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 16px 0;" />
+        <p style="font-size: 14px; font-weight: 600;">Se ha recibido una nueva solicitud para registrar un agente de viajes en el sistema.</p>
+        
+        <h4 style="color: #475569; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; margin: 20px 0 8px 0; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Detalles del Solicitante</h4>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+                <td style="padding: 4px 0; color: #64748b; font-weight: bold; width: 140px;">Franquicia / Sucursal:</td>
+                <td style="padding: 4px 0; color: #1e293b; font-weight: bold;">{sender_franchise}</td>
+            </tr>
+            <tr>
+                <td style="padding: 4px 0; color: #64748b; font-weight: bold;">Dueño / Encargado:</td>
+                <td style="padding: 4px 0; color: #1e293b;">{owner_name} (<a href="mailto:{owner_email}" style="color: #ff545d; text-decoration: none;">{owner_email}</a>)</td>
+            </tr>
+        </table>
+        
+        <h4 style="color: #475569; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; margin: 24px 0 8px 0; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Datos del Nuevo Agente Propuesto</h4>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+                <td style="padding: 4px 0; color: #64748b; font-weight: bold; width: 140px;">Nombre Completo:</td>
+                <td style="padding: 4px 0; color: #1e293b; font-weight: bold;">{agent_name}</td>
+            </tr>
+            <tr>
+                <td style="padding: 4px 0; color: #64748b; font-weight: bold;">Email Propuesto:</td>
+                <td style="padding: 4px 0; color: #1e293b;"><a href="mailto:{agent_email}" style="color: #ff545d; text-decoration: none;">{agent_email}</a></td>
+            </tr>
+            <tr>
+                <td style="padding: 4px 0; color: #64748b; font-weight: bold;">Rol Sugerido:</td>
+                <td style="padding: 4px 0; color: #475569;"><span style="background-color: #f1f5f9; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: bold;">{agent_role}</span></td>
+            </tr>
+            <tr>
+                <td style="padding: 4px 0; color: #64748b; font-weight: bold; vertical-align: top;">Notas/Justificación:</td>
+                <td style="padding: 4px 0; color: #334155; font-style: italic; white-space: pre-wrap;">{notes or "Sin notas o justificación adicional."}</td>
+            </tr>
+        </table>
+        <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 24px 0 16px 0;" />
+        <p style="font-size: 11px; color: #94a3b8; text-align: center; margin: 0;">Este es un correo automático enviado por el portal de franquicias de One Trip Giordano.</p>
+    </body>
+    </html>
+    """
+    
+    if not smtp_host or not smtp_user or not smtp_password:
+        print("\n=== SOLICITUD DE ALTA DE AGENTE (SMTP DESCONFIGURADO) ===")
+        print(f"Franquicia: {sender_franchise}")
+        print(f"Dueño: {owner_name} ({owner_email})")
+        print(f"Nuevo Agente: {agent_name} ({agent_email}) - Rol: {agent_role}")
+        print(f"Notas: {notes}")
+        print("=========================================================\n")
+        return True
+        
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = smtp_user
+        msg['To'] = admin_email
+        msg['Subject'] = f"Solicitud de Alta de Agente: {agent_name} - Franquicia {sender_franchise}"
+        
+        msg.attach(MIMEText(body, 'html'))
+        
+        server = smtplib.SMTP(smtp_host, int(smtp_port))
+        server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.sendmail(smtp_user, admin_email, msg.as_string())
+        server.close()
+        return True
+    except Exception as e:
+        print(f"Error al enviar email SMTP: {e}")
+        return False
+
 @router.get("/config")
-def get_config(current_user: str = Depends(get_current_user)):
-    return load_agency_config()
+def get_config(current_agent: dict = Depends(get_current_active_agent)):
+    agent_id = current_agent.get("id")
+    sucursal_id = current_agent.get("sucursal_id")
+    rol = current_agent.get("rol")
+    
+    nombre_agencia = "One Trip"
+    logo_base64 = None
+    colores = ["#ff545d", "#ff7f85", "#cbd5e1"]
+    is_owner = False
+    agentes_list = []
+    
+    from app.database import get_supabase_client
+    client = get_supabase_client()
+    
+    if not client:
+        return {
+            "nombre_agencia": nombre_agencia,
+            "logo_base64": logo_base64,
+            "colores": colores,
+            "is_owner": is_owner,
+            "agentes": agentes_list
+        }
+        
+    try:
+        if sucursal_id:
+            suc_res = client.table("sucursales").select("nombre, logo, owner_id").eq("id", sucursal_id).execute()
+            if suc_res and hasattr(suc_res, 'data') and suc_res.data:
+                sucursal = suc_res.data[0]
+                nombre_agencia = sucursal.get("nombre", nombre_agencia)
+                logo_base64 = sucursal.get("logo")
+                
+                owner_id = sucursal.get("owner_id")
+                if owner_id and str(owner_id) == str(agent_id):
+                    is_owner = True
+                elif rol == "ADMIN_GLOBAL":
+                    is_owner = True
+                    
+                if is_owner:
+                    agents_res = client.table("perfiles").select("id, nombre, username, tag_color").eq("sucursal_id", sucursal_id).execute()
+                    if agents_res and hasattr(agents_res, 'data'):
+                        agentes_list = agents_res.data
+        elif rol == "ADMIN_GLOBAL":
+            is_owner = True
+            agents_res = client.table("perfiles").select("id, nombre, username, tag_color").execute()
+            if agents_res and hasattr(agents_res, 'data'):
+                agentes_list = agents_res.data
+    except Exception as e:
+        print(f"Error fetching config: {e}")
+        
+    return {
+        "nombre_agencia": nombre_agencia,
+        "logo_base64": logo_base64,
+        "colores": colores,
+        "is_owner": is_owner,
+        "agentes": agentes_list
+    }
 
 @router.post("/config")
-def post_config(config: dict, current_user: str = Depends(verify_agent_user)):
-    save_agency_config(config)
-    return {"status": "success", "message": "Configuración guardada correctamente."}
+def post_config(payload: dict, current_agent: dict = Depends(get_current_active_agent)):
+    agent_id = current_agent.get("id")
+    sucursal_id = current_agent.get("sucursal_id")
+    rol = current_agent.get("rol")
+    
+    is_owner = False
+    from app.database import get_supabase_client
+    client = get_supabase_client()
+    if not client:
+        raise HTTPException(status_code=500, detail="Base de datos no disponible.")
+        
+    try:
+        if sucursal_id:
+            suc_res = client.table("sucursales").select("owner_id").eq("id", sucursal_id).execute()
+            if suc_res and hasattr(suc_res, 'data') and suc_res.data:
+                owner_id = suc_res.data[0].get("owner_id")
+                if owner_id and str(owner_id) == str(agent_id):
+                    is_owner = True
+        if rol == "ADMIN_GLOBAL":
+            is_owner = True
+            
+        if not is_owner:
+            raise HTTPException(status_code=403, detail="Acceso denegado. Se requieren permisos de Dueño o Encargado de sucursal.")
+            
+        colores_agentes = payload.get("colores_agentes", {})
+        
+        for key_agent_id, color in colores_agentes.items():
+            if rol != "ADMIN_GLOBAL":
+                agent_check = client.table("perfiles").select("sucursal_id").eq("id", key_agent_id).execute()
+                if not agent_check or not hasattr(agent_check, 'data') or not agent_check.data:
+                    continue
+                if str(agent_check.data[0].get("sucursal_id")) != str(sucursal_id):
+                    continue
+                    
+            client.table("perfiles").update({"tag_color": color}).eq("id", key_agent_id).execute()
+            
+        return {"status": "success", "message": "Colores de etiquetas actualizados correctamente."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al guardar configuración: {str(e)}")
+
+@router.post("/config/solicitar-agente")
+def solicitar_agente(payload: dict, current_agent: dict = Depends(get_current_active_agent)):
+    agent_id = current_agent.get("id")
+    sucursal_id = current_agent.get("sucursal_id")
+    rol = current_agent.get("rol")
+    
+    is_owner = False
+    from app.database import get_supabase_client
+    client = get_supabase_client()
+    if not client:
+        raise HTTPException(status_code=500, detail="Base de datos no disponible.")
+        
+    try:
+        sucursal_nombre = "Sin Sucursal"
+        owner_name = current_agent.get("nombre", "Dueño")
+        owner_email = current_agent.get("email", "")
+        
+        if sucursal_id:
+            suc_res = client.table("sucursales").select("nombre, owner_id").eq("id", sucursal_id).execute()
+            if suc_res and hasattr(suc_res, 'data') and suc_res.data:
+                sucursal = suc_res.data[0]
+                sucursal_nombre = sucursal.get("nombre", sucursal_nombre)
+                owner_id = sucursal.get("owner_id")
+                if owner_id and str(owner_id) == str(agent_id):
+                    is_owner = True
+                    
+        if rol == "ADMIN_GLOBAL":
+            is_owner = True
+            
+        if not is_owner:
+            raise HTTPException(status_code=403, detail="Acceso denegado. Se requieren permisos de Dueño o Encargado de sucursal.")
+            
+        agent_name = payload.get("nombre")
+        agent_email = payload.get("email")
+        agent_role = payload.get("rol", "AGENTE_SUCURSAL")
+        notes = payload.get("notas", "")
+        
+        if not agent_name or not agent_email:
+            raise HTTPException(status_code=400, detail="El nombre y el correo electrónico son obligatorios.")
+            
+        success = send_notification_email(
+            sender_franchise=sucursal_nombre,
+            owner_name=owner_name,
+            owner_email=owner_email,
+            agent_name=agent_name,
+            agent_email=agent_email,
+            agent_role=agent_role,
+            notes=notes
+        )
+        
+        if success:
+            return {"status": "success", "message": "Solicitud de alta enviada correctamente al Administrador Global."}
+        else:
+            raise HTTPException(status_code=500, detail="No se pudo enviar el correo electrónico de solicitud.")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar la solicitud: {str(e)}")
 
 @router.post("/optimizar-descripcion")
 def optimizar_descripcion(payload: dict, current_user: str = Depends(get_current_user)):

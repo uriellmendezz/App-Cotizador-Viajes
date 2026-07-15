@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS public.perfiles (
     rol user_role NOT NULL DEFAULT 'AGENTE_SUCURSAL',
     sucursal_id UUID REFERENCES public.sucursales(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    tag_color TEXT DEFAULT '#cbd5e1',
     
     -- Restricción: Los AGENTE_SUCURSAL deben tener sucursal_id de forma obligatoria
     CONSTRAINT check_sucursal_for_agente CHECK (
@@ -208,3 +209,4 @@ CREATE POLICY admin_modify_sucursales ON public.sucursales
 ALTER TABLE public.sucursales ADD COLUMN IF NOT EXISTS logo TEXT;
 ALTER TABLE public.sucursales ADD COLUMN IF NOT EXISTS ubicacion TEXT;
 ALTER TABLE public.sucursales ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES public.perfiles(id) ON DELETE SET NULL;
+ALTER TABLE public.perfiles ADD COLUMN IF NOT EXISTS tag_color TEXT DEFAULT '#cbd5e1';

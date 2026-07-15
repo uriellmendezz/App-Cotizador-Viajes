@@ -270,6 +270,17 @@ async function loadHeaderConfig() {
                 }
             }
             window.agencyConfig = config;
+            
+            window.agentColors = {};
+            if (config.agentes && Array.isArray(config.agentes)) {
+                config.agentes.forEach(a => {
+                    if (a.tag_color) {
+                        if (a.username) window.agentColors[a.username.toLowerCase()] = a.tag_color;
+                        if (a.nombre) window.agentColors[a.nombre.toLowerCase()] = a.tag_color;
+                    }
+                });
+            }
+
             isConfigLoaded = true;
 
             const currentPath = window.location.pathname;
