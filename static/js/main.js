@@ -34,6 +34,7 @@ function decodeTokenPayload(token) {
     }
 }
 window.decodeTokenPayload = decodeTokenPayload;
+window.userId = authToken ? (decodeTokenPayload(authToken)?.sub || null) : null;
 
 function setSession(token, username) {
     authToken = token;
@@ -49,6 +50,7 @@ function setSession(token, username) {
         window.userRole = userRole;
         window.userSucursalId = userSucursalId;
         window.userSucursalNombre = userSucursalNombre;
+        window.userId = payload.sub || null;
         localStorage.setItem('authToken', token);
         localStorage.setItem('loggedInUser', username);
         if (userRole) localStorage.setItem('userRole', userRole);
@@ -64,6 +66,7 @@ function setSession(token, username) {
         window.userRole = null;
         window.userSucursalId = null;
         window.userSucursalNombre = null;
+        window.userId = null;
         localStorage.removeItem('authToken');
         localStorage.removeItem('loggedInUser');
         localStorage.removeItem('userRole');
@@ -864,3 +867,53 @@ function updateHomeButtonVisibility() {
 }
 window.updateHomeButtonVisibility = updateHomeButtonVisibility;
 window.addEventListener('resize', updateHomeButtonVisibility);
+
+// Fallback for loading quick budgets when the cotizacion_rapida.js is not loaded yet
+window.loadQuickBudgetIntoForm = function(quoteId) {
+    const isFormPage = !!document.getElementById('quick-budget-body');
+    if (!isFormPage) {
+        window.pendingEditQuickBudgetId = quoteId;
+        window.navigateTo('/cotizacion-rapida');
+    }
+};
+
+let faviconTimer = null;
+function changeFavicon(type) {
+    if (faviconTimer) {
+        clearTimeout(faviconTimer);
+        faviconTimer = null;
+    }
+
+    const faviconEl = document.querySelector('link[rel="icon"]') || document.querySelector('link[rel="shortcut icon"]');
+    if (!faviconEl) return;
+
+    let href = '/assets/favicon.png';
+    let duration = 0;
+
+    switch (type) {
+        case 'loading':
+            href = '/assets/favicon-loading.png';
+            break;
+        case 'success':
+            href = '/assets/favicon-ok.png';
+            duration = 3000;
+            break;
+        case 'error':
+            href = '/assets/favicon-error.png';
+            duration = 4000;
+            break;
+        case 'default':
+        default:
+            href = '/assets/favicon.png';
+            break;
+    }
+
+    faviconEl.setAttribute('href', href + '?v=' + Date.now());
+
+    if (duration > 0) {
+        faviconTimer = setTimeout(() => {
+            changeFavicon('default');
+        }, duration);
+    }
+}
+window.changeFavicon = changeFavicon;

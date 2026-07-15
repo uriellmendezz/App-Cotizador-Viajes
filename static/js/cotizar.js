@@ -1393,6 +1393,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         formTab.classList.add('hidden');
     }
 
+    window.changeFavicon('loading');
     if (isViewingSavedQuote) {
         window.showLoader(`Cargando cotización para ${paxNameForLoading}`);
     } else {
@@ -1453,6 +1454,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         currentPdfBlob = blob;
 
         window.hideLoader();
+        window.changeFavicon('success');
 
         // Update PDF iframe preview source
         const url = window.URL.createObjectURL(blob);
@@ -1517,6 +1519,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
     } catch (err) {
         if (err.name === 'AbortError') return;
         window.hideLoader();
+        window.changeFavicon('error');
         const formTab = document.getElementById('cotizacion-tab');
         if (formTab) {
             formTab.classList.remove('hidden');
@@ -2722,7 +2725,8 @@ function renderActiveTabTable(customFilteredList = null) {
 
             const currentUser = (window.loggedInUser || '').toLowerCase();
             const quoteOwner = (q.agente_id || '').toLowerCase();
-            const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+            const isOwner = (currentUser && quoteOwner && (currentUser === quoteOwner)) || 
+                            (window.userId && quoteOwner && (window.userId.toLowerCase() === quoteOwner));
 
             const deleteButtonHtml = isOwner ? `
                 <button type="button" 
@@ -3214,6 +3218,7 @@ async function saveQuoteChanges() {
     }
 
     const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
+    window.changeFavicon('loading');
     window.showLoader(`Guardando cambios para ${paxNameForLoading}...`);
 
     let payload = _buildPayload();
@@ -3241,6 +3246,7 @@ async function saveQuoteChanges() {
     } catch (saveErr) {
         if (saveErr.name === 'AbortError') return;
         window.hideLoader();
+        window.changeFavicon('error');
         showAlert('danger', 'Error al guardar los cambios: ' + saveErr.message);
     }
 }
@@ -3448,6 +3454,7 @@ export async function initVerCotizacion() {
         return;
     }
 
+    window.changeFavicon('loading');
     window.showLoader("Cargando cotización...");
     const signal = window.getAbortSignal(true);
 
@@ -3552,9 +3559,11 @@ export async function initVerCotizacion() {
         }
 
         window.hideLoader();
+        window.changeFavicon('success');
     } catch (e) {
         if (e.name === 'AbortError') return;
         window.hideLoader();
+        window.changeFavicon('error');
         showAlert('danger', "Error al cargar la cotización: " + e.message);
     }
 }

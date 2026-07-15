@@ -80,6 +80,37 @@ def delete_sucursal(sucursal_id: str, current_admin: dict = Depends(verify_admin
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al eliminar sucursal: {str(e)}")
 
+@router.put("/sucursales/{sucursal_id}")
+def update_sucursal(sucursal_id: str, payload: dict, current_admin: dict = Depends(verify_admin_global)):
+    nombre = payload.get("nombre", "").strip()
+    logo = payload.get("logo")
+    ubicacion = payload.get("ubicacion", "").strip()
+    owner_id = payload.get("owner_id")
+    
+    if not nombre:
+        raise HTTPException(status_code=400, detail="El nombre de la sucursal es obligatorio.")
+        
+    client = get_supabase_admin_client()
+    if not client:
+        raise HTTPException(status_code=500, detail="Supabase client not configured.")
+        
+    try:
+        update_data = {
+            "nombre": nombre,
+            "ubicacion": ubicacion if ubicacion else None,
+            "owner_id": owner_id if owner_id else None
+        }
+        # Only update logo if it's explicitly passed in payload
+        if "logo" in payload:
+            update_data["logo"] = payload["logo"] if payload["logo"] else None
+
+        res = client.table("sucursales").update(update_data).eq("id", sucursal_id).execute()
+        if res and hasattr(res, "data") and res.data:
+            return res.data[0]
+        raise HTTPException(status_code=400, detail="No se pudo actualizar la sucursal.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar sucursal: {str(e)}")
+
 # ── ENDPOINTS DE AGENTES ──────────────────────────────────────────────────────
 
 @router.get("/agentes")

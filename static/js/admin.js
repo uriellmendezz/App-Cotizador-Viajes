@@ -1,10 +1,7 @@
-// static/js/admin.js
-
-// static/js/admin.js
-
 let agentesCache = [];
 let sucursalesCache = [];
 let editingAgenteId = null;
+let editingSucursalId = null;
 let sucursalLogoBase64 = null;
 
 export async function initAdmin() {
@@ -68,7 +65,7 @@ export async function initAdmin() {
         modalClose.addEventListener('click', closeModal);
         modalCloseFooter.addEventListener('click', closeModal);
     }
-    
+
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             window.showCustomConfirm({
@@ -192,11 +189,11 @@ async function loadSucursales() {
         data.forEach(s => {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-rose-50/10 transition-colors';
-            
+
             const agentCount = agentesCache.filter(a => a.sucursal_id === s.id).length;
             const dateObj = s.created_at ? new Date(s.created_at) : null;
-            const formattedDate = dateObj 
-                ? `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}` 
+            const formattedDate = dateObj
+                ? `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}`
                 : '-';
             const locationStr = s.ubicacion || 'Sin definir';
 
@@ -214,7 +211,12 @@ async function loadSucursales() {
                         Ver (${agentCount})
                     </button>
                 </td>
-                <td class="py-3 pr-2 text-right">
+                <td class="py-3 pr-2 text-right flex justify-end gap-1.5 items-center">
+                    <button type="button" class="btn-edit-sucursal p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-700 rounded-lg cursor-pointer transition-colors" data-id="${s.id}">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </button>
                     <button type="button" class="btn-delete-sucursal p-1.5 hover:bg-rose-50 text-rose-500 hover:text-rose-600 rounded-lg cursor-pointer transition-colors" data-id="${s.id}" data-name="${s.nombre}">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -222,10 +224,15 @@ async function loadSucursales() {
                     </button>
                 </td>
             `;
-            
+
             // View agents listener
             tr.querySelector('.btn-view-branch-agents').addEventListener('click', () => {
                 openSucursalAgentesModal(s);
+            });
+
+            // Edit button listener
+            tr.querySelector('.btn-edit-sucursal').addEventListener('click', () => {
+                startEditSucursal(s);
             });
 
             // Delete button listener
@@ -292,15 +299,15 @@ async function loadAgentes() {
         data.forEach(a => {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-rose-50/10 transition-colors';
-            
+
             const sucursalNombre = a.sucursal_id ? (a.sucursales ? a.sucursales.nombre : 'Cargando...') : 'Global / Multi-sucursal';
-            const roleBadge = a.rol === 'ADMIN_GLOBAL' 
+            const roleBadge = a.rol === 'ADMIN_GLOBAL'
                 ? '<span class="px-2 py-0.5 bg-purple-50 text-purple-700 font-extrabold text-[9px] uppercase tracking-wider rounded-md border border-purple-100">Admin Global</span>'
                 : '<span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold text-[9px] uppercase tracking-wider rounded-md">Agente</span>';
 
             const usernameTag = a.username ? `<span class="block text-[10px] text-slate-400 font-bold mt-0.5">@${a.username}</span>` : '';
             const passwordVal = a.contrasena || null;
-            const displayVal = passwordVal ? '••••••' : 'No disponible';
+            const displayVal = passwordVal ? '••••••••••' : 'No disponible';
 
             tr.innerHTML = `
                 <td class="py-3 pl-4">
@@ -350,7 +357,7 @@ async function loadAgentes() {
                         window.showAlert('info', 'Esta cuenta fue registrada previa al almacenamiento de contraseñas.');
                         return;
                     }
-                    const isMasked = textSpan.innerText === '••••••';
+                    const isMasked = textSpan.innerText === '••••••••••';
                     if (isMasked) {
                         textSpan.innerText = actualPwd;
                         // Eye-off icon
@@ -361,7 +368,7 @@ async function loadAgentes() {
                         `;
                         btnToggle.title = "Ocultar contraseña";
                     } else {
-                        textSpan.innerText = '••••••';
+                        textSpan.innerText = '••••••••••';
                         // Eye icon
                         btnToggle.innerHTML = `
                             <svg class="w-4 h-4 outline-none pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -403,7 +410,7 @@ async function handleCreateSucursal(e) {
     const nombreInput = document.getElementById('sucursal-nombre');
     const ubicacionInput = document.getElementById('sucursal-ubicacion');
     const ownerSelect = document.getElementById('sucursal-owner');
-    
+
     if (!nombreInput) return;
 
     const nombre = nombreInput.value.trim();
@@ -412,33 +419,39 @@ async function handleCreateSucursal(e) {
 
     if (!nombre) return;
 
-    window.showLoader('Registrando sucursal...');
+    const isEdit = !!editingSucursalId;
+    const msg = isEdit ? 'Guardando cambios de la sucursal...' : 'Registrando sucursal...';
+    window.showLoader(msg);
     try {
-        const res = await window.authenticatedFetch('/api/admin/sucursales', {
-            method: 'POST',
+        const url = isEdit ? `/api/admin/sucursales/${editingSucursalId}` : '/api/admin/sucursales';
+        const method = isEdit ? 'PUT' : 'POST';
+        const payload = {
+            nombre,
+            ubicacion,
+            owner_id: owner_id ? owner_id : null
+        };
+        
+        if (!isEdit || sucursalLogoBase64) {
+            payload.logo = sucursalLogoBase64;
+        }
+
+        const res = await window.authenticatedFetch(url, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                nombre, 
-                logo: sucursalLogoBase64, 
-                ubicacion, 
-                owner_id: owner_id ? owner_id : null 
-            })
+            body: JSON.stringify(payload)
         });
 
         if (res.ok) {
-            window.showAlert('success', `Sucursal "${nombre}" registrada correctamente.`);
-            document.getElementById('form-sucursal').reset();
-            const logoLabel = document.getElementById('logo-file-label');
-            if (logoLabel) logoLabel.innerText = "Subir Logo (Drag & Drop)";
-            sucursalLogoBase64 = null;
+            window.showAlert('success', isEdit ? `Sucursal "${nombre}" modificada correctamente.` : `Sucursal "${nombre}" registrada correctamente.`);
+            resetSucursalForm();
             await loadSucursales();
         } else {
             const err = await res.json();
-            window.showAlert('error', `Error al registrar sucursal: ${err.detail || 'Error desconocido'}`);
+            window.showAlert('error', `Error en la operación: ${err.detail || 'Error desconocido'}`);
         }
     } catch (err) {
         console.error(err);
-        window.showAlert('error', 'Error de red al intentar registrar la sucursal.');
+        window.showAlert('error', 'Error de red al procesar la sucursal.');
     } finally {
         window.hideLoader();
     }
@@ -467,7 +480,7 @@ async function handleCreateAgente(e) {
     const isEdit = !!editingAgenteId;
     const msg = isEdit ? 'Guardando cambios del agente...' : 'Registrando y configurando agente...';
     window.showLoader(msg);
-    
+
     try {
         const url = isEdit ? `/api/admin/agentes/${editingAgenteId}` : '/api/admin/agentes';
         const method = isEdit ? 'PUT' : 'POST';
@@ -503,7 +516,7 @@ async function handleCreateAgente(e) {
 
 function startEditAgente(agent) {
     editingAgenteId = agent.id;
-    
+
     document.getElementById('agente-nombre').value = agent.nombre;
     document.getElementById('agente-username').value = agent.username || '';
     document.getElementById('agente-email').value = agent.email;
@@ -511,7 +524,7 @@ function startEditAgente(agent) {
     document.getElementById('agente-password').required = false; // Optional password during edit
     document.getElementById('agente-password').placeholder = "Dejar en blanco para conservar";
     document.getElementById('agente-rol').value = agent.rol;
-    
+
     const wrapper = document.getElementById('agente-sucursal-wrapper');
     const select = document.getElementById('agente-sucursal');
     if (agent.rol === 'ADMIN_GLOBAL') {
@@ -532,7 +545,7 @@ function startEditAgente(agent) {
     const submitBtn = document.getElementById('agente-submit-btn');
     if (titleEl) titleEl.innerText = "Editar Agente";
     if (submitBtn) submitBtn.innerText = "Guardar Cambios";
-    
+
     // Smooth scroll to form container on mobile
     document.getElementById('form-agente')?.scrollIntoView({ behavior: 'smooth' });
 }
@@ -542,11 +555,49 @@ function resetAgenteForm() {
     document.getElementById('form-agente').reset();
     document.getElementById('agente-password').required = true;
     document.getElementById('agente-password').placeholder = "Mínimo 6 caracteres";
-    
+
     const titleEl = document.getElementById('agente-form-title');
     const submitBtn = document.getElementById('agente-submit-btn');
     if (titleEl) titleEl.innerText = "Crear Agente";
     if (submitBtn) submitBtn.innerText = "Registrar Agente";
+}
+
+function startEditSucursal(sucursal) {
+    editingSucursalId = sucursal.id;
+
+    document.getElementById('sucursal-nombre').value = sucursal.nombre;
+    document.getElementById('sucursal-ubicacion').value = sucursal.ubicacion || '';
+    document.getElementById('sucursal-owner').value = sucursal.owner_id || '';
+
+    const logoLabel = document.getElementById('logo-file-label');
+    if (logoLabel) {
+        if (sucursal.logo) {
+            logoLabel.innerText = "Tiene logo (Subir para cambiar)";
+        } else {
+            logoLabel.innerText = "Subir Logo (Drag & Drop)";
+        }
+    }
+    sucursalLogoBase64 = null;
+
+    const titleEl = document.getElementById('sucursal-form-title');
+    const submitBtn = document.getElementById('sucursal-submit-btn');
+    if (titleEl) titleEl.innerText = "Editar Sucursal";
+    if (submitBtn) submitBtn.innerText = "Guardar Cambios";
+
+    document.getElementById('form-sucursal')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetSucursalForm() {
+    editingSucursalId = null;
+    document.getElementById('form-sucursal').reset();
+    const logoLabel = document.getElementById('logo-file-label');
+    if (logoLabel) logoLabel.innerText = "Subir Logo (Drag & Drop)";
+    sucursalLogoBase64 = null;
+
+    const titleEl = document.getElementById('sucursal-form-title');
+    const submitBtn = document.getElementById('sucursal-submit-btn');
+    if (titleEl) titleEl.innerText = "Nueva Sucursal";
+    if (submitBtn) submitBtn.innerText = "Registrar Sucursal";
 }
 
 function openSucursalAgentesModal(sucursal) {
@@ -556,7 +607,7 @@ function openSucursalAgentesModal(sucursal) {
     const modalTitle = document.getElementById('modal-sucursal-title');
     const modalSubtitle = document.getElementById('modal-sucursal-subtitle');
     const modalTableBody = document.getElementById('modal-agentes-table-body');
-    
+
     if (modalTitle) modalTitle.innerText = `Agentes: ${sucursal.nombre}`;
     if (modalSubtitle) modalSubtitle.innerText = `Dirección: ${sucursal.ubicacion || 'Sin dirección física registrada'}`;
 
@@ -576,7 +627,7 @@ function openSucursalAgentesModal(sucursal) {
             filtered.forEach(a => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-50 transition-colors border-b border-slate-100';
-                
+
                 const roleBadge = a.rol === 'ADMIN_GLOBAL'
                     ? '<span class="px-2 py-0.5 bg-purple-50 text-purple-700 font-extrabold text-[9px] uppercase tracking-wider rounded-md border border-purple-100">Admin Global</span>'
                     : '<span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold text-[9px] uppercase tracking-wider rounded-md">Agente</span>';
