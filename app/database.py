@@ -196,7 +196,7 @@ def save_cotizacion_rapida(quote_data: dict) -> dict | None:
             "cantidad_pasajeros": int(quote_data.get("cantidad_pasajeros", 1)),
             "costo_total": float(quote_data.get("total_cotizacion", 0.0)),
             "precio_persona": float(quote_data.get("total_cotizacion", 0.0)) / max(1, int(quote_data.get("cantidad_pasajeros", 1))),
-            "agente_nombre": quote_data.get("agente_id", ""),
+            "agente_nombre": quote_data.get("agente_nombre", quote_data.get("agente_id", "")),
             "base_habitacion": "PRESUPUESTO_RAPIDO",
             
             # Store lists as JSON arrays in standard fields
@@ -256,15 +256,24 @@ def save_cotizacion_rapida(quote_data: dict) -> dict | None:
 def get_cotizaciones_rapidas(sucursal_id: str = None) -> list:
     """
     Retrieves all saved quick quotes metadata from the cotizaciones Supabase table.
-    Can be filtered by sucursal_id.
+    Can be filtered by sucursal_id. Resolves agent UUIDs to their display names.
     """
     client = get_supabase_client()
     if not client:
         print("Supabase Client: Client not configured. Skipping get operation.")
         return []
     try:
+        # Fetch profiles map to resolve agent UUIDs to display names
+        profiles_map = {}
+        try:
+            prof_res = client.table("perfiles").select("id, nombre").execute()
+            if prof_res and hasattr(prof_res, 'data') and prof_res.data:
+                profiles_map = {str(p["id"]): p["nombre"] for p in prof_res.data}
+        except Exception as pe:
+            print(f"Error fetching profiles for quick mapping: {pe}")
+
         query = client.table("cotizaciones").select(
-            "id, nombre_pax, cantidad_pasajeros, costo_total, agente_nombre, base_habitacion, created_at, sucursal_id"
+            "id, nombre_pax, cantidad_pasajeros, costo_total, agente_nombre, agente_id, base_habitacion, created_at, sucursal_id"
         ).eq("base_habitacion", "PRESUPUESTO_RAPIDO")
         
         if sucursal_id:
@@ -273,15 +282,24 @@ def get_cotizaciones_rapidas(sucursal_id: str = None) -> list:
         response = query.order("created_at", desc=True).execute()
         
         if response and hasattr(response, 'data'):
-            # Map schema to match quick quote list structure
             mapped = []
             for row in response.data:
+                agente_val = row.get("agente_nombre") or ""
+                agente_uuid_str = str(row.get("agente_id") or "")
+                
+                # Resolve UUID to display name if necessary
+                resolved_name = agente_val
+                if len(agente_val) == 36 and agente_val.count('-') == 4:
+                    resolved_name = profiles_map.get(agente_val, "Agente")
+                elif not agente_val or (agente_uuid_str in profiles_map):
+                    resolved_name = profiles_map.get(agente_uuid_str, resolved_name or "Agente")
+
                 mapped.append({
                     "id": row["id"],
                     "pasajero_nombre": row["nombre_pax"],
                     "cantidad_pasajeros": row["cantidad_pasajeros"],
                     "total_cotizacion": row["costo_total"],
-                    "agente_id": row["agente_nombre"],
+                    "agente_id": resolved_name,
                     "created_at": row["created_at"]
                 })
             return mapped
@@ -302,6 +320,22 @@ def get_cotizacion_rapida_by_id(quote_id) -> dict | None:
         response = client.table("cotizaciones").select("*").eq("id", quote_id).eq("base_habitacion", "PRESUPUESTO_RAPIDO").execute()
         if response and hasattr(response, 'data') and response.data:
             row = response.data[0]
+            
+            # Resolve UUID to display name if necessary
+            agente_val = row.get("agente_nombre") or ""
+            agente_uuid_str = str(row.get("agente_id") or "")
+            resolved_name = agente_val
+            
+            if (len(agente_val) == 36 and agente_val.count('-') == 4) or not agente_val:
+                try:
+                    uuid_to_look = agente_val if (len(agente_val) == 36 and agente_val.count('-') == 4) else agente_uuid_str
+                    if uuid_to_look:
+                        prof_res = client.table("perfiles").select("nombre").eq("id", uuid_to_look).execute()
+                        if prof_res and hasattr(prof_res, 'data') and prof_res.data:
+                            resolved_name = prof_res.data[0].get("nombre", resolved_name)
+                except Exception:
+                    pass
+
             return {
                 "id": row["id"],
                 "pasajero_nombre": row["nombre_pax"],
@@ -310,7 +344,7 @@ def get_cotizacion_rapida_by_id(quote_id) -> dict | None:
                 "hoteles": row["hoteles"],
                 "gastos_iva": row["gastos_iva"],
                 "total_cotizacion": row["costo_total"],
-                "agente_id": row["agente_nombre"],
+                "agente_id": resolved_name,
                 "created_at": row["created_at"]
             }
         return None

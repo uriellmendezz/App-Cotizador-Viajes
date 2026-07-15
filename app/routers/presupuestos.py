@@ -23,6 +23,7 @@ def api_save_cotizacion_rapida(payload: dict, current_user: dict = Depends(get_c
                     payload.pop("id", None)
 
     payload["agente_id"] = current_user.get("id")
+    payload["agente_nombre"] = current_user.get("nombre")
     payload["sucursal_id"] = current_user.get("sucursal_id")
     saved = save_cotizacion_rapida(payload)
     if not saved:
