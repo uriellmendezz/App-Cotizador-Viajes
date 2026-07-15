@@ -38,8 +38,6 @@ def api_get_cotizaciones_rapidas(current_user: dict = Depends(get_current_active
         return get_cotizaciones_rapidas()
     
     sucursal_id = current_user.get("sucursal_id")
-    if not sucursal_id:
-        raise HTTPException(status_code=400, detail="El agente no tiene una sucursal asignada.")
     return get_cotizaciones_rapidas(sucursal_id=sucursal_id)
 
 @router.get("/{quote_id}")
@@ -53,9 +51,11 @@ def api_get_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get_cu
     if not quote:
         raise HTTPException(status_code=404, detail="Presupuesto rápido no encontrado.")
         
-    # Check branch isolation
+    # Check branch isolation (only enforce if both user and quote have sucursal_id)
     if current_user.get("rol") != "ADMIN_GLOBAL":
-        if str(quote.get("sucursal_id")) != str(current_user.get("sucursal_id")):
+        user_suc = current_user.get("sucursal_id")
+        quote_suc = quote.get("sucursal_id")
+        if user_suc and quote_suc and str(quote_suc) != str(user_suc):
             raise HTTPException(status_code=403, detail="No tienes permisos para acceder a este presupuesto rápido.")
             
     return quote

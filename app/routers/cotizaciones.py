@@ -743,8 +743,6 @@ def api_get_cotizaciones(current_user: dict = Depends(get_current_active_agent))
         return get_cotizaciones()
     
     sucursal_id = current_user.get("sucursal_id")
-    if not sucursal_id:
-        raise HTTPException(status_code=400, detail="El agente no tiene una sucursal asignada.")
     return get_cotizaciones(sucursal_id=sucursal_id)
 
 @router.get("/cotizaciones/{quote_id}")
@@ -758,9 +756,11 @@ def api_get_cotizacion(quote_id: str, current_user: dict = Depends(get_current_a
     if not quote:
         raise HTTPException(status_code=404, detail=f"Cotización con ID {quote_id} no encontrada.")
         
-    # Validar aislamiento por sucursal
+    # Validar aislamiento por sucursal (only enforce if both user and quote have sucursal_id)
     if current_user.get("rol") != "ADMIN_GLOBAL":
-        if str(quote.get("sucursal_id")) != str(current_user.get("sucursal_id")):
+        user_suc = current_user.get("sucursal_id")
+        quote_suc = quote.get("sucursal_id")
+        if user_suc and quote_suc and str(quote_suc) != str(user_suc):
             raise HTTPException(status_code=403, detail="No tienes permisos para acceder a esta cotización.")
             
     return quote
