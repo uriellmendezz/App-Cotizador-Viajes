@@ -1,6 +1,6 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException
-from app.routers.auth import verify_admin_global
+from app.routers.auth import get_current_admin, verify_admin_global
 from app.database import get_supabase_client
 from supabase import create_client
 

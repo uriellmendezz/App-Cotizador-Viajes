@@ -3,9 +3,9 @@ let typewriterTimeout = null;
 let brandIconInterval = null;
 
 export function initLogin() {
-    // Check if session exists in memory
-    const activeToken = window.authToken;
-    const activeUser = window.loggedInUser;
+    // Check if agent session exists in localStorage
+    const activeToken = localStorage.getItem('otg_agent_token');
+    const activeUser = localStorage.getItem('otg_agent_user');
 
     const welcomeSection = document.getElementById('login-welcome-section');
     const loginForm = document.getElementById('login-form');
@@ -224,7 +224,7 @@ function loginSuccess(token, username) {
         window.showLoader("Iniciando sesión...");
     }
     setTimeout(() => {
-        window.setSession(token, username);
+        window.setAgentSession(token, username);
         stopLoginSlideshow();
         stopTypewriter();
         stopBrandIconCycling();

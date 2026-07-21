@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.routers.auth import get_current_active_agent
+from app.routers.auth import get_current_active_agent, resolve_agent_names
 from app.database import save_cotizacion_rapida, get_cotizaciones_rapidas, get_cotizacion_rapida_by_id, delete_cotizacion_rapida
 
 router = APIRouter(prefix="/api/presupuestos", tags=["presupuestos"])
@@ -24,9 +24,12 @@ def api_save_cotizacion_rapida(payload: dict, current_user: dict = Depends(get_c
 
     payload["agente_id"] = current_user.get("id")
     payload["sucursal_id"] = current_user.get("sucursal_id")
+    payload["agente_nombre"] = current_user.get("nombre")
     saved = save_cotizacion_rapida(payload)
     if not saved:
         raise HTTPException(status_code=500, detail="No se pudo guardar el presupuesto rápido en la base de datos.")
+    if saved.get("agente_nombre") is None or "-" in str(saved.get("agente_nombre")):
+        saved["agente_nombre"] = current_user.get("nombre")
     return saved
 
 @router.get("")
@@ -34,12 +37,13 @@ def api_save_cotizacion_rapida(payload: dict, current_user: dict = Depends(get_c
 def api_get_cotizaciones_rapidas(current_user: dict = Depends(get_current_active_agent)):
     """Retrieves all quick quotes from the database, filtered by branch if applicable."""
     if current_user.get("rol") == "ADMIN_GLOBAL":
-        return get_cotizaciones_rapidas()
-    
-    sucursal_id = current_user.get("sucursal_id")
-    if not sucursal_id:
-        raise HTTPException(status_code=400, detail="El agente no tiene una sucursal asignada.")
-    return get_cotizaciones_rapidas(sucursal_id=sucursal_id)
+        quotes = get_cotizaciones_rapidas()
+    else:
+        sucursal_id = current_user.get("sucursal_id")
+        if not sucursal_id:
+            raise HTTPException(status_code=400, detail="El agente no tiene una sucursal asignada.")
+        quotes = get_cotizaciones_rapidas(sucursal_id=sucursal_id)
+    return resolve_agent_names(quotes, current_user)
 
 @router.get("/{quote_id}")
 def api_get_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get_current_active_agent)):
@@ -57,7 +61,8 @@ def api_get_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get_cu
         if str(quote.get("sucursal_id")) != str(current_user.get("sucursal_id")):
             raise HTTPException(status_code=403, detail="No tienes permisos para acceder a este presupuesto rápido.")
             
-    return quote
+    resolved = resolve_agent_names([quote], current_user)
+    return resolved[0]
 
 @router.delete("/{quote_id}")
 def api_delete_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get_current_active_agent)):

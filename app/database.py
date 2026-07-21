@@ -196,7 +196,7 @@ def save_cotizacion_rapida(quote_data: dict) -> dict | None:
             "cantidad_pasajeros": int(quote_data.get("cantidad_pasajeros", 1)),
             "costo_total": float(quote_data.get("total_cotizacion", 0.0)),
             "precio_persona": float(quote_data.get("total_cotizacion", 0.0)) / max(1, int(quote_data.get("cantidad_pasajeros", 1))),
-            "agente_nombre": quote_data.get("agente_id", ""),
+            "agente_nombre": quote_data.get("agente_nombre") or quote_data.get("agente_id", ""),
             "base_habitacion": "PRESUPUESTO_RAPIDO",
             
             # Store lists as JSON arrays in standard fields
@@ -243,7 +243,8 @@ def save_cotizacion_rapida(quote_data: dict) -> dict | None:
                 "hoteles": row["hoteles"],
                 "gastos_iva": row["gastos_iva"],
                 "total_cotizacion": row["costo_total"],
-                "agente_id": row["agente_nombre"],
+                "agente_nombre": row.get("agente_nombre"),
+                "agente_id": row.get("agente_id") or row.get("agente_nombre"),
                 "created_at": row["created_at"]
             }
         else:
@@ -264,7 +265,7 @@ def get_cotizaciones_rapidas(sucursal_id: str = None) -> list:
         return []
     try:
         query = client.table("cotizaciones").select(
-            "id, nombre_pax, cantidad_pasajeros, costo_total, agente_nombre, base_habitacion, created_at, sucursal_id"
+            "id, nombre_pax, cantidad_pasajeros, costo_total, agente_nombre, agente_id, base_habitacion, created_at, sucursal_id"
         ).eq("base_habitacion", "PRESUPUESTO_RAPIDO")
         
         if sucursal_id:
@@ -281,7 +282,8 @@ def get_cotizaciones_rapidas(sucursal_id: str = None) -> list:
                     "pasajero_nombre": row["nombre_pax"],
                     "cantidad_pasajeros": row["cantidad_pasajeros"],
                     "total_cotizacion": row["costo_total"],
-                    "agente_id": row["agente_nombre"],
+                    "agente_nombre": row.get("agente_nombre"),
+                    "agente_id": row.get("agente_id") or row.get("agente_nombre"),
                     "created_at": row["created_at"]
                 })
             return mapped
