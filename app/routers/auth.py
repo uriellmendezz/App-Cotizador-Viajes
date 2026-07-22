@@ -99,10 +99,10 @@ def verify_agent_user(username: str = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Acceso denegado. Permisos de agente requeridos.")
     return username
 
-def get_current_active_agent(authorization: str = Header(None)) -> dict:
+def get_current_agent(authorization: str = Header(None)) -> dict:
     """
-    Dependencia de FastAPI para extraer la información detallada del agente activo
-    (sub, nombre, email, rol, sucursal_id) desde el token JWT.
+    Dependencia de FastAPI para validar token de agente.
+    Deniega el acceso con 403 Forbidden si se intenta usar un token de ADMIN_GLOBAL.
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="No autorizado. Token de sesión faltante.")
@@ -112,6 +112,13 @@ def get_current_active_agent(authorization: str = Header(None)) -> dict:
         if payload.get("type") != "access":
             raise ValueError("Token no apto para acceso")
         
+        rol = payload.get("rol", "AGENTE_SUCURSAL")
+        if rol == "ADMIN_GLOBAL":
+            raise HTTPException(
+                status_code=403, 
+                detail="Acceso denegado. Un token de administrador no puede consumir endpoints de agente."
+            )
+            
         sub = payload.get("sub")
         if sub == "guest":
             return {
@@ -126,17 +133,109 @@ def get_current_active_agent(authorization: str = Header(None)) -> dict:
             "id": sub,
             "nombre": payload.get("nombre", sub),
             "email": payload.get("email"),
-            "rol": payload.get("rol", "AGENTE_SUCURSAL"),
+            "rol": rol,
             "sucursal_id": payload.get("sucursal_id")
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=401, detail=f"Sesión expirada o inválida: {str(e)}")
 
-def verify_admin_global(current_agent: dict = Depends(get_current_active_agent)) -> dict:
-    """Verifica que el agente tenga el rol ADMIN_GLOBAL."""
-    if current_agent.get("rol") != "ADMIN_GLOBAL":
-        raise HTTPException(status_code=403, detail="Acceso denegado. Se requieren permisos de Administrador Global.")
-    return current_agent
+def get_current_active_agent(authorization: str = Header(None)) -> dict:
+    """Alias para la dependencia get_current_agent para compatibilidad."""
+    return get_current_agent(authorization=authorization)
+
+def get_current_admin(authorization: str = Header(None)) -> dict:
+    """
+    Dependencia de FastAPI para validar token de administración (ADMIN_GLOBAL).
+    Deniega el acceso con 403 Forbidden a cualquier usuario no administrador.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="No autorizado. Token de sesión faltante.")
+    token = authorization.split(" ")[1]
+    try:
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            raise ValueError("Token no apto para acceso")
+            
+        rol = payload.get("rol")
+        if rol != "ADMIN_GLOBAL":
+            raise HTTPException(
+                status_code=403, 
+                detail="Acceso denegado. Se requieren permisos de Administrador Global."
+            )
+            
+        sub = payload.get("sub")
+        return {
+            "id": sub,
+            "nombre": payload.get("nombre", sub),
+            "email": payload.get("email"),
+            "rol": rol,
+            "sucursal_id": payload.get("sucursal_id")
+        }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Sesión expirada o inválida: {str(e)}")
+
+def verify_admin_global(authorization: str = Header(None)) -> dict:
+    """Alias para la dependencia get_current_admin para compatibilidad."""
+    return get_current_admin(authorization=authorization)
+
+def resolve_agent_names(quotes: list, current_user: dict = None) -> list:
+    """
+    Enriquece listas de cotizaciones asegurando nombres de agente legibles.
+    Si agente_nombre es un UUID o está vacío, lo resuelve contra current_user o la tabla perfiles de Supabase.
+    """
+    if not quotes:
+        return []
+
+    unresolved_uuids = set()
+    user_id_curr = current_user.get("id") if current_user else None
+    user_name_curr = current_user.get("nombre") if current_user else None
+
+    for q in quotes:
+        agent_name = q.get("agente_nombre")
+        agent_id = q.get("agente_id")
+
+        if not agent_name or "-" in str(agent_name) or len(str(agent_name)) > 20:
+            if user_id_curr and (agent_id == user_id_curr or agent_name == user_id_curr):
+                q["agente_nombre"] = user_name_curr
+            elif agent_id and ("-" in str(agent_id) or len(str(agent_id)) > 20):
+                unresolved_uuids.add(str(agent_id))
+            elif agent_name and ("-" in str(agent_name) or len(str(agent_name)) > 20):
+                unresolved_uuids.add(str(agent_name))
+
+    if unresolved_uuids:
+        try:
+            from app.database import get_supabase_client
+            supabase = get_supabase_client()
+            if supabase:
+                res = supabase.table("perfiles").select("id, nombre, username").in_("id", list(unresolved_uuids)).execute()
+                if res and hasattr(res, "data") and res.data:
+                    name_map = {
+                        p["id"]: (p.get("nombre") or p.get("username")) for p in res.data if p.get("nombre") or p.get("username")
+                    }
+                    for q in quotes:
+                        agent_name = q.get("agente_nombre")
+                        agent_id = q.get("agente_id")
+                        if not agent_name or "-" in str(agent_name) or len(str(agent_name)) > 20:
+                            if agent_id in name_map:
+                                q["agente_nombre"] = name_map[agent_id]
+                            elif agent_name in name_map:
+                                q["agente_nombre"] = name_map[agent_name]
+        except Exception as e:
+            print(f"Error resolving agent names from perfiles: {e}")
+
+    for q in quotes:
+        agent_name = q.get("agente_nombre")
+        if not agent_name or "-" in str(agent_name) or len(str(agent_name)) > 20:
+            if user_id_curr and q.get("agente_id") == user_id_curr:
+                q["agente_nombre"] = user_name_curr
+            else:
+                q["agente_nombre"] = "Agente"
+
+    return quotes
 
 @router.post("/login")
 def api_login(payload: dict, response: Response):
@@ -172,12 +271,14 @@ def api_login(payload: dict, response: Response):
                     profile = profile_res.data[0]
                     sucursal_data = profile.get("sucursales")
                     sucursal_nombre = sucursal_data.get("nombre") if isinstance(sucursal_data, dict) else None
+                    rol = profile.get("rol")
+                    display_name = profile.get("nombre") or profile.get("username") or (profile.get("email", "").split("@")[0].capitalize() if profile.get("email") else "Agente")
                     access_token = create_token(
                         payload={
                             "sub": user_id,
-                            "nombre": profile.get("nombre"),
+                            "nombre": display_name,
                             "email": profile.get("email"),
-                            "rol": profile.get("rol"),
+                            "rol": rol,
                             "sucursal_id": str(profile.get("sucursal_id")) if profile.get("sucursal_id") else None,
                             "sucursal_nombre": sucursal_nombre,
                             "type": "access"
@@ -185,11 +286,12 @@ def api_login(payload: dict, response: Response):
                         expires_delta=timedelta(minutes=60)
                     )
                     refresh_token = create_token(
-                        payload={"sub": user_id, "type": "refresh"},
+                        payload={"sub": user_id, "type": "refresh", "rol": rol},
                         expires_delta=timedelta(days=7)
                     )
+                    cookie_name = "otg_admin_refresh" if rol == "ADMIN_GLOBAL" else "otg_agent_refresh"
                     response.set_cookie(
-                        key="refresh_token",
+                        key=cookie_name,
                         value=refresh_token,
                         httponly=True,
                         secure=True,
@@ -199,8 +301,8 @@ def api_login(payload: dict, response: Response):
                     )
                     return {
                         "access_token": access_token,
-                        "username": profile.get("nombre"),
-                        "rol": profile.get("rol"),
+                        "username": display_name,
+                        "rol": rol,
                         "sucursal_id": profile.get("sucursal_id")
                     }
         except Exception as e:
@@ -221,12 +323,13 @@ def api_login(payload: dict, response: Response):
             expires_delta=timedelta(minutes=60)
         )
         refresh_token = create_token(
-            payload={"sub": username, "type": "refresh"},
+            payload={"sub": username, "type": "refresh", "rol": rol},
             expires_delta=timedelta(days=7)
         )
         
+        cookie_name = "otg_admin_refresh" if rol == "ADMIN_GLOBAL" else "otg_agent_refresh"
         response.set_cookie(
-            key="refresh_token",
+            key=cookie_name,
             value=refresh_token,
             httponly=True,
             secure=True,
@@ -244,36 +347,60 @@ def api_login(payload: dict, response: Response):
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos.")
 
 @router.post("/refresh")
-def api_refresh(response: Response, refresh_token: str = Cookie(None)):
-    if not refresh_token:
+def api_refresh(
+    response: Response, 
+    scope: str = "agent",
+    otg_agent_refresh: str = Cookie(None),
+    otg_admin_refresh: str = Cookie(None),
+    refresh_token: str = Cookie(None)
+):
+    target_token = None
+    if scope == "admin":
+        target_token = otg_admin_refresh or refresh_token
+    else:
+        target_token = otg_agent_refresh or refresh_token
+
+    if not target_token:
         raise HTTPException(status_code=401, detail="Token de refresco faltante")
     try:
-        payload = decode_token(refresh_token)
+        payload = decode_token(target_token)
         if payload.get("type") != "refresh":
             raise ValueError("Token no válido para refresco")
             
         username = payload.get("sub")
+        is_uuid = len(username) > 20 or "-" in username
+        
         # Si es UUID, buscar en Supabase, sino fallback
         from app.database import get_supabase_client
         supabase = get_supabase_client()
         
-        nombre = username.capitalize()
-        email = f"{username}@onetrip.com"
+        nombre = "Agente" if is_uuid else username.capitalize()
+        email = f"{username}@onetrip.com" if not is_uuid else None
         rol = "ADMIN_GLOBAL" if username in ("admin", "uriel") else "AGENTE_SUCURSAL"
         sucursal_id = None
         
-        if supabase and len(username) > 20: # Probable UUID de Supabase
+        if supabase and is_uuid:
             try:
                 profile_res = supabase.table("perfiles").select("*").eq("id", username).execute()
                 if profile_res.data:
                     profile = profile_res.data[0]
-                    nombre = profile.get("nombre")
-                    email = profile.get("email")
-                    rol = profile.get("rol")
+                    fetched_name = profile.get("nombre") or profile.get("username")
+                    if fetched_name:
+                        nombre = fetched_name
+                    elif profile.get("email"):
+                        nombre = profile.get("email").split("@")[0].capitalize()
+                    email = profile.get("email") or email
+                    rol = profile.get("rol") or rol
                     sucursal_id = str(profile.get("sucursal_id")) if profile.get("sucursal_id") else None
             except Exception as e:
                 print(f"Error refrescando perfil desde base de datos: {e}")
                 
+        # Verificar coincidencia de scope con el rol obtenido
+        if scope == "admin" and rol != "ADMIN_GLOBAL":
+            raise ValueError("Token no corresponde a un perfil de administración")
+        if scope == "agent" and rol == "ADMIN_GLOBAL":
+            raise ValueError("Token de administrador no válido para sesión de agente")
+
         new_access_token = create_token(
             payload={
                 "sub": username,
@@ -287,13 +414,20 @@ def api_refresh(response: Response, refresh_token: str = Cookie(None)):
         )
         return {"access_token": new_access_token, "username": nombre}
     except Exception as e:
+        cookie_to_delete = "otg_admin_refresh" if scope == "admin" else "otg_agent_refresh"
+        response.delete_cookie(key=cookie_to_delete, path="/api/auth")
         response.delete_cookie(key="refresh_token", path="/api/auth")
         raise HTTPException(status_code=401, detail=f"Sesión expirada o inválida: {str(e)}")
 
 @router.post("/logout")
-def api_logout(response: Response):
+def api_logout(response: Response, scope: str = "agent"):
+    response.delete_cookie(key="otg_agent_refresh", path="/api/auth")
+    response.delete_cookie(key="otg_agent_refresh", path="/")
+    response.delete_cookie(key="otg_admin_refresh", path="/api/auth")
+    response.delete_cookie(key="otg_admin_refresh", path="/")
     response.delete_cookie(key="refresh_token", path="/api/auth")
-    return {"status": "success"}
+    response.delete_cookie(key="refresh_token", path="/")
+    return {"status": "success", "message": "Sesión cerrada correctamente."}
 
 @router.post("/login-guest")
 def api_login_guest(response: Response):
@@ -309,12 +443,12 @@ def api_login_guest(response: Response):
         expires_delta=timedelta(minutes=60)
     )
     refresh_token = create_token(
-        payload={"sub": "guest", "type": "refresh"},
+        payload={"sub": "guest", "type": "refresh", "rol": "AGENTE_SUCURSAL"},
         expires_delta=timedelta(days=7)
     )
     
     response.set_cookie(
-        key="refresh_token",
+        key="otg_agent_refresh",
         value=refresh_token,
         httponly=True,
         secure=True,
@@ -323,4 +457,5 @@ def api_login_guest(response: Response):
         path="/api/auth"
     )
     return {"access_token": access_token, "username": "guest"}
+
 

@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 
 # Import our custom modules
-from app.routers.auth import get_current_user, verify_agent_user, get_current_active_agent, verify_admin_global
+from app.routers.auth import get_current_user, verify_agent_user, get_current_active_agent, verify_admin_global, resolve_agent_names
 from app.parser import parse_excel_or_csv
 from app.database import save_cotizacion, get_cotizaciones, get_cotizacion_by_id, delete_cotizacion
 from app.google_slides.mcp import create_presentation_from_template
@@ -740,10 +740,13 @@ async def api_extraer_pdf(file: UploadFile = File(...), current_user: str = Depe
 @router.get("/cotizaciones")
 def api_get_cotizaciones(current_user: dict = Depends(get_current_active_agent)):
     if current_user.get("rol") == "ADMIN_GLOBAL":
-        return get_cotizaciones()
-    
-    sucursal_id = current_user.get("sucursal_id")
-    return get_cotizaciones(sucursal_id=sucursal_id)
+        quotes = get_cotizaciones()
+    else:
+        sucursal_id = current_user.get("sucursal_id")
+        if not sucursal_id:
+            raise HTTPException(status_code=400, detail="El agente no tiene una sucursal asignada.")
+        quotes = get_cotizaciones(sucursal_id=sucursal_id)
+    return resolve_agent_names(quotes, current_user)
 
 @router.get("/cotizaciones/{quote_id}")
 def api_get_cotizacion(quote_id: str, current_user: dict = Depends(get_current_active_agent)):
@@ -763,7 +766,8 @@ def api_get_cotizacion(quote_id: str, current_user: dict = Depends(get_current_a
         if user_suc and quote_suc and str(quote_suc) != str(user_suc):
             raise HTTPException(status_code=403, detail="No tienes permisos para acceder a esta cotización.")
             
-    return quote
+    resolved = resolve_agent_names([quote], current_user)
+    return resolved[0]
 
 @router.post("/cotizaciones")
 def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_active_agent)):

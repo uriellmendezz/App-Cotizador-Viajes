@@ -125,10 +125,10 @@ def main():
     # 4. Pruebas de Rol ADMIN_GLOBAL
     print("\n--- Pruebas de Rol ADMIN_GLOBAL ---")
     test_endpoint(
-        "Admin Global accede a cotizaciones",
+        "Admin Global intenta acceder a cotizaciones de agentes (Bloqueado con 403 por aislamiento)",
         "/api/cotizaciones", 
         admin_token, 
-        200
+        403
     )
     test_endpoint(
         "Admin Global accede a listar sucursales de admin",

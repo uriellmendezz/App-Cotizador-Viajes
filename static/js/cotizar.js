@@ -2577,24 +2577,36 @@ function updateTabButtonsUI() {
     }
 }
 
+function getCleanAgentName(rawName) {
+    if (!rawName || rawName === '-') return 'Agente';
+    let name = String(rawName).trim();
+    if (name.includes('-') || name.length > 20) {
+        if (window.userId && (name === window.userId || name.toLowerCase() === window.userId.toLowerCase())) {
+            return window.loggedInUser ? (window.loggedInUser.charAt(0).toUpperCase() + window.loggedInUser.slice(1).toLowerCase()) : 'Uriel';
+        }
+        return 'Agente';
+    }
+    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+}
+window.getCleanAgentName = getCleanAgentName;
+
 function getAgentBadge(agentName) {
     if (!agentName || agentName === '-') return '<span class="text-slate-400 font-semibold">-</span>';
 
-    const name = agentName.trim();
-    const cleanName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    const cleanName = getCleanAgentName(agentName);
+    const key = cleanName.toLowerCase();
 
     // Check if we have a custom color in our global agentColors dictionary
-    const key = name.toLowerCase();
     let hexColor = (window.agentColors && window.agentColors[key]) || null;
 
     if (hexColor) {
         const style = `background-color: ${hexColor}15; border-color: ${hexColor}30; color: ${hexColor};`;
-        return `<span onclick="event.stopPropagation(); filterByAgent('${name}')" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border shadow-sm cursor-pointer hover:brightness-95 transition-all" style="${style}" title="Filtrar por este agente">${cleanName}</span>`;
+        return `<span onclick="event.stopPropagation(); filterByAgent('${cleanName}')" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border shadow-sm cursor-pointer hover:brightness-95 transition-all select-none" style="${style}" title="Filtrar por este agente">${cleanName}</span>`;
     }
 
     let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < key.length; i++) {
+        hash = key.charCodeAt(i) + ((hash << 5) - hash);
     }
 
     const colors = [
@@ -2610,7 +2622,7 @@ function getAgentBadge(agentName) {
     const index = Math.abs(hash) % colors.length;
     const color = colors[index];
 
-    return `<span onclick="event.stopPropagation(); filterByAgent('${name}')" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${color.bg} ${color.border} ${color.text} shadow-sm cursor-pointer hover:brightness-95 transition-all" title="Filtrar por este agente">${cleanName}</span>`;
+    return `<span onclick="event.stopPropagation(); filterByAgent('${cleanName}')" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${color.bg} ${color.border} ${color.text} shadow-sm cursor-pointer hover:brightness-95 transition-all select-none" title="Filtrar por este agente">${cleanName}</span>`;
 }
 
 function filterByAgent(agentName) {
@@ -2628,17 +2640,20 @@ function renderAgentFilters() {
     container.innerHTML = '';
 
     const list = savedQuotesActiveTab === 'detalladas' ? allSavedQuotes : allSavedQuickQuotes;
-    const key = savedQuotesActiveTab === 'detalladas' ? 'agente_nombre' : 'agente_id';
 
-    const agentsSet = new Set();
+    const agentsMap = new Map();
     list.forEach(q => {
-        const val = q[key];
-        if (val && val !== '-') {
-            agentsSet.add(val.trim());
+        const raw = q.agente_nombre || q.agente_id;
+        const cleanName = getCleanAgentName(raw);
+        if (cleanName && cleanName !== '-') {
+            const key = cleanName.toLowerCase();
+            if (!agentsMap.has(key)) {
+                agentsMap.set(key, cleanName);
+            }
         }
     });
 
-    if (agentsSet.size === 0) return;
+    if (agentsMap.size === 0) return;
 
     const label = document.createElement('span');
     label.className = 'text-[10px] font-bold text-slate-450 uppercase tracking-wider mr-1';
@@ -2657,35 +2672,14 @@ function renderAgentFilters() {
     };
     container.appendChild(allBadge);
 
-    agentsSet.forEach(agentName => {
-        const name = agentName.trim();
-        const cleanName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-
-        let hash = 0;
-        for (let i = 0; i < name.length; i++) {
-            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    agentsMap.forEach((cleanName) => {
+        const badgeHtml = getAgentBadge(cleanName);
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = badgeHtml;
+        const badge = tempDiv.firstElementChild;
+        if (badge) {
+            container.appendChild(badge);
         }
-
-        const colors = [
-            { bg: 'bg-blue-50', border: 'border-blue-100', text: 'text-blue-600' },
-            { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-600' },
-            { bg: 'bg-purple-50', border: 'border-purple-100', text: 'text-purple-600' },
-            { bg: 'bg-amber-50', border: 'border-amber-100', text: 'text-amber-600' },
-            { bg: 'bg-indigo-50', border: 'border-indigo-100', text: 'text-indigo-600' },
-            { bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-600' },
-            { bg: 'bg-cyan-50', border: 'border-cyan-100', text: 'text-cyan-600' }
-        ];
-
-        const index = Math.abs(hash) % colors.length;
-        const color = colors[index];
-
-        const badge = document.createElement('span');
-        badge.className = `inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${color.bg} ${color.border} ${color.text} shadow-sm cursor-pointer hover:brightness-95 transition-all select-none`;
-        badge.innerText = cleanName;
-        badge.onclick = () => {
-            filterByAgent(name);
-        };
-        container.appendChild(badge);
     });
 }
 
@@ -2770,8 +2764,14 @@ function renderActiveTabTable(customFilteredList = null) {
             const fechaCreadoFormatted = formatCreatedAt(q.created_at);
 
             const currentUser = (window.loggedInUser || '').toLowerCase();
-            const quoteOwner = (q.agente_nombre || '').toLowerCase();
-            const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+            const currentUserId = (window.userId || '').toLowerCase();
+            const quoteOwnerName = (q.agente_nombre || '').toLowerCase();
+            const quoteOwnerId = (q.agente_id || '').toLowerCase();
+
+            const isOwner = (currentUser && quoteOwnerName && currentUser === quoteOwnerName) ||
+                            (currentUserId && quoteOwnerId && currentUserId === quoteOwnerId) ||
+                            (currentUserId && quoteOwnerName && currentUserId === quoteOwnerName) ||
+                            (currentUser && quoteOwnerId && currentUser === quoteOwnerId);
 
             const deleteButtonHtml = isOwner ? `
                 <button type="button" 
@@ -2791,7 +2791,7 @@ function renderActiveTabTable(customFilteredList = null) {
                     currency = meta.moneda;
                 }
             }
-            const agentBadgeHtml = getAgentBadge(q.agente_nombre);
+            const agentBadgeHtml = getAgentBadge(q.agente_nombre || q.agente_id);
 
             tr.innerHTML = `
                 <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
@@ -2835,15 +2835,20 @@ function renderActiveTabTable(customFilteredList = null) {
         displayList.forEach(q => {
             const tr = document.createElement('tr');
             tr.className = 'border-b border-slate-100 hover:bg-rose-50/40 transition-colors duration-150 cursor-pointer';
-            tr.setAttribute('onclick', `window.loadQuickBudgetIntoForm('${q.id}')`);
+            tr.setAttribute('onclick', `navigateTo('/cotizacion-rapida?id=${q.id}')`);
 
             const totalUSD = q.total_cotizacion || 0;
             const fechaCreadoFormatted = formatCreatedAt(q.created_at);
 
             const currentUser = (window.loggedInUser || '').toLowerCase();
-            const quoteOwner = (q.agente_id || '').toLowerCase();
-            const isOwner = (currentUser && quoteOwner && (currentUser === quoteOwner)) || 
-                            (window.userId && quoteOwner && (window.userId.toLowerCase() === quoteOwner));
+            const currentUserId = (window.userId || '').toLowerCase();
+            const quoteOwnerName = (q.agente_nombre || q.agente_id || '').toLowerCase();
+            const quoteOwnerId = (q.agente_id || '').toLowerCase();
+
+            const isOwner = (currentUser && quoteOwnerName && currentUser === quoteOwnerName) ||
+                            (currentUserId && quoteOwnerId && currentUserId === quoteOwnerId) ||
+                            (currentUserId && quoteOwnerName && currentUserId === quoteOwnerName) ||
+                            (currentUser && quoteOwnerId && currentUser === quoteOwnerId);
 
             const deleteButtonHtml = isOwner ? `
                 <button type="button" 
@@ -2863,7 +2868,7 @@ function renderActiveTabTable(customFilteredList = null) {
                     currency = meta.moneda;
                 }
             }
-            const agentBadgeHtml = getAgentBadge(q.agente_id);
+            const agentBadgeHtml = getAgentBadge(q.agente_nombre || q.agente_id);
 
             tr.innerHTML = `
                 <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
@@ -2891,8 +2896,9 @@ function filterSavedQuotes() {
         const filtered = allSavedQuotes.filter(q => {
             const name = (q.nombre_pax || '').toLowerCase();
             const dest = (q.destino || '').toLowerCase();
-            const agent = (q.agente_nombre || '').toLowerCase();
-            return name.includes(query) || dest.includes(query) || agent.includes(query);
+            const cleanAgent = getCleanAgentName(q.agente_nombre || q.agente_id).toLowerCase();
+            const rawAgent = (q.agente_nombre || '').toLowerCase();
+            return name.includes(query) || dest.includes(query) || cleanAgent.includes(query) || rawAgent.includes(query);
         });
         renderActiveTabTable(filtered);
     } else {
@@ -2902,8 +2908,9 @@ function filterSavedQuotes() {
         }
         const filtered = allSavedQuickQuotes.filter(q => {
             const name = (q.pasajero_nombre || '').toLowerCase();
-            const agent = (q.agente_id || '').toLowerCase();
-            return name.includes(query) || agent.includes(query);
+            const cleanAgent = getCleanAgentName(q.agente_nombre || q.agente_id).toLowerCase();
+            const rawAgent = (q.agente_id || '').toLowerCase();
+            return name.includes(query) || cleanAgent.includes(query) || rawAgent.includes(query);
         });
         renderActiveTabTable(filtered);
     }
@@ -2920,7 +2927,10 @@ async function deleteSavedQuickQuote(quoteId) {
                 const res = await authenticatedFetch(`/api/presupuestos/${quoteId}`, {
                     method: 'DELETE'
                 });
-                if (!res.ok) throw new Error("No se pudo eliminar la cotización rápida.");
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.detail || "No se pudo eliminar la cotización rápida.");
+                }
                 showAlert('success', 'Cotización rápida eliminada con éxito.');
                 loadSavedQuotesList();
             } catch (e) {

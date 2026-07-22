@@ -97,15 +97,24 @@ async function loadRecentQuotes() {
         const budgets = await resBudgets.json();
 
         const currentUser = (window.loggedInUser || '').toLowerCase();
+        const currentUserId = (window.userId || '').toLowerCase();
+
+        const isMine = (q) => {
+            const name = (q.agente_nombre || q.agente_id || '').toLowerCase();
+            const id = (q.agente_id || '').toLowerCase();
+            if (currentUser && (name === currentUser || id === currentUser)) return true;
+            if (currentUserId && (id === currentUserId || name === currentUserId)) return true;
+            return false;
+        };
 
         // Filter and sort detailed quotes (cotizaciones completas)
         const userQuotes = quotes
-            .filter(q => (q.agente_nombre || '').toLowerCase() === currentUser)
+            .filter(isMine)
             .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
         // Filter and sort quick quotes (cotizaciones rapidas)
         const userBudgets = budgets
-            .filter(b => (b.agente_id || '').toLowerCase() === currentUser)
+            .filter(isMine)
             .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
         const latestQuote = userQuotes[0] || null;

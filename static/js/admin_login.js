@@ -66,7 +66,7 @@ async function handleAdminLogin(e) {
             const payload = window.decodeTokenPayload(data.access_token);
             if (payload && payload.rol === 'ADMIN_GLOBAL') {
                 // Sesión exitosa
-                window.setSession(data.access_token, data.username);
+                window.setAdminSession(data.access_token, data.username);
                 window.showAlert('success', 'Sesión iniciada correctamente como administrador.');
                 window.navigateTo('/admin');
             } else {
@@ -76,7 +76,7 @@ async function handleAdminLogin(e) {
                     alertEl.classList.remove('hidden');
                 }
                 // Limpiar cualquier sesión residual
-                window.setSession(null, null);
+                window.setAdminSession(null, null);
             }
         } else {
             const errData = await response.json();

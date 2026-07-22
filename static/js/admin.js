@@ -74,8 +74,12 @@ export async function initAdmin() {
                 btnText: 'Sí, Cerrar Sesión',
                 confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
                 callback: () => {
-                    window.setSession(null, null);
-                    window.navigateTo('/admin-login');
+                    if (typeof window.logoutAdmin === 'function') {
+                        window.logoutAdmin(true);
+                    } else {
+                        window.setAdminSession(null, null);
+                        window.navigateTo('/admin-login');
+                    }
                 }
             });
         });
