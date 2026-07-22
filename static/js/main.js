@@ -446,6 +446,10 @@ async function router() {
     }
 
     let path = window.location.pathname;
+    let normalizedPath = path;
+    if (path.startsWith('/cotizacion-rapida/')) {
+        normalizedPath = '/cotizacion-rapida';
+    }
     const isTargetAdmin = isAdminPath(path);
 
     // Check for explicit logout flag to bypass auto-refresh on page load right after logout
@@ -501,18 +505,21 @@ async function router() {
                 if (payload && payload.rol === 'ADMIN_GLOBAL') {
                     history.pushState(null, null, '/admin');
                     path = '/admin';
+                    normalizedPath = '/admin';
                 }
             }
         } else if (path === '/admin') {
             if (!adminToken) {
                 history.pushState(null, null, '/admin-login');
                 path = '/admin-login';
+                normalizedPath = '/admin-login';
             } else {
                 const payload = decodeTokenPayload(adminToken);
                 if (!payload || payload.rol !== 'ADMIN_GLOBAL') {
                     setTimeout(() => showAlert('error', 'Acceso denegado. Se requieren permisos de Administrador Global.'), 100);
                     history.pushState(null, null, '/admin-login');
                     path = '/admin-login';
+                    normalizedPath = '/admin-login';
                 }
             }
         }
@@ -522,20 +529,23 @@ async function router() {
             if (path !== '/login') {
                 history.pushState(null, null, '/login');
                 path = '/login';
+                normalizedPath = '/login';
             }
         } else {
             // Agent Authenticated
             if (path === '/login' || path === '/') {
                 history.pushState(null, null, '/inicio');
                 path = '/inicio';
+                normalizedPath = '/inicio';
             } else if (path === '/cotizaciones-rapidas') {
                 history.pushState(null, null, '/editar?tab=rapidos');
                 path = '/editar';
+                normalizedPath = '/editar';
             }
         }
     }
 
-    const route = routes[path] || routes['/inicio'];
+    const route = routes[normalizedPath] || routes[path] || routes['/inicio'];
 
     // Handle Sidebar and Mobile Header visibility based on route
     const sidebarEl = document.getElementById('app-sidebar');
@@ -543,7 +553,7 @@ async function router() {
     const headerEl = document.getElementById('app-top-header');
 
     if (sidebarEl && wrapperEl) {
-        if (path === '/login' || path === '/admin-login' || path === '/admin') {
+        if (normalizedPath === '/login' || normalizedPath === '/admin-login' || normalizedPath === '/admin') {
             sidebarEl.classList.add('hidden');
             if (headerEl) headerEl.classList.add('hidden');
             wrapperEl.classList.remove('lg:pl-[260px]');
@@ -551,7 +561,7 @@ async function router() {
             sidebarEl.classList.remove('hidden');
             if (headerEl) headerEl.classList.remove('hidden');
             wrapperEl.classList.add('lg:pl-[260px]');
-            updateNavActiveState(path);
+            updateNavActiveState(normalizedPath);
 
             // Toggle admin button visibility
             const adminBtn = document.getElementById('sidebar-btn-admin');
@@ -1144,12 +1154,12 @@ function updateHomeButtonVisibility() {
 window.updateHomeButtonVisibility = updateHomeButtonVisibility;
 window.addEventListener('resize', updateHomeButtonVisibility);
 
-// Fallback for loading quick budgets when the cotizacion_rapida.js is not loaded yet
+// Fallback for loading quick budgets when cotizacion_rapida.js is not loaded yet
 window.loadQuickBudgetIntoForm = function(quoteId) {
     const isFormPage = !!document.getElementById('quick-budget-body');
     if (!isFormPage) {
         window.pendingEditQuickBudgetId = quoteId;
-        window.navigateTo('/cotizacion-rapida');
+        window.navigateTo(`/cotizacion-rapida?id=${quoteId}`);
     }
 };
 

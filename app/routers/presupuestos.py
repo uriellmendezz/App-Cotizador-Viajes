@@ -18,7 +18,9 @@ def api_save_cotizacion_rapida(payload: dict, current_user: dict = Depends(get_c
         if existing:
             # Check sucursal isolation
             if current_user.get("rol") != "ADMIN_GLOBAL":
-                if str(existing.get("sucursal_id")) != str(current_user.get("sucursal_id")):
+                existing_suc = existing.get("sucursal_id")
+                user_suc = current_user.get("sucursal_id")
+                if existing_suc and user_suc and str(existing_suc) != str(user_suc):
                     # Strip ID to force create a duplicate instead of updating unauthorized quote
                     payload.pop("id", None)
 
@@ -58,7 +60,9 @@ def api_get_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get_cu
         
     # Check branch isolation
     if current_user.get("rol") != "ADMIN_GLOBAL":
-        if str(quote.get("sucursal_id")) != str(current_user.get("sucursal_id")):
+        quote_suc = quote.get("sucursal_id")
+        user_suc = current_user.get("sucursal_id")
+        if quote_suc and user_suc and str(quote_suc) != str(user_suc):
             raise HTTPException(status_code=403, detail="No tienes permisos para acceder a este presupuesto rápido.")
             
     resolved = resolve_agent_names([quote], current_user)
@@ -77,7 +81,9 @@ def api_delete_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get
         raise HTTPException(status_code=404, detail="Presupuesto rápido no encontrado.")
     
     if current_user.get("rol") != "ADMIN_GLOBAL":
-        if str(quote.get("sucursal_id")) != str(current_user.get("sucursal_id")):
+        quote_suc = quote.get("sucursal_id")
+        user_suc = current_user.get("sucursal_id")
+        if quote_suc and user_suc and str(quote_suc) != str(user_suc):
             raise HTTPException(status_code=403, detail="No tienes permisos para eliminar este presupuesto rápido.")
 
     success = delete_cotizacion_rapida(quote_id_typed)

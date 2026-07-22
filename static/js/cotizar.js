@@ -2835,7 +2835,7 @@ function renderActiveTabTable(customFilteredList = null) {
         displayList.forEach(q => {
             const tr = document.createElement('tr');
             tr.className = 'border-b border-slate-100 hover:bg-rose-50/40 transition-colors duration-150 cursor-pointer';
-            tr.setAttribute('onclick', `window.loadQuickBudgetIntoForm('${q.id}')`);
+            tr.setAttribute('onclick', `navigateTo('/cotizacion-rapida?id=${q.id}')`);
 
             const totalUSD = q.total_cotizacion || 0;
             const fechaCreadoFormatted = formatCreatedAt(q.created_at);
@@ -2927,7 +2927,10 @@ async function deleteSavedQuickQuote(quoteId) {
                 const res = await authenticatedFetch(`/api/presupuestos/${quoteId}`, {
                     method: 'DELETE'
                 });
-                if (!res.ok) throw new Error("No se pudo eliminar la cotización rápida.");
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.detail || "No se pudo eliminar la cotización rápida.");
+                }
                 showAlert('success', 'Cotización rápida eliminada con éxito.');
                 loadSavedQuotesList();
             } catch (e) {

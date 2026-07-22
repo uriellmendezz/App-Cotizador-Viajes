@@ -332,6 +332,24 @@ export function initCotizacionRapida() {
         }
     });
 
+    // Extract quote ID from query string, path parameter, or pending variable
+    const urlParams = new URLSearchParams(window.location.search);
+    let pathQuoteId = null;
+    if (window.location.pathname.startsWith('/cotizacion-rapida/')) {
+        const parts = window.location.pathname.split('/cotizacion-rapida/');
+        if (parts[1]) pathQuoteId = parts[1].split('/')[0];
+    }
+    const initialQuoteId = urlParams.get('id') || pathQuoteId || window.pendingEditQuickBudgetId;
+    window.pendingEditQuickBudgetId = null;
+
+    if (initialQuoteId) {
+        const cleanId = String(initialQuoteId).trim().replace(/[^a-zA-Z0-9_-]/g, '');
+        if (cleanId) {
+            loadQuickBudgetIntoForm(cleanId);
+            return;
+        }
+    }
+
     if (window.savedQuickQuoteState) {
         restoreQuickQuoteFormState();
     } else {
@@ -801,6 +819,11 @@ async function saveQuickQuote(andRedirect = false) {
         currentQuickQuoteId = saved.id;
         window.currentQuickQuoteOwner = saved.agente_id;
         
+        // Update URL to reflect saved quote ID
+        if (window.location.pathname === '/cotizacion-rapida' || window.location.pathname.startsWith('/cotizacion-rapida/')) {
+            history.replaceState(null, null, `/cotizacion-rapida?id=${saved.id}`);
+        }
+
         window.changeFavicon('success');
         window.showAlert('success', 'Cotización rápida guardada correctamente.');
         
@@ -835,6 +858,7 @@ async function saveQuickQuote(andRedirect = false) {
         window.hideLoader();
     }
 }
+window.saveQuickQuote = saveQuickQuote;
 
 export function initCotizacionesRapidas() {
     loadQuickBudgetsList();
@@ -962,7 +986,10 @@ async function executeDeleteQuickBudget(quoteId) {
         const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`, {
             method: 'DELETE'
         });
-        if (!res.ok) throw new Error("No se pudo eliminar la cotización rápida.");
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || "No se pudo eliminar la cotización rápida.");
+        }
         
         window.showAlert('success', 'Cotización rápida eliminada correctamente.');
         loadQuickBudgetsList();
@@ -972,19 +999,34 @@ async function executeDeleteQuickBudget(quoteId) {
 }
 
 async function loadQuickBudgetIntoForm(quoteId) {
+    const cleanId = quoteId ? String(quoteId).trim().replace(/[^a-zA-Z0-9_-]/g, '') : null;
+    if (!cleanId) {
+        window.showAlert('warning', 'ID de cotización rápida no válido.');
+        history.replaceState(null, null, '/cotizacion-rapida');
+        return;
+    }
+
     const isFormPage = !!document.getElementById('quick-budget-body');
     if (!isFormPage) {
-        window.pendingEditQuickBudgetId = quoteId;
-        navigateTo('/cotizacion-rapida');
+        window.pendingEditQuickBudgetId = cleanId;
+        navigateTo(`/cotizacion-rapida?id=${cleanId}`);
         return;
     }
     
+    // Sync URL state
+    if (window.location.pathname !== '/cotizacion-rapida' || window.location.search !== `?id=${cleanId}`) {
+        history.replaceState(null, null, `/cotizacion-rapida?id=${cleanId}`);
+    }
+
     window.showLoader("Cargando cotización rápida...");
     const signal = window.getAbortSignal(true);
     
     try {
-        const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`, { signal });
-        if (!res.ok) throw new Error("No se pudo cargar la cotización rápida.");
+        const res = await window.authenticatedFetch(`/api/presupuestos/${cleanId}`, { signal });
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || "Presupuesto rápido no encontrado.");
+        }
         const q = await res.json();
         currentQuickQuoteId = q.id;
         window.currentQuickQuoteOwner = q.agente_id;
@@ -1067,9 +1109,25 @@ async function loadQuickBudgetIntoForm(quoteId) {
         updateSaveButtonState();
         enableQuickFormEditing(false);
         
+        // Update document title dynamically
+        const appName = (window.agencyConfig && window.agencyConfig.nombre_agencia) || 'One Trip';
+        document.title = `Cotización Rápida #${q.id} | ${appName}`;
+
     } catch (err) {
         if (err.name === 'AbortError') return;
-        window.showAlert('warning', 'Error al cargar: ' + err.message);
+        window.showAlert('warning', 'No se pudo cargar la cotización rápida: ' + err.message);
+        currentQuickQuoteId = null;
+        window.currentQuickQuoteOwner = null;
+        isQuickReadOnlyMode = false;
+        history.replaceState(null, null, '/cotizacion-rapida');
+        const indicator = document.getElementById('editing-indicator');
+        if (indicator) {
+            indicator.classList.add('hidden');
+            indicator.classList.remove('flex');
+        }
+        loadDefaultQuickQuoteRows();
+        calculateQuickQuote();
+        updateSaveButtonState();
     } finally {
         window.hideLoader();
     }
@@ -1276,11 +1334,7 @@ export function enableQuickFormEditing(enabled) {
 
     const btnSaveAndGo = document.getElementById('btn-save-quick-and-go');
     if (btnSaveAndGo) {
-        if (enabled) {
-            btnSaveAndGo.classList.remove('hidden');
-        } else {
-            btnSaveAndGo.classList.add('hidden');
-        }
+        btnSaveAndGo.classList.remove('hidden');
     }
 
     updateQuickEditingIndicator();
@@ -1334,6 +1388,7 @@ window.updateQuickEditingIndicator = updateQuickEditingIndicator;
 export function duplicateCurrentQuickQuote() {
     currentQuickQuoteId = null;
     window.currentQuickQuoteOwner = null;
+    history.replaceState(null, null, '/cotizacion-rapida');
     enableQuickFormEditing(true);
     window.showAlert('success', 'Cotización rápida duplicada como nueva. Los cambios se guardarán como un registro nuevo.');
     updateQuickEditingIndicator();

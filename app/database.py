@@ -284,6 +284,7 @@ def get_cotizaciones_rapidas(sucursal_id: str = None) -> list:
                     "total_cotizacion": row["costo_total"],
                     "agente_nombre": row.get("agente_nombre"),
                     "agente_id": row.get("agente_id") or row.get("agente_nombre"),
+                    "sucursal_id": row.get("sucursal_id"),
                     "created_at": row["created_at"]
                 })
             return mapped
@@ -308,12 +309,14 @@ def get_cotizacion_rapida_by_id(quote_id) -> dict | None:
                 "id": row["id"],
                 "pasajero_nombre": row["nombre_pax"],
                 "cantidad_pasajeros": row["cantidad_pasajeros"],
-                "vuelos": row["equipaje"],  # mapped back from equipaje
-                "hoteles": row["hoteles"],
-                "gastos_iva": row["gastos_iva"],
-                "total_cotizacion": row["costo_total"],
-                "agente_id": row["agente_nombre"],
-                "created_at": row["created_at"]
+                "vuelos": row.get("equipaje") or [],  # mapped back from equipaje
+                "hoteles": row.get("hoteles") or [],
+                "gastos_iva": row.get("gastos_iva", 0.0),
+                "total_cotizacion": row.get("costo_total", 0.0),
+                "agente_nombre": row.get("agente_nombre"),
+                "agente_id": row.get("agente_id") or row.get("agente_nombre"),
+                "sucursal_id": row.get("sucursal_id"),
+                "created_at": row.get("created_at")
             }
         return None
     except Exception as e:
