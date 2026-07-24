@@ -1389,6 +1389,10 @@ export function duplicateCurrentQuickQuote() {
     currentQuickQuoteId = null;
     window.currentQuickQuoteOwner = null;
     history.replaceState(null, null, '/cotizacion-rapida');
+    const paxInput = document.getElementById('rapido-pasajero');
+    if (paxInput && paxInput.value && !paxInput.value.startsWith('Copia de ')) {
+        paxInput.value = 'Copia de ' + paxInput.value;
+    }
     enableQuickFormEditing(true);
     window.showAlert('success', 'Cotización rápida duplicada como nueva. Los cambios se guardarán como un registro nuevo.');
     updateQuickEditingIndicator();

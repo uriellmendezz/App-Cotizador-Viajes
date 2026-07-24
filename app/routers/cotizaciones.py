@@ -866,10 +866,55 @@ def api_delete_cotizacion(quote_id: str, current_user: dict = Depends(get_curren
         raise HTTPException(status_code=404, detail=f"Cotización con ID {quote_id} no encontrada.")
         
     if current_user.get("rol") != "ADMIN_GLOBAL":
-        if str(quote.get("sucursal_id")) != str(current_user.get("sucursal_id")):
-            raise HTTPException(status_code=403, detail="No tienes permisos para eliminar esta cotización.")
+        user_id = str(current_user.get("id") or "")
+        user_name = str(current_user.get("nombre") or "").strip().lower()
+        quote_agent_id = str(quote.get("agente_id") or "")
+        quote_agent_name = str(quote.get("agente_nombre") or "").strip().lower()
+        
+        is_creator = (user_id and user_id == quote_agent_id) or (user_name and user_name == quote_agent_name)
+        if not is_creator:
+            raise HTTPException(
+                status_code=403, 
+                detail="Acceso denegado. Solo el agente creador de la cotización puede eliminarla."
+            )
 
     success = delete_cotizacion(quote_id_typed)
     if not success:
         raise HTTPException(status_code=500, detail=f"No se pudo eliminar la cotización con ID {quote_id}.")
     return {"status": "success", "message": f"Cotización {quote_id} eliminada con éxito."}
+
+@router.post("/cotizaciones/{quote_id}/duplicar")
+def api_duplicate_cotizacion(quote_id: str, current_user: dict = Depends(get_current_active_agent)):
+    try:
+        quote_id_typed = int(quote_id)
+    except ValueError:
+        quote_id_typed = quote_id
+        
+    existing = get_cotizacion_by_id(quote_id_typed)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Cotización con ID {quote_id} no encontrada.")
+        
+    if current_user.get("rol") != "ADMIN_GLOBAL":
+        if existing.get("sucursal_id") and current_user.get("sucursal_id"):
+            if str(existing.get("sucursal_id")) != str(current_user.get("sucursal_id")):
+                raise HTTPException(status_code=403, detail="No tienes permisos para duplicar esta cotización.")
+
+    cloned_payload = existing.copy()
+    cloned_payload.pop("id", None)
+    cloned_payload.pop("created_at", None)
+    cloned_payload.pop("updated_at", None)
+
+    original_nombre = cloned_payload.get("nombre_pax", "")
+    if not str(original_nombre).startswith("Copia de "):
+        cloned_payload["nombre_pax"] = f"Copia de {original_nombre}"
+        
+    cloned_payload["agente_id"] = current_user.get("id")
+    cloned_payload["sucursal_id"] = current_user.get("sucursal_id")
+    cloned_payload["agente_nombre"] = current_user.get("nombre")
+    cloned_payload["created_at"] = datetime.utcnow().isoformat()
+
+    saved = save_cotizacion(cloned_payload)
+    if not saved:
+        raise HTTPException(status_code=500, detail="No se pudo duplicar la cotización en la base de datos.")
+    return saved
+

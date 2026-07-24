@@ -1569,7 +1569,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         currentPdfUrl = url;
         const iframe = document.getElementById('pdf-preview-iframe');
         if (iframe) {
-            iframe.src = url + '#navpanes=0&view=FitH';
+            iframe.src = url + '#navpanes=0&zoom=75';
         }
 
         // Build filename for future download
@@ -1659,7 +1659,7 @@ window.downloadPDFBlob = downloadPDFBlob;
 function openPDFInNewTab() {
     const url = window.currentPdfUrl;
     if (url) {
-        const targetUrl = url.includes('#') ? url : url + '#navpanes=0&view=FitH';
+        const targetUrl = url.includes('#') ? url : url + '#navpanes=0&zoom=75';
         window.open(targetUrl, '_blank');
     } else {
         showAlert('warning', 'No hay ningún PDF generado para abrir.');
@@ -3247,6 +3247,10 @@ function duplicateCurrentQuote() {
     if (!currentQuoteId) return;
     currentQuoteId = null;
     window.currentQuoteOwner = null;
+    const nameInput = document.getElementById('nombre_pax');
+    if (nameInput && nameInput.value && !nameInput.value.startsWith('Copia de ')) {
+        nameInput.value = 'Copia de ' + nameInput.value;
+    }
     enableFormEditing(true); // Permitir edición
     updateEditingIndicator();
     showAlert('success', 'La cotización se ha duplicado en el formulario. Al presionar "Generar Cotización" se creará un nuevo registro.');
@@ -3641,7 +3645,7 @@ export async function initVerCotizacion() {
         // Populate left column PDF viewer
         const iframe = document.getElementById('ver-pdf-iframe');
         if (iframe) {
-            iframe.src = pdfUrl + '#navpanes=0&view=FitH';
+            iframe.src = pdfUrl + '#navpanes=0&zoom=75';
         }
 
         // Populate right column details
@@ -3673,16 +3677,35 @@ export async function initVerCotizacion() {
         document.getElementById('ver-created-at').textContent = formatDate(quote.created_at);
         document.getElementById('ver-updated-at').textContent = formatDate(quote.updated_at || quote.created_at);
 
-        // Control the visibility of the Edit button based on current user ownership
+        // Control the visibility of Edit and Delete buttons based on current user ownership / admin role
         const currentUser = (window.loggedInUser || '').toLowerCase();
-        const quoteOwner = (quote.agente_nombre || '').toLowerCase();
-        const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+        const currentUserId = (window.userId || '').toLowerCase();
+        const userRole = window.userRole;
+
+        const quoteOwnerName = (quote.agente_nombre || '').toLowerCase();
+        const quoteOwnerId = (quote.agente_id || '').toLowerCase();
+
+        const isOwner = userRole === 'ADMIN_GLOBAL' ||
+            (currentUserId && quoteOwnerId && currentUserId === quoteOwnerId) ||
+            (currentUser && quoteOwnerName && currentUser === quoteOwnerName);
+
         const editBtn = document.getElementById('btn-edit-quote-view');
         if (editBtn) {
+            const wrapper = editBtn.closest('.relative.group') || editBtn;
             if (isOwner) {
-                editBtn.classList.remove('hidden');
+                wrapper.classList.remove('hidden');
             } else {
-                editBtn.classList.add('hidden');
+                wrapper.classList.add('hidden');
+            }
+        }
+
+        const deleteBtn = document.getElementById('btn-delete-quote-view');
+        if (deleteBtn) {
+            const wrapper = deleteBtn.closest('.relative.group') || deleteBtn;
+            if (isOwner) {
+                wrapper.classList.remove('hidden');
+            } else {
+                wrapper.classList.add('hidden');
             }
         }
 
@@ -3704,6 +3727,87 @@ export function editQuoteFromView() {
     navigateTo('/cotizacion-completa');
 }
 window.editQuoteFromView = editQuoteFromView;
+
+async function duplicateQuoteFromView() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const quoteId = urlParams.get('id') || currentQuoteId;
+    if (!quoteId) {
+        showAlert('warning', 'No hay ninguna cotización seleccionada para duplicar.');
+        return;
+    }
+
+    window.changeFavicon('loading');
+    window.showLoader("Duplicando cotización...");
+    const signal = window.getAbortSignal(true);
+
+    try {
+        const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}/duplicar`, {
+            method: 'POST',
+            signal
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Error al duplicar la cotización.");
+        }
+        const cloned = await res.json();
+        window.hideLoader();
+        window.changeFavicon('success');
+        showAlert('success', '✔ Cotización duplicada con éxito como "' + (cloned.nombre_pax || cloned.pasajero_nombre) + '".');
+        
+        window.pendingEditQuoteId = cloned.id;
+        window.pendingEditQuoteEditable = true;
+        navigateTo('/cotizacion-completa');
+    } catch (e) {
+        if (e.name === 'AbortError') return;
+        window.hideLoader();
+        window.changeFavicon('error');
+        showAlert('warning', "Error al duplicar la cotización: " + e.message);
+    }
+}
+window.duplicateQuoteFromView = duplicateQuoteFromView;
+
+function deleteQuoteFromView() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const quoteId = urlParams.get('id') || currentQuoteId;
+    if (!quoteId) {
+        showAlert('warning', 'No hay ninguna cotización seleccionada para eliminar.');
+        return;
+    }
+
+    showCustomConfirm({
+        title: '¿Eliminar cotización?',
+        desc: '¿Estás seguro de que deseas eliminar esta cotización? Esta acción no se puede deshacer.',
+        btnText: 'Sí, Eliminar',
+        confirmColorClass: 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20',
+        callback: async () => {
+            window.changeFavicon('loading');
+            window.showLoader("Eliminando cotización...");
+            try {
+                const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`, {
+                    method: 'DELETE'
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "Error al eliminar la cotización.");
+                }
+                window.hideLoader();
+                window.changeFavicon('success');
+                showAlert('success', '✔ Cotización eliminada con éxito.');
+                
+                if (window.navStack && window.navStack.length > 0) {
+                    navigateBack();
+                } else {
+                    navigateTo('/editar');
+                }
+            } catch (e) {
+                window.hideLoader();
+                window.changeFavicon('error');
+                showAlert('warning', "Error al eliminar la cotización: " + e.message);
+            }
+        }
+    });
+}
+window.deleteQuoteFromView = deleteQuoteFromView;
 
 function updateCurrencyLabels() {
     const selectedCurrency = document.getElementById('moneda_seleccionada')?.value || 'USD';

@@ -79,13 +79,61 @@ def api_delete_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get
         raise HTTPException(status_code=404, detail="Presupuesto rápido no encontrado.")
     
     if current_user.get("rol") != "ADMIN_GLOBAL":
-        quote_suc = quote.get("sucursal_id")
-        user_suc = current_user.get("sucursal_id")
-        if quote_suc and user_suc and str(quote_suc) != str(user_suc):
-            raise HTTPException(status_code=403, detail="No tienes permisos para eliminar este presupuesto rápido.")
+        user_id = str(current_user.get("id") or "")
+        user_name = str(current_user.get("nombre") or "").strip().lower()
+        quote_agent_id = str(quote.get("agente_id") or "")
+        quote_agent_name = str(quote.get("agente_nombre") or "").strip().lower()
+        
+        is_creator = (user_id and user_id == quote_agent_id) or (user_name and user_name == quote_agent_name)
+        if not is_creator:
+            raise HTTPException(
+                status_code=403, 
+                detail="Acceso denegado. Solo el agente creador de la cotización puede eliminarla."
+            )
 
     success = delete_cotizacion_rapida(quote_id_typed)
     if not success:
         raise HTTPException(status_code=500, detail="No se pudo eliminar el presupuesto rápido de la base de datos.")
     return {"status": "success", "message": "Presupuesto rápido eliminado con éxito."}
+
+@router.post("/{quote_id}/duplicar")
+def api_duplicate_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get_current_active_agent)):
+    """Duplicates a quick quote with 'Copia de ' title prefix and fresh timestamps."""
+    from datetime import datetime
+    try:
+        quote_id_typed = int(quote_id)
+    except ValueError:
+        quote_id_typed = quote_id
+
+    existing = get_cotizacion_rapida_by_id(quote_id_typed)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Presupuesto rápido no encontrado.")
+    
+    if current_user.get("rol") != "ADMIN_GLOBAL":
+        quote_suc = existing.get("sucursal_id")
+        user_suc = current_user.get("sucursal_id")
+        if quote_suc and user_suc and str(quote_suc) != str(user_suc):
+            raise HTTPException(status_code=403, detail="No tienes permisos para duplicar este presupuesto rápido.")
+
+    cloned_payload = existing.copy()
+    cloned_payload.pop("id", None)
+    cloned_payload.pop("created_at", None)
+    cloned_payload.pop("updated_at", None)
+
+    original_nombre = cloned_payload.get("pasajero_nombre") or cloned_payload.get("nombre_pax") or ""
+    if not str(original_nombre).startswith("Copia de "):
+        cloned_payload["pasajero_nombre"] = f"Copia de {original_nombre}"
+    else:
+        cloned_payload["pasajero_nombre"] = original_nombre
+
+    cloned_payload["agente_id"] = current_user.get("id")
+    cloned_payload["sucursal_id"] = current_user.get("sucursal_id")
+    cloned_payload["agente_nombre"] = current_user.get("nombre")
+    cloned_payload["created_at"] = datetime.utcnow().isoformat()
+
+    saved = save_cotizacion_rapida(cloned_payload)
+    if not saved:
+        raise HTTPException(status_code=500, detail="No se pudo duplicar el presupuesto rápido de la base de datos.")
+    return saved
+
 
