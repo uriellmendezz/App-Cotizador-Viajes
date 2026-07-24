@@ -1569,7 +1569,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         currentPdfUrl = url;
         const iframe = document.getElementById('pdf-preview-iframe');
         if (iframe) {
-            iframe.src = url;
+            iframe.src = url + '#navpanes=0&view=FitH';
         }
 
         // Build filename for future download
@@ -1659,7 +1659,8 @@ window.downloadPDFBlob = downloadPDFBlob;
 function openPDFInNewTab() {
     const url = window.currentPdfUrl;
     if (url) {
-        window.open(url, '_blank');
+        const targetUrl = url.includes('#') ? url : url + '#navpanes=0&view=FitH';
+        window.open(targetUrl, '_blank');
     } else {
         showAlert('warning', 'No hay ningún PDF generado para abrir.');
     }
@@ -3640,7 +3641,7 @@ export async function initVerCotizacion() {
         // Populate left column PDF viewer
         const iframe = document.getElementById('ver-pdf-iframe');
         if (iframe) {
-            iframe.src = pdfUrl + '#zoom=75';
+            iframe.src = pdfUrl + '#navpanes=0&view=FitH';
         }
 
         // Populate right column details
