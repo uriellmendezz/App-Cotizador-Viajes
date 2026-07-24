@@ -1,0 +1,47 @@
+name: Supabase Auto-Ping y Backup Automatizado
+
+on:
+  schedule:
+    # Se ejecuta a las 00:00 UTC cada 5 días
+    - cron: '0 0 */5 * *'
+  workflow_dispatch: # Permite la ejecución manual desde la pestaña Actions de GitHub
+
+jobs:
+  supabase-maintenance:
+    name: Supabase Ping & Dump
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configurar variables de entorno y fecha
+        run: |
+          echo "BACKUP_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
+      - name: Instalar cliente de PostgreSQL (pg_dump y psql)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: 1. Auto-Ping (Prevenir pausa por inactividad)
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "🔌 Conectando a Supabase para auto-ping..."
+          psql "$DB_URL" -c "SELECT 1 AS keep_alive;"
+          echo "✅ Ping ejecutado correctamente."
+
+      - name: 2. Copia de seguridad (pg_dump)
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          FILENAME="backup-supabase-${{ env.BACKUP_DATE }}.sql.gz"
+          echo "📦 Generando backup de la base de datos..."
+          pg_dump "$DB_URL" --clean --if-exists | gzip > "$FILENAME"
+          echo "✅ Backup generado con éxito: $FILENAME"
+          ls -lh "$FILENAME"
+
+      - name: 3. Guardar Backup como Artifact en GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ env.BACKUP_DATE }}
+          path: backup-supabase-${{ env.BACKUP_DATE }}.sql.gz
+          retention-days: 90 # Retención máxima gratuita en GitHub Actions
