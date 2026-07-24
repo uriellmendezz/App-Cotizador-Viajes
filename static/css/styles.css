@@ -655,3 +655,12 @@ textarea:focus {
 .shimmer-active {
     animation: welcome-logo-glow 1.5s ease-in-out forwards;
 }
+
+/* Anti-overflow & text-wrap safety for hotel descriptions */
+.hotel-descripcion-val,
+.hotel-card-desc,
+.hotel-description,
+[class*="hotel-desc"] {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}

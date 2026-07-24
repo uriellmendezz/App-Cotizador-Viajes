@@ -396,8 +396,9 @@ def optimizar_descripcion(payload: dict, current_user: str = Depends(get_current
     prompt_sistema = (
         "Eres un redactor experto en marketing de turismo de lujo para la agencia de viajes One Trip Giordano. "
         "Tu tarea es optimizar la descripción de un hotel provista por el agente de viajes para hacerla sumamente atractiva, fluida y persuasiva. "
-        "Destaca sus servicios principales, régimen, ubicación y ventajas de forma elegante y descriptiva. "
-        "Mantén la descripción concisa (máximo 4 líneas o alrededor de 60-80 palabras). "
+        "Destaca sus servicios principales, régimen, ubicación y ventajas de forma elegante. "
+        "REGLA CRÍTICA DE LONGITUD: La descripción optimizada DEBE tener una extensión entre 150 y 200 tokens/caracteres (idealmente entre 160 y 190 caracteres), "
+        "aprovechando el contenido al máximo sin cortar oraciones a la mitad y sin exceder jamás los 200 tokens totales. "
         "No agregues saludos, firmas, introducciones ni explicaciones. Responde únicamente con el texto final optimizado."
     )
     
@@ -407,12 +408,13 @@ def optimizar_descripcion(payload: dict, current_user: str = Depends(get_current
         "Content-Type": "application/json"
     }
     data = {
-        "model": "groq/ollama/mistral-7b-instruct:latest",
+        "model": "llama-3.3-70b-versatile",
         "messages": [
             {"role": "system", "content": prompt_sistema},
             {"role": "user", "content": descripcion_original}
         ],
-        "temperature": 0.7
+        "temperature": 0.7,
+        "max_tokens": 200
     }
     
     try:
@@ -422,8 +424,8 @@ def optimizar_descripcion(payload: dict, current_user: str = Depends(get_current
         descripcion_optimizada = res_data["choices"][0]["message"]["content"].strip()
         return {"descripcion_optimizada": descripcion_optimizada}
     except Exception as e:
-        print(f"Error calling Groq API with main model: {e}")
-        fallback_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+        print(f"Error calling Groq API with main model llama-3.3-70b-versatile: {e}")
+        fallback_models = ["llama-3.1-8b-instant", "mixtral-8x7b-32768"]
         for m in fallback_models:
             try:
                 print(f"Trying fallback model: {m}...")

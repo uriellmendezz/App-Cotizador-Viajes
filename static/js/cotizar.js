@@ -995,10 +995,24 @@ function addHotelCard(data = null) {
         <div class="flex flex-col gap-1 w-full">
             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Descripción</label>
             <div class="relative flex flex-col w-full">
-                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[80px] pr-28 resize-y w-full" required placeholder="Ej. Frente al mar..." style="line-height: 1.3;">${data ? (data.hotel_descripcion || data.descripcion || '') : ''}</textarea>
-                <button type="button" class="btn-ia-optimize absolute bottom-1.5 right-1.5 text-[9px] px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg hover:shadow-sm active:scale-95 transition-all cursor-pointer" onclick="optimizeDescription(this)">
-                    Mejorar con IA
-                </button>
+                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[85px] pr-[190px] resize-y w-full" required placeholder="Ej. Frente al mar..." style="line-height: 1.3;" oninput="updateHotelDescCharCounter(this); saveDetailedQuoteFormState();" onkeyup="updateHotelDescCharCounter(this)" onpaste="setTimeout(() => updateHotelDescCharCounter(this), 10);">${data ? (data.hotel_descripcion || data.descripcion || '') : ''}</textarea>
+                
+                <!-- Custom Error Tooltip -->
+                <div class="hotel-desc-error-tooltip hidden absolute -top-8 right-0 bg-rose-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-md shadow-lg pointer-events-none z-20 transition-all flex items-center gap-1">
+                    <svg class="w-3 h-3 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Superaste el máximo de caracteres
+                    <div class="absolute top-full right-4 border-4 border-transparent border-t-rose-600"></div>
+                </div>
+
+                <!-- Bottom Right Controls: Counter & IA Button -->
+                <div class="absolute bottom-1.5 right-1.5 flex items-center gap-2 z-10 pointer-events-none">
+                    <span class="hotel-desc-counter text-[10px] font-semibold text-slate-400 select-none transition-colors">0/200</span>
+                    <button type="button" class="btn-ia-optimize pointer-events-auto text-[9px] px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg hover:shadow-sm active:scale-95 transition-all cursor-pointer" onclick="optimizeDescription(this)">
+                        Mejorar con IA
+                    </button>
+                </div>
             </div>
         </div>
         
@@ -1020,6 +1034,11 @@ function addHotelCard(data = null) {
     container.appendChild(card);
     updateRemoveButtons();
     updateCurrencyLabels();
+
+    // Initialize character counter for hotel description
+    card.querySelectorAll('.hotel-descripcion-val').forEach(ta => {
+        updateHotelDescCharCounter(ta);
+    });
 
     // Add Drag and Drop listeners to all new dropzones
     card.querySelectorAll('.dropzone').forEach(dz => {
@@ -1494,6 +1513,19 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         return;
     }
 
+    // Validate hotel description character limits (max 200 chars)
+    const hotelOptionCards = document.querySelectorAll('.hotel-option-card');
+    for (const card of hotelOptionCards) {
+        const descInput = card.querySelector('.hotel-descripcion-val');
+        if (descInput && descInput.value.length > 200) {
+            updateHotelDescCharCounter(descInput);
+            descInput.focus();
+            descInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showAlert('warning', 'Superaste el máximo de caracteres (200 máx.). Acota la descripción para continuar.');
+            return;
+        }
+    }
+
     const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
 
     const formTab = document.getElementById('cotizacion-tab');
@@ -1890,8 +1922,12 @@ function formatToPicker(dateStr) {
 
 // AI Description Optimizer Frontend API Caller
 async function optimizeDescription(btn) {
-    const wrapper = btn.parentElement;
-    const textarea = wrapper.querySelector('.hotel-descripcion-val');
+    const relativeContainer = btn.closest('.relative') || btn.parentElement;
+    const textarea = relativeContainer ? relativeContainer.querySelector('.hotel-descripcion-val') : null;
+    if (!textarea) {
+        alert("No se encontró el campo de descripción.");
+        return;
+    }
     const originalText = textarea.value.trim();
     if (!originalText) {
         alert("Por favor, escribe una descripción básica primero para que la IA la optimice.");
@@ -1919,7 +1955,8 @@ async function optimizeDescription(btn) {
         }
 
         const data = await res.json();
-        textarea.value = data.descripcion_optimizada;
+        textarea.value = data.descripcion_optimizada || '';
+        updateHotelDescCharCounter(textarea);
         saveDetailedQuoteFormState();
     } catch (err) {
         alert("Error al optimizar la descripción: " + err.message);
@@ -1930,6 +1967,37 @@ async function optimizeDescription(btn) {
     }
 }
 window.optimizeDescription = optimizeDescription;
+
+function updateHotelDescCharCounter(textarea) {
+    if (!textarea) return;
+    const wrapper = textarea.closest('.relative') || textarea.parentElement;
+    const counter = wrapper ? wrapper.querySelector('.hotel-desc-counter') : null;
+    const errorTooltip = wrapper ? wrapper.querySelector('.hotel-desc-error-tooltip') : null;
+    
+    const max = 200;
+    const len = textarea.value ? textarea.value.length : 0;
+    
+    if (counter) {
+        counter.textContent = `${len}/${max}`;
+        if (len > max) {
+            counter.className = 'hotel-desc-counter text-[10px] font-black text-rose-500 select-none transition-colors animate-pulse';
+            textarea.classList.add('border-rose-500', 'focus:border-rose-500', 'bg-rose-50/20');
+            textarea.classList.remove('border-slate-200', 'focus:border-brand-primary');
+            if (errorTooltip) errorTooltip.classList.remove('hidden');
+        } else if (len === max) {
+            counter.className = 'hotel-desc-counter text-[10px] font-bold text-amber-600 select-none transition-colors';
+            textarea.classList.remove('border-rose-500', 'focus:border-rose-500', 'bg-rose-50/20');
+            textarea.classList.add('border-slate-200', 'focus:border-brand-primary');
+            if (errorTooltip) errorTooltip.classList.add('hidden');
+        } else {
+            counter.className = 'hotel-desc-counter text-[10px] font-semibold text-slate-400 select-none transition-colors';
+            textarea.classList.remove('border-rose-500', 'focus:border-rose-500', 'bg-rose-50/20');
+            textarea.classList.add('border-slate-200', 'focus:border-brand-primary');
+            if (errorTooltip) errorTooltip.classList.add('hidden');
+        }
+    }
+}
+window.updateHotelDescCharCounter = updateHotelDescCharCounter;
 
 
 function confirmNewQuote() {
