@@ -18,9 +18,11 @@ if (window.innerWidth >= 1024) {
 
 // Session Management Helpers
 function decodeTokenPayload(token) {
-    if (!token) return null;
+    if (!token || typeof token !== 'string') return null;
     try {
-        const base64Url = token.split('.')[0];
+        const parts = token.split('.');
+        if (parts.length < 2) return null;
+        const base64Url = parts[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
@@ -39,14 +41,14 @@ function isUuidString(str) {
 }
 window.isUuidString = isUuidString;
 
-function resolveDisplayName(username, payload, fallback = 'Invitado') {
-    if (username && !isUuidString(username)) {
+function resolveDisplayName(username, payload, fallback = null) {
+    if (username && username !== 'guest' && username !== 'Invitado' && !isUuidString(username)) {
         return username;
     }
-    if (payload?.nombre && !isUuidString(payload.nombre)) {
+    if (payload?.nombre && payload.nombre !== 'guest' && payload.nombre !== 'Invitado' && !isUuidString(payload.nombre)) {
         return payload.nombre;
     }
-    if (payload?.username && !isUuidString(payload.username)) {
+    if (payload?.username && payload.username !== 'guest' && payload.username !== 'Invitado' && !isUuidString(payload.username)) {
         return payload.username;
     }
     if (payload?.email) {
@@ -117,7 +119,7 @@ function clearAllSessions() {
     window.userId = null;
 
     const spanUsername = document.getElementById('sidebar-username-span');
-    if (spanUsername) spanUsername.innerText = 'Invitado';
+    if (spanUsername) spanUsername.innerText = '';
 
     const userBadge = document.getElementById('sidebar-user-badge');
     if (userBadge) {
@@ -172,9 +174,10 @@ Object.defineProperty(window, 'loggedInUser', {
             ? (localStorage.getItem('otg_admin_user') || null) 
             : (localStorage.getItem('otg_agent_user') || null);
         const token = window.authToken;
-        if (!token && !raw) return 'Invitado';
+        if (!token && !raw) return null;
         const payload = decodeTokenPayload(token);
-        return resolveDisplayName(raw, payload, isAdminPath() ? 'Administrador' : 'Invitado');
+        const name = resolveDisplayName(raw, payload, isAdminPath() ? 'Administrador' : null);
+        return (name && name !== 'guest' && name !== 'Invitado') ? name : null;
     },
     configurable: true
 });
@@ -470,29 +473,49 @@ async function router() {
     // Silently restore session via cookie once on startup for the current context
     if (!isExplicitLogout) {
         if (isTargetAdmin) {
-            if (!localStorage.getItem('otg_admin_token') && !isAdminSessionChecked) {
+            let adminToken = localStorage.getItem('otg_admin_token');
+            let isExpired = false;
+            if (adminToken) {
+                const payload = decodeTokenPayload(adminToken);
+                if (!payload || (payload.exp && payload.exp * 1000 < Date.now())) {
+                    isExpired = true;
+                }
+            }
+            if ((!adminToken || isExpired) && !isAdminSessionChecked) {
                 isAdminSessionChecked = true;
                 try {
                     const res = await fetch('/api/auth/refresh?scope=admin', { method: 'POST' });
                     if (res.ok) {
                         const data = await res.json();
                         setAdminSession(data.access_token, data.username);
+                    } else {
+                        setAdminSession(null, null);
                     }
                 } catch (err) {
-                    console.warn("No active admin session cookie found or refresh failed:", err);
+                    setAdminSession(null, null);
                 }
             }
         } else {
-            if (!localStorage.getItem('otg_agent_token') && !isAgentSessionChecked) {
+            let agentToken = localStorage.getItem('otg_agent_token');
+            let isExpired = false;
+            if (agentToken) {
+                const payload = decodeTokenPayload(agentToken);
+                if (!payload || (payload.exp && payload.exp * 1000 < Date.now())) {
+                    isExpired = true;
+                }
+            }
+            if ((!agentToken || isExpired) && !isAgentSessionChecked) {
                 isAgentSessionChecked = true;
                 try {
                     const res = await fetch('/api/auth/refresh?scope=agent', { method: 'POST' });
                     if (res.ok) {
                         const data = await res.json();
                         setAgentSession(data.access_token, data.username);
+                    } else {
+                        setAgentSession(null, null);
                     }
                 } catch (err) {
-                    console.warn("No active agent session cookie found or refresh failed:", err);
+                    setAgentSession(null, null);
                 }
             }
         }
@@ -520,7 +543,7 @@ async function router() {
             } else {
                 const payload = decodeTokenPayload(adminToken);
                 if (!payload || payload.rol !== 'ADMIN_GLOBAL') {
-                    setTimeout(() => showAlert('error', 'Acceso denegado. Se requieren permisos de Administrador Global.'), 100);
+                    setAdminSession(null, null);
                     history.pushState(null, null, '/admin-login');
                     path = '/admin-login';
                     normalizedPath = '/admin-login';
@@ -536,8 +559,16 @@ async function router() {
                 normalizedPath = '/login';
             }
         } else {
-            // Agent Authenticated
-            if (path === '/login' || path === '/') {
+            // Validate token payload
+            const payload = decodeTokenPayload(agentToken);
+            if (!payload) {
+                setAgentSession(null, null);
+                if (path !== '/login') {
+                    history.pushState(null, null, '/login');
+                    path = '/login';
+                    normalizedPath = '/login';
+                }
+            } else if (path === '/login' || path === '/') {
                 history.pushState(null, null, '/inicio');
                 path = '/inicio';
                 normalizedPath = '/inicio';
@@ -593,17 +624,11 @@ async function router() {
             const spanUsername = document.getElementById('sidebar-username-span');
             if (badge && spanUsername) {
                 const username = window.loggedInUser;
-                if (username) {
-                    if (username === 'guest' || username === 'Invitado') {
-                        spanUsername.innerText = 'Invitado';
-                        const dot = badge.querySelector('span');
-                        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-500';
-                    } else {
-                        const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
-                        spanUsername.innerText = formattedName;
-                        const dot = badge.querySelector('span');
-                        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
-                    }
+                if (username && username !== 'guest' && username !== 'Invitado') {
+                    const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
+                    spanUsername.innerText = formattedName;
+                    const dot = badge.querySelector('span');
+                    if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
                     badge.classList.remove('hidden');
                     badge.classList.add('flex');
                 } else {
