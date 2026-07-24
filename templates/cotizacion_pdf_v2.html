@@ -129,7 +129,7 @@
 
         .destination-title {
             font-weight: 900;
-            font-size: 40pt;
+            font-size: {{ destino_font_size|default('40pt') }};
             text-transform: uppercase;
             color: #343434;
             letter-spacing: -0.03em;
@@ -677,6 +677,7 @@
                 Estadía en {{ destino }} por {{ noches_alojamiento }}.
             </td>
         </tr>
+        {% if monto_traslados > 0 %}
         <tr>
             <td class="svc-icon">
                 {{ svg_traslados }}
@@ -685,6 +686,7 @@
                 Traslados IN-OUT (Aeropuerto → Hotel → Aeropuerto).
             </td>
         </tr>
+        {% endif %}
     </table>
 
     <!-- ═══════════════ 4. VUELOS ═══════════════ -->
@@ -780,10 +782,18 @@
                 <!-- Pricing -->
                 <div class="hotel-pricing">
                     <div class="hotel-price-pp">
-                        <span class="currency">USD</span> {{ format_price(hotel.precio_persona) }}
+                        <span class="currency">{{ moneda|default('USD') }}</span> {{ format_price(hotel.precio_persona) }}
                     </div>
-                    <div class="hotel-price-base">por persona — Base {{ base_habitacion }}</div>
-                    <div class="hotel-price-total">Total: USD {{ format_price(hotel.costo) }}</div>
+                    <div class="hotel-price-base">
+                        {% if base_habitacion|lower == 'single' %}
+                        Base {{ base_habitacion }}
+                        {% else %}
+                        por persona — Base {{ base_habitacion }}
+                        {% endif %}
+                    </div>
+                    {% if base_habitacion|lower != 'single' %}
+                    <div class="hotel-price-total">Total: {{ moneda|default('USD') }} {{ format_price(hotel.costo) }}</div>
+                    {% endif %}
                 </div>
             </div>
         </div>

@@ -77,6 +77,18 @@ def generate_pptx(quote, output_path):
     prs.slide_height = Inches(7.5)
     
     # Fetch brand customization settings
+    hoteles_raw = quote.get('hoteles', [])
+    moneda = quote.get('moneda')
+    if not moneda:
+        for h in hoteles_raw:
+            if h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+                moneda = h.get("moneda")
+                break
+    if not moneda:
+        moneda = "USD"
+    quote["moneda"] = moneda
+    quote["hoteles"] = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
+
     colores = quote.get('colores') or quote.get('agencia_colores') or ["#ff545d", "#343434", "#f79646"]
     accent_hex = colores[0]
     secondary_hex = colores[1] if len(colores) > 1 else "#343434"
@@ -191,10 +203,11 @@ def generate_pptx(quote, output_path):
     noches = quote.get('noches_alojamiento', '7 noches')
     
     set_cell_font(table.cell(1, 0), "Aéreo", bold=True, size=12)
-    set_cell_font(table.cell(1, 1), f"Vuelos desde {origen} a {destino} para {cant_pax} pasajeros adultos.", size=12)
+    pax_str = "un pasajero adulto" if cant_pax == 1 else f"{cant_pax} pasajeros adultos"
+    set_cell_font(table.cell(1, 1), f"Vuelos desde {origen} a {destino} para {pax_str}.", size=12)
     
     set_cell_font(table.cell(2, 0), "Terrestre (Hotel)", bold=True, size=12)
-    set_cell_font(table.cell(2, 1), f"Estadía en hotel ({hotel_names}) por {noches} noches.", size=12)
+    set_cell_font(table.cell(2, 1), f"Estadía en hotel ({hotel_names}) por {noches}.", size=12)
     
     set_cell_font(table.cell(3, 0), "Logística", bold=True, size=12)
     set_cell_font(table.cell(3, 1), "Traslados de llegada (aeropuerto-hotel) y salida (hotel-aeropuerto) en destino.", size=12)
@@ -314,7 +327,7 @@ def generate_pptx(quote, output_path):
         run_pr_label.font.size = Pt(14)
         
         run_pr_val = p_pr.add_run()
-        run_pr_val.text = f"USD {hotel.get('costo', 0.0):,.2f}"
+        run_pr_val.text = f"{moneda} {hotel.get('costo', 0.0):,.2f}"
         run_pr_val.font.name = 'Montserrat'
         run_pr_val.font.bold = True
         run_pr_val.font.size = Pt(20)
@@ -325,7 +338,7 @@ def generate_pptx(quote, output_path):
         # Calculate price per person
         tot = hotel.get('costo', 0.0)
         per = tot / cant_pax if cant_pax > 0 else tot
-        run_pax.text = f"USD {per:,.2f} por persona en Base {base_label}"
+        run_pax.text = f"{moneda} {per:,.2f} por persona en Base {base_label}"
         run_pax.font.name = 'Montserrat'
         run_pax.font.size = Pt(11)
         run_pax.font.color.rgb = RGBColor(102, 102, 102)
@@ -384,14 +397,14 @@ def generate_pptx(quote, output_path):
             p_pr = tf_h.add_paragraph()
             p_pr.space_before = Pt(6)
             run_pr = p_pr.add_run()
-            run_pr.text = f"Total: USD {tot:,.2f}\n"
+            run_pr.text = f"Total: {moneda} {tot:,.2f}\n"
             run_pr.font.name = 'Montserrat'
             run_pr.font.bold = True
             run_pr.font.size = Pt(11)
             run_pr.font.color.rgb = hex_to_rgb(secondary_hex)
             
             run_pax = p_pr.add_run()
-            run_pax.text = f"USD {per:,.2f} / pax ({base_label})"
+            run_pax.text = f"{moneda} {per:,.2f} / pax ({base_label})"
             run_pax.font.name = 'Montserrat'
             run_pax.font.size = Pt(9)
             run_pax.font.color.rgb = RGBColor(102, 102, 102)
@@ -444,14 +457,14 @@ def generate_pptx(quote, output_path):
     p_tot.alignment = PP_ALIGN.CENTER
     p_tot.space_before = Pt(6)
     r_tot = p_tot.add_run()
-    r_tot.text = f"Total USD {costo_total:,.2f}  |  "
+    r_tot.text = f"Total {moneda} {costo_total:,.2f}  |  "
     r_tot.font.name = 'Montserrat'
     r_tot.font.size = Pt(28)
     r_tot.font.bold = True
     r_tot.font.color.rgb = RGBColor(255, 255, 255)
     
     r_ind = p_tot.add_run()
-    r_ind.text = f"Por Persona USD {precio_persona:,.2f} en Base {base_label}"
+    r_ind.text = f"Por Persona {moneda} {precio_persona:,.2f} en Base {base_label}"
     r_ind.font.name = 'Montserrat'
     r_ind.font.size = Pt(18)
     r_ind.font.bold = True

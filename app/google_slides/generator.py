@@ -637,14 +637,24 @@ def build_presentation_requests(slide_id, quote, hotel_image_urls,
     fecha_vuelta = quote.get("fecha_vuelo_vuelta", "")
     today_str = datetime.now().strftime("%d/%m/%Y")
     
+    hoteles_raw = quote.get("hoteles", [])
+    moneda = quote.get("moneda")
+    if not moneda:
+        for h in hoteles_raw:
+            if h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+                moneda = h.get("moneda")
+                break
+    if not moneda:
+        moneda = "USD"
+        
     def fmt_curr(val):
         try:
-            return f"USD ${float(val):,.2f}".replace(",", ".")
+            return f"{moneda} ${float(val):,.2f}".replace(",", ".")
         except (ValueError, TypeError):
-            return "USD $0.00"
+            return f"{moneda} $0.00"
             
     base_habitacion = quote.get("base_habitacion", "Doble")
-    hotels = quote.get("hoteles", [])
+    hotels = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     
     # Traverse elements to compute absolute transforms
     absolute_elements = []
@@ -971,7 +981,8 @@ def build_presentation_requests(slide_id, quote, hotel_image_urls,
                 if "<<FECHA COTIZACION>>" in text_val: text_val = text_val.replace("<<FECHA COTIZACION>>", today_str)
                 
                 if oid == "g3f1aacc1efc_0_451":
-                    text_val = f"Vuelos desde {quote.get('origen', '')} hacia {destination} para {cant_pax} pasajeros."
+                    pax_str = "un pasajero" if cant_pax == 1 else f"{cant_pax} pasajeros"
+                    text_val = f"Vuelos desde {quote.get('origen', '')} hacia {destination} para {pax_str}."
                 elif oid == "g3f1aacc1efc_0_445":
                     text_val = f"Estadía en {destination} por {noches_str}."
                 elif oid == "g3f1aacc1efc_0_448":

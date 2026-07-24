@@ -1,0 +1,15 @@
+name: Mantener Space Activo
+
+on:
+  schedule:
+    # Se ejecuta cada 18 horas
+    - cron: '0 */18 * * *'
+  workflow_dispatch: # Permite activar el script manualmente desde GitHub para probarlo
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar Request al Space
+        run: |
+          curl -sI https://urielmendez-edu-cotizador-onetrip.hf.space/ | grep "HTTP/"

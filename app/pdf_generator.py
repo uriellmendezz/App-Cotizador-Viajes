@@ -234,8 +234,19 @@ def generate_pdf(data: dict) -> bytes:
         if img_vuelta_uri:
             temp_files.append(img_vuelta_uri)
 
+    # Detect currency
+    hoteles_raw = data.get("hoteles", [])
+    moneda = data.get("moneda")
+    if not moneda:
+        for h in hoteles_raw:
+            if h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+                moneda = h.get("moneda")
+                break
+    if not moneda:
+        moneda = "USD"
+
     # ── Process hotel data ─────────────────────────────────────────────────
-    hoteles = data.get("hoteles", [])
+    hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     processed_hotels = []
 
     for idx, hotel in enumerate(hoteles[:3]):  # Max 3 hotels
@@ -276,6 +287,18 @@ def generate_pdf(data: dict) -> bytes:
 
         processed_hotels.append(h)
 
+    # ── Calculate dynamic destination title font size ──────────────────────
+    destino = data.get("destino", "Destino")
+    destino_len = len(destino)
+    if destino_len > 25:
+        destino_font_size = "20pt"
+    elif destino_len > 18:
+        destino_font_size = "26pt"
+    elif destino_len > 12:
+        destino_font_size = "32pt"
+    else:
+        destino_font_size = "40pt"
+
     # ── Build template context ─────────────────────────────────────────────
     fecha_generacion = datetime.now().strftime("%d/%m/%Y")
 
@@ -286,8 +309,10 @@ def generate_pdf(data: dict) -> bytes:
         "banner_path": banner_uri,
         # Header
         "fecha_generacion": fecha_generacion,
+        "moneda": moneda,
         # Title
-        "destino": data.get("destino", "Destino"),
+        "destino": destino,
+        "destino_font_size": destino_font_size,
         "nombre_pax": data.get("nombre_pax", "Pasajero"),
         "fecha_salida": data.get("fecha_salida", ""),
         "validez_cotizacion": data.get("validez_cotizacion", ""),
@@ -319,6 +344,8 @@ def generate_pdf(data: dict) -> bytes:
         "hoteles": processed_hotels,
         "base_habitacion": data.get("base_habitacion", "Doble"),
         "format_price": format_price,
+        # Transfers — used to conditionally show/hide the traslados row
+        "monto_traslados": float(data.get("monto_traslados", 0.0)),
     }
 
     # ── Render HTML with Jinja2 ────────────────────────────────────────────

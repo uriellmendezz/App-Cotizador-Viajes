@@ -48,6 +48,27 @@ def parse_excel_or_csv(file_path):
         
     return process_raw_rows(rows)
 
+def format_hotel_name(name: str) -> str:
+    if not name:
+        return ""
+    name_stripped = name.strip()
+    if not name_stripped:
+        return ""
+    
+    lower_name = name_stripped.lower()
+    has_hotel = "hotel" in lower_name
+    
+    non_hotel_keywords = [
+        "posada", "departamento", "depto", "hostel", "cabaña", "cabana", 
+        "cabañas", "cabanas", "loft", "villa", "casa", "hosteria", "hostería", 
+        "motel", "resort", "apart", "apartamento"
+    ]
+    has_non_hotel = any(kw in lower_name for kw in non_hotel_keywords)
+    
+    if not has_hotel and not has_non_hotel:
+        return "Hotel " + name_stripped
+    return name_stripped
+
 def normalize_float(val, default=0.0):
     if val is None or val == "":
         return default
@@ -173,7 +194,7 @@ def process_raw_rows(raw_rows):
             'base_habitacion': base_habitacion,
             'fecha_vuelo_ida': normalize_date(mapped['fecha_vuelo_ida']),
             'fecha_vuelo_vuelta': normalize_date(mapped['fecha_vuelo_vuelta']),
-            'hotel_nombre': str(mapped['hotel_nombre'] or "Hotel Seleccionado").strip(),
+            'hotel_nombre': format_hotel_name(str(mapped['hotel_nombre'] or "Hotel Seleccionado").strip()),
             'hotel_descripcion': str(mapped['hotel_descripcion'] or "").strip(),
             'hotel_estrellas': str(mapped['hotel_estrellas'] or "4").strip(),
             'hotel_regimen': str(mapped['hotel_regimen'] or "Desayuno").strip(),

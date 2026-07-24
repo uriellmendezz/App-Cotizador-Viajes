@@ -1,1235 +1,428 @@
-let hotelCount = 0;
-let agencyConfig = {};
-let importedQuotes = [];
-let hoveredDropzone = null;
-let isDraggingSidebar = false;
-let sidebarWidth = 380;
-let currentQuoteId = null;
-let currentPdfUrl = null;
-let allSavedQuotes = [];
-
-let authToken = null; // Guardado de forma segura en memoria de JS
-let loggedInUser = null;
-let loginSlideshowInterval = null;
-
-async function authenticatedFetch(url, options = {}) {
-    options.headers = options.headers || {};
-    if (authToken) {
-        options.headers['Authorization'] = `Bearer ${authToken}`;
-    }
-
-    try {
-        let res = await fetch(url, options);
-
-        // Si da 401 y no es una ruta de autenticación, intentar auto-refrescar
-        if (res.status === 401 && !url.includes('/api/auth/')) {
-            console.warn("Access Token expirado (401). Intentando autorefrescar sesión...");
-            const success = await refreshSession();
-            if (success) {
-                // Reintentar la llamada original con el nuevo token
-                options.headers['Authorization'] = `Bearer ${authToken}`;
-                res = await fetch(url, options);
-            } else {
-                logoutAgent(false, "Su sesión ha expirado o es inválida. Inicie sesión nuevamente.");
-                throw new Error("Su sesión ha expirado. Por favor, inicie sesión nuevamente.");
-            }
-        } else if (res.status === 401 && url === '/api/auth/refresh') {
-            // El Refresh Token también expiró
-            logoutAgent(false, "Su sesión ha expirado o es inválida. Inicie sesión nuevamente.");
-        }
-        return res;
-    } catch (err) {
-        throw err;
-    }
-}
-
-function formatPriceES(val) {
-    if (val === undefined || val === null || isNaN(val)) return "0,00";
-    return val.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatCapitalization(value) {
-    if (!value) return '';
-    const minorWords = ['de', 'la', 'el', 'en', 'y', 'a', 'del', 'los', 'las', 'con', 'por', 'para', 'o'];
-    
-    // Split the value into words, preserving spaces
-    const words = value.trim().split(/\s+/);
-    const formattedWords = words.map((word, index) => {
-        if (!word) return '';
-        
-        const lowerWord = word.toLowerCase();
-        
-        // If it's a minor word and NOT the first word, keep it in lowercase
-        if (minorWords.includes(lowerWord) && index > 0) {
-            return lowerWord;
-        }
-        
-        // Otherwise, capitalize the first letter and keep the rest as lowercase
-        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    });
-    
-    return formattedWords.join(' ');
-}
-window.formatCapitalization = formatCapitalization;
-
-function handleCapitalizationBlur(input) {
-    if (!input) return;
-    const oldVal = input.value;
-    const newVal = formatCapitalization(oldVal);
-    if (newVal !== oldVal) {
-        input.value = newVal;
-        // Trigger input event to update real-time breakdown
-        const event = new Event('input', { bubbles: true });
-        input.dispatchEvent(event);
-    }
-}
-window.handleCapitalizationBlur = handleCapitalizationBlur;
-
-function formatHabitacionValue(value) {
-    if (!value) return "";
-    let trimmed = value.trim();
-    if (trimmed === "") return "";
-
-    // Capitalize using the new helper
-    trimmed = formatCapitalization(trimmed);
-
-    const normalized = trimmed.toLowerCase();
-    if (normalized.includes("habitacion") || normalized.includes("habitación")) {
-        if (trimmed.startsWith("Habitacion ")) {
-            trimmed = "Habitación " + trimmed.substring(11);
-        } else if (trimmed === "Habitacion") {
-            trimmed = "Habitación";
-        }
-        return trimmed;
-    }
-    return "Habitación " + trimmed;
-}
-window.formatHabitacionValue = formatHabitacionValue;
-
-function formatHabitacionInput(inputEl) {
-    if (!inputEl) return;
-    const currentVal = inputEl.value;
-    const formatted = formatHabitacionValue(currentVal);
-    if (formatted !== currentVal) {
-        inputEl.value = formatted;
-        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-}
-window.formatHabitacionInput = formatHabitacionInput;
-
-// On window load
-window.addEventListener('load', () => {
-    // Set flatpickr Spanish translation globally
-    if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.es) {
-        flatpickr.localize(flatpickr.l10ns.es);
-    }
-
-    // Hidden developer shortcut to load mock test data (Control + Alt + 9)
-    window.addEventListener('keydown', async (e) => {
-        if (e.ctrlKey && e.altKey && e.key === '9') {
-            e.preventDefault();
-            await fillTestData();
-        }
-    });
-
-    // Initialize custom date pickers (Flatpickr)
-    flatpickr("#fecha_vuelo_ida", {
-        dateFormat: "Y-m-d",
-        altInput: true,
-        altFormat: "d/m/Y",
-        disableMobile: "true",
-        onChange: function (selectedDates, dateStr, instance) {
-            const returnPicker = document.getElementById('fecha_vuelo_vuelta')._flatpickr;
-            if (returnPicker) {
-                if (selectedDates[0]) {
-                    returnPicker.set('minDate', selectedDates[0]);
-                } else {
-                    returnPicker.set('minDate', null);
-                }
-            }
-            validateDates();
-        }
-    });
-    flatpickr("#fecha_vuelo_vuelta", {
-        dateFormat: "Y-m-d",
-        altInput: true,
-        altFormat: "d/m/Y",
-        disableMobile: "true",
-        onOpen: function (selectedDates, dateStr, instance) {
-            const departureVal = getDatePickerValue('fecha_vuelo_ida');
-            if (departureVal && !instance.selectedDates.length) {
-                instance.jumpToDate(departureVal);
-            }
-        },
-        onReady: function (selectedDates, dateStr, instance) {
-            const calendarContainer = instance.calendarContainer;
-
-            calendarContainer.addEventListener('mouseover', function (e) {
-                const dayElem = e.target.closest('.flatpickr-day');
-                if (!dayElem || dayElem.classList.contains('disabled')) return;
-
-                const departureVal = getDatePickerValue('fecha_vuelo_ida');
-                if (!departureVal) return;
-
-                const depTime = new Date(departureVal + 'T00:00:00').getTime();
-
-                const hoverDate = dayElem.dateObj;
-                if (!hoverDate) return;
-                const hoverTime = new Date(hoverDate.getFullYear(), hoverDate.getMonth(), hoverDate.getDate()).getTime();
-
-                if (hoverTime < depTime) return;
-
-                const days = calendarContainer.querySelectorAll('.flatpickr-day');
-                days.forEach(day => {
-                    const thisDate = day.dateObj;
-                    if (!thisDate || day.classList.contains('disabled')) return;
-                    const thisTime = new Date(thisDate.getFullYear(), thisDate.getMonth(), thisDate.getDate()).getTime();
-
-                    if (thisTime > depTime && thisTime < hoverTime) {
-                        day.classList.add('inRange');
-                        day.classList.remove('startRange', 'endRange');
-                    } else if (thisTime === depTime) {
-                        day.classList.add('startRange');
-                        day.classList.remove('inRange', 'endRange');
-                    } else if (thisTime === hoverTime) {
-                        day.classList.add('endRange');
-                        day.classList.remove('inRange', 'startRange');
-                    } else {
-                        day.classList.remove('inRange', 'startRange', 'endRange');
-                    }
-                });
-            });
-
-            calendarContainer.addEventListener('mouseleave', function () {
-                const departureVal = getDatePickerValue('fecha_vuelo_ida');
-                const returnVal = getDatePickerValue('fecha_vuelo_vuelta');
-
-                const depTime = departureVal ? new Date(departureVal + 'T00:00:00').getTime() : null;
-                const retTime = returnVal ? new Date(returnVal + 'T00:00:00').getTime() : null;
-
-                const days = calendarContainer.querySelectorAll('.flatpickr-day');
-                days.forEach(day => {
-                    const thisDate = day.dateObj;
-                    if (!thisDate) return;
-                    const thisTime = new Date(thisDate.getFullYear(), thisDate.getMonth(), thisDate.getDate()).getTime();
-
-                    if (depTime && retTime) {
-                        if (thisTime > depTime && thisTime < retTime) {
-                            day.classList.add('inRange');
-                            day.classList.remove('startRange', 'endRange');
-                        } else if (thisTime === depTime) {
-                            day.classList.add('startRange');
-                            day.classList.remove('inRange', 'endRange');
-                        } else if (thisTime === retTime) {
-                            day.classList.add('endRange');
-                            day.classList.remove('inRange', 'startRange');
-                        } else {
-                            day.classList.remove('inRange', 'startRange', 'endRange');
-                        }
-                    } else {
-                        // Keep startRange visible even if return date is not selected yet
-                        if (depTime && thisTime === depTime) {
-                            day.classList.add('startRange');
-                            day.classList.remove('inRange', 'endRange');
-                        } else {
-                            day.classList.remove('inRange', 'startRange', 'endRange');
-                        }
-                    }
-                });
-            });
-        },
-        onDayCreate: function (dObj, dStr, fp, dayElem) {
-            const departureVal = getDatePickerValue('fecha_vuelo_ida');
-            const returnVal = getDatePickerValue('fecha_vuelo_vuelta');
-            if (departureVal) {
-                const depTime = new Date(departureVal + 'T00:00:00').getTime();
-                const thisTime = new Date(dayElem.dateObj.getFullYear(), dayElem.dateObj.getMonth(), dayElem.dateObj.getDate()).getTime();
-
-                if (returnVal) {
-                    const retTime = new Date(returnVal + 'T00:00:00').getTime();
-                    if (thisTime > depTime && thisTime < retTime) {
-                        dayElem.classList.add('inRange');
-                    } else if (thisTime === depTime) {
-                        dayElem.classList.add('startRange');
-                    } else if (thisTime === retTime) {
-                        dayElem.classList.add('endRange');
-                    }
-                } else {
-                    if (thisTime === depTime) {
-                        dayElem.classList.add('startRange');
-                    }
-                }
-            }
-        }
-    });
-    flatpickr("#validez_cotizacion", {
-        dateFormat: "Y-m-d",
-        altInput: true,
-        altFormat: "d/m/Y",
-        disableMobile: "true"
-    });
-
-    setupDragAndDrop();
-    setupSidebarResizer();
-
-    // Initialize flights fee
-    toggleFeeType();
-
-    // Bind real-time pricing inputs
-    document.getElementById('monto_vuelos').addEventListener('input', updateRealTimeSummary);
-    document.getElementById('fee_aereo_monto').addEventListener('input', updateRealTimeSummary);
-    document.getElementById('monto_traslados').addEventListener('input', updateRealTimeSummary);
-    document.getElementById('cantidad_pasajeros').addEventListener('change', updateRealTimeSummary);
-    document.getElementById('nombre_pax').addEventListener('input', updateRealTimeSummary);
-    document.getElementById('destino').addEventListener('input', updateRealTimeSummary);
-    document.getElementById('fecha_vuelo_ida').addEventListener('change', updateRealTimeSummary);
-    document.getElementById('fecha_vuelo_vuelta').addEventListener('change', updateRealTimeSummary);
-    if (document.getElementById('validez_cotizacion')) {
-        document.getElementById('validez_cotizacion').addEventListener('change', updateRealTimeSummary);
-    }
-
-    // Setup cost input focus/blur helpers
-    setupCostInputHelpers();
-
-    updateRealTimeSummary();
-
-    // Validar sesión inicial
-    if (window.innerWidth < 1024) {
-        toggleRealTimeBreakdown();
-    }
-    checkSession();
+// Clean up legacy session keys on initialization
+['authToken', 'loggedInUser', 'userRole', 'userSucursalId', 'userSucursalNombre'].forEach(key => {
+    try { localStorage.removeItem(key); } catch (e) { }
 });
 
-function calculateAutoFee() {
-    const costInput = document.getElementById('monto_vuelos');
-    const feeType = document.getElementById('fee_aereo_tipo').value;
-    const feeInput = document.getElementById('fee_aereo_monto');
-    if (feeType === 'auto') {
-        const cost = parseFloat(costInput.value) || 0;
-        feeInput.value = (cost * 0.1).toFixed(2);
+// Helper: Check if path belongs to admin route
+function isAdminPath(path = window.location.pathname) {
+    return path === '/admin' || path === '/admin-login';
+}
+window.isAdminPath = isAdminPath;
+
+// Initialize sidebar collapse state on desktop early
+if (window.innerWidth >= 1024) {
+    if (localStorage.getItem('sidebarCollapsed') === 'true') {
+        document.body.classList.add('sidebar-collapsed');
     }
 }
-window.calculateAutoFee = calculateAutoFee;
 
-function toggleFeeType() {
-    const feeType = document.getElementById('fee_aereo_tipo').value;
-    const feeInput = document.getElementById('fee_aereo_monto');
-    if (feeType === 'auto') {
-        feeInput.readOnly = true;
-        feeInput.style.opacity = '0.6';
-        calculateAutoFee();
+// Session Management Helpers
+function decodeTokenPayload(token) {
+    if (!token) return null;
+    try {
+        const base64Url = token.split('.')[0];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        console.error("Error decoding token payload:", e);
+        return null;
+    }
+}
+window.decodeTokenPayload = decodeTokenPayload;
+
+function isUuidString(str) {
+    if (!str || typeof str !== 'string') return false;
+    return str.length > 20 || str.includes('-');
+}
+window.isUuidString = isUuidString;
+
+function resolveDisplayName(username, payload, fallback = 'Invitado') {
+    if (username && !isUuidString(username)) {
+        return username;
+    }
+    if (payload?.nombre && !isUuidString(payload.nombre)) {
+        return payload.nombre;
+    }
+    if (payload?.username && !isUuidString(payload.username)) {
+        return payload.username;
+    }
+    if (payload?.email) {
+        return payload.email.split('@')[0];
+    }
+    return fallback;
+}
+window.resolveDisplayName = resolveDisplayName;
+
+function setAgentSession(token, username) {
+    if (token) {
+        const payload = decodeTokenPayload(token);
+        const displayName = resolveDisplayName(username, payload, 'Agente');
+        localStorage.setItem('otg_agent_token', token);
+        localStorage.setItem('otg_agent_user', displayName);
+        if (payload?.rol) localStorage.setItem('otg_agent_role', payload.rol);
+        else localStorage.removeItem('otg_agent_role');
+        if (payload?.sucursal_id) localStorage.setItem('otg_agent_sucursal_id', payload.sucursal_id);
+        else localStorage.removeItem('otg_agent_sucursal_id');
+        if (payload?.sucursal_nombre) localStorage.setItem('otg_agent_sucursal_nombre', payload.sucursal_nombre);
+        else localStorage.removeItem('otg_agent_sucursal_nombre');
     } else {
-        feeInput.readOnly = false;
-        feeInput.style.opacity = '1.0';
+        localStorage.removeItem('otg_agent_token');
+        localStorage.removeItem('otg_agent_user');
+        localStorage.removeItem('otg_agent_role');
+        localStorage.removeItem('otg_agent_sucursal_id');
+        localStorage.removeItem('otg_agent_sucursal_nombre');
     }
+    updateAdminBtnVisibility();
 }
-window.toggleFeeType = toggleFeeType;
+window.setAgentSession = setAgentSession;
 
-function bindInputHelper(input) {
-    if (!input) return;
-
-    // Focus event: auto-select text
-    input.addEventListener('focus', function () {
-        setTimeout(() => {
-            this.select();
-        }, 50);
-    });
-
-    // Blur event: format to 2 decimals
-    input.addEventListener('blur', function () {
-        let val = parseFloat(this.value);
-        if (isNaN(val) || this.value.trim() === '') {
-            this.value = '0.00';
-        } else {
-            this.value = val.toFixed(2);
-        }
-        updateRealTimeSummary();
-    });
+function setAdminSession(token, username) {
+    if (token) {
+        const payload = decodeTokenPayload(token);
+        const displayName = resolveDisplayName(username, payload, 'Administrador');
+        localStorage.setItem('otg_admin_token', token);
+        localStorage.setItem('otg_admin_user', displayName);
+        if (payload?.rol) localStorage.setItem('otg_admin_role', payload.rol);
+        else localStorage.removeItem('otg_admin_role');
+    } else {
+        localStorage.removeItem('otg_admin_token');
+        localStorage.removeItem('otg_admin_user');
+        localStorage.removeItem('otg_admin_role');
+    }
+    updateAdminBtnVisibility();
 }
-window.bindInputHelper = bindInputHelper;
+window.setAdminSession = setAdminSession;
 
-function setupCostInputHelpers() {
-    const inputs = [
-        document.getElementById('monto_vuelos'),
-        document.getElementById('fee_aereo_monto'),
-        document.getElementById('monto_traslados')
+function clearAllSessions() {
+    const keysToRemove = [
+        'otg_agent_token', 'otg_agent_user', 'otg_agent_role', 'otg_agent_sucursal_id', 'otg_agent_sucursal_nombre',
+        'otg_admin_token', 'otg_admin_user', 'otg_admin_role',
+        'authToken', 'loggedInUser', 'userRole', 'userSucursalId', 'userSucursalNombre',
+        'adminAuthToken', 'adminLoggedInUser'
     ];
-    inputs.forEach(input => {
-        if (input) {
-            bindInputHelper(input);
-        }
+    keysToRemove.forEach(k => {
+        try { localStorage.removeItem(k); } catch (e) { }
     });
-}
-window.setupCostInputHelpers = setupCostInputHelpers;
 
-function toggleRealTimeBreakdown() {
-    const container = document.getElementById('sidebar-container');
-    const card = document.getElementById('realtime-card');
-    const content = document.getElementById('realtime-card-content');
-    const btn = document.getElementById('toggle-sidebar-btn');
-    const arrow = document.getElementById('sidebar-arrow-icon');
-    const resizer = document.getElementById('layout-resizer');
+    isConfigLoaded = false;
+    isAgentSessionChecked = false;
+    isAdminSessionChecked = false;
+    window.userId = null;
 
-    if (!container || !card || !content || !btn || !arrow) return;
+    const spanUsername = document.getElementById('sidebar-username-span');
+    if (spanUsername) spanUsername.innerText = 'Invitado';
 
-    const isCollapsed = container.style.width === '0px' || container.classList.contains('w-0');
-
-    if (isCollapsed) {
-        // Expand
-        container.classList.remove('w-0', 'lg:w-0', 'overflow-visible');
-        container.style.width = `${sidebarWidth}px`;
-        container.style.minWidth = `${sidebarWidth}px`;
-        container.style.maxWidth = `${sidebarWidth}px`;
-
-        if (resizer) {
-            resizer.classList.remove('hidden');
-            resizer.classList.add('lg:flex');
-        }
-
-        card.className = "bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl p-6 shadow-xl shadow-slate-200/50 lg:shadow-md lg:shadow-slate-100 fixed bottom-4 left-4 right-4 z-50 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:z-0 max-h-[85vh] overflow-hidden transition-all duration-500 w-[calc(100%-2rem)] lg:w-full";
-
-        content.classList.remove('hidden', 'opacity-0');
-        content.classList.add('opacity-100');
-
-        btn.className = "absolute top-5 right-5 w-7 h-7 bg-slate-100 hover:bg-brand-primary hover:text-white text-slate-500 rounded-full flex items-center justify-center shadow-sm border border-slate-200/60 cursor-pointer z-50 transition-all duration-300 hover:scale-105 active:scale-95";
-        arrow.classList.remove('rotate-180');
-    } else {
-        // Collapse
-        container.classList.add('w-0', 'lg:w-0', 'overflow-visible');
-        container.style.width = '0px';
-        container.style.minWidth = '0px';
-        container.style.maxWidth = '0px';
-
-        if (resizer) {
-            resizer.classList.add('hidden');
-            resizer.classList.remove('lg:flex');
-        }
-
-        card.className = "fixed bottom-4 right-4 lg:absolute lg:top-0 lg:right-0 w-12 h-12 rounded-full p-0 flex items-center justify-center bg-brand-primary text-white border-0 shadow-2xl z-50 transition-all duration-500 max-h-[48px] overflow-hidden cursor-pointer";
-
-        content.classList.add('hidden', 'opacity-0');
-        content.classList.remove('opacity-100');
-
-        btn.className = "absolute inset-0 w-full h-full flex items-center justify-center text-white hover:bg-brand-primary/90 rounded-full cursor-pointer z-50";
-        arrow.classList.add('rotate-180');
+    const userBadge = document.getElementById('sidebar-user-badge');
+    if (userBadge) {
+        const dot = userBadge.querySelector('span');
+        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-500';
     }
+
+    const adminBtn = document.getElementById('sidebar-btn-admin');
+    if (adminBtn) adminBtn.classList.add('hidden');
 }
-window.toggleRealTimeBreakdown = toggleRealTimeBreakdown;
+window.clearAllSessions = clearAllSessions;
 
-function updateHotelBadges() {
-    const container = document.getElementById('hotels-container');
-    if (!container) return;
-    const cards = container.querySelectorAll('.hotel-option-card');
-    cards.forEach((card, idx) => {
-        // Remove existing badge if any
-        const oldBadge = card.querySelector('.recommendation-badge');
-        if (oldBadge) oldBadge.remove();
-
-        if (idx === 0) {
-            // Add badge to the first card
-            const badge = document.createElement('div');
-            badge.className = 'recommendation-badge absolute -top-3 left-6 px-3 py-1 bg-brand-primary text-white text-[9px] font-extrabold rounded-full uppercase tracking-wider shadow-md z-10';
-            badge.innerText = 'NUESTRA RECOMENDACIÓN';
-            card.appendChild(badge);
-        }
-    });
-}
-window.updateHotelBadges = updateHotelBadges;
-
-// Tab Switch Logic
-function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.add('hidden');
-        tab.classList.remove('block');
-    });
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active', 'bg-gradient-to-r', 'from-brand-primary', 'to-[#ff7f85]', 'text-white', 'shadow-lg', 'shadow-brand-primary/35');
-        btn.classList.add('text-slate-500', 'hover:text-slate-800', 'hover:bg-slate-100');
-    });
-
-    const activeTab = document.getElementById(tabId);
-    activeTab.classList.remove('hidden');
-    activeTab.classList.add('block');
-
-    // Find matching button
-    const btns = document.querySelectorAll('.tab-btn');
-    let btnIdx = 0;
-    if (tabId === 'cotizacion-tab') btnIdx = 0;
-    else if (tabId === 'editar-tab') btnIdx = 1;
-    else if (tabId === 'config-tab') btnIdx = 2;
-
-    btns[btnIdx].classList.add('active', 'bg-gradient-to-r', 'from-brand-primary', 'to-[#ff7f85]', 'text-white', 'shadow-lg', 'shadow-brand-primary/35');
-    btns[btnIdx].classList.remove('text-slate-500', 'hover:text-slate-800', 'hover:bg-slate-100');
-}
-window.switchTab = switchTab;
-
-// Show Alerts
-function showAlert(type, message, preventScroll = false) {
-    // Evitar mostrar avisos informativos o de éxito
-    if (type === 'success' || type === 'info') {
+function setSession(token, username) {
+    if (!token) {
+        clearAllSessions();
         return;
     }
-    const el = document.getElementById('alert-message');
-    el.className = `alert p-4 rounded-xl font-semibold border text-sm mb-6 transition-all duration-300`;
-
-    if (type === 'success') {
-        el.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
-    } else if (type === 'warning') {
-        el.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-800');
+    const payload = decodeTokenPayload(token);
+    if (payload && payload.rol === 'ADMIN_GLOBAL') {
+        setAdminSession(token, username);
     } else {
-        el.classList.add('bg-blue-50', 'border-blue-200', 'text-blue-800');
+        setAgentSession(token, username);
+    }
+}
+window.setSession = setSession;
+
+function updateAdminBtnVisibility() {
+    const adminBtn = document.getElementById('sidebar-btn-admin');
+    if (adminBtn) {
+        const adminToken = localStorage.getItem('otg_admin_token');
+        if (adminToken) {
+            adminBtn.classList.remove('hidden');
+        } else {
+            adminBtn.classList.add('hidden');
+        }
+    }
+}
+
+// Dynamic properties on window for seamless backward compatibility
+Object.defineProperty(window, 'authToken', {
+    get: () => {
+        return isAdminPath()
+            ? (localStorage.getItem('otg_admin_token') || null)
+            : (localStorage.getItem('otg_agent_token') || null);
+    },
+    configurable: true
+});
+
+Object.defineProperty(window, 'loggedInUser', {
+    get: () => {
+        const raw = isAdminPath()
+            ? (localStorage.getItem('otg_admin_user') || null)
+            : (localStorage.getItem('otg_agent_user') || null);
+        const token = window.authToken;
+        if (!token && !raw) return 'Invitado';
+        const payload = decodeTokenPayload(token);
+        return resolveDisplayName(raw, payload, isAdminPath() ? 'Administrador' : 'Invitado');
+    },
+    configurable: true
+});
+
+Object.defineProperty(window, 'userRole', {
+    get: () => {
+        return isAdminPath()
+            ? (localStorage.getItem('otg_admin_role') || null)
+            : (localStorage.getItem('otg_agent_role') || null);
+    },
+    configurable: true
+});
+
+Object.defineProperty(window, 'userSucursalId', {
+    get: () => localStorage.getItem('otg_agent_sucursal_id') || null,
+    configurable: true
+});
+
+Object.defineProperty(window, 'userSucursalNombre', {
+    get: () => localStorage.getItem('otg_agent_sucursal_nombre') || null,
+    configurable: true
+});
+
+Object.defineProperty(window, 'userId', {
+    get: () => {
+        const token = window.authToken;
+        return token ? (decodeTokenPayload(token)?.sub || null) : null;
+    },
+    configurable: true
+});
+
+// Global Alert Handler
+function showAlert(type, message, preventScroll = false) {
+    const alertEl = document.getElementById('alert-message');
+    if (!alertEl) return;
+
+    alertEl.className = 'alert mb-6 p-4 rounded-xl font-semibold border text-sm transition-all duration-300';
+    if (type === 'success') {
+        alertEl.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
+    } else if (type === 'warning') {
+        alertEl.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-800');
+    } else {
+        alertEl.classList.add('bg-rose-50', 'border-rose-200', 'text-rose-800');
     }
 
-    el.innerText = message;
-    el.classList.remove('hidden');
-    el.classList.add('block');
+    alertEl.innerText = message;
+    alertEl.classList.remove('hidden');
 
     if (!preventScroll) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     setTimeout(() => {
-        el.classList.add('hidden');
-        el.classList.remove('block');
+        alertEl.classList.add('hidden');
     }, 5000);
 }
+window.showAlert = showAlert;
 
-// Load Agency Configurations
-async function loadConfig() {
+// Global Formatting Helper
+function formatPriceES(val) {
+    const num = parseFloat(val) || 0;
+    return num.toLocaleString('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+window.formatPriceES = formatPriceES;
+
+// Authenticated Fetch Wrapper
+async function authenticatedFetch(url, options = {}) {
+    if (!options.headers) {
+        options.headers = {};
+    }
+
+    const isAdminCall = url.startsWith('/api/admin') || isAdminPath();
+    const token = isAdminCall ? localStorage.getItem('otg_admin_token') : localStorage.getItem('otg_agent_token');
+
+    if (token) {
+        options.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    let res = await fetch(url, options);
+
+    // Auto-refresh token if 401
+    if (res.status === 401 && token) {
+        try {
+            const scope = isAdminCall ? 'admin' : 'agent';
+            const refreshRes = await fetch(`/api/auth/refresh?scope=${scope}`, { method: 'POST' });
+            if (refreshRes.ok) {
+                const data = await refreshRes.json();
+                if (isAdminCall) {
+                    setAdminSession(data.access_token, data.username);
+                } else {
+                    setAgentSession(data.access_token, data.username);
+                }
+
+                // Retry request
+                options.headers['Authorization'] = `Bearer ${data.access_token}`;
+                res = await fetch(url, options);
+            } else {
+                if (isAdminCall) {
+                    logoutAdmin(false);
+                } else {
+                    logoutAgent(false);
+                }
+            }
+        } catch (err) {
+            if (isAdminCall) {
+                logoutAdmin(false);
+            } else {
+                logoutAgent(false);
+            }
+        }
+    }
+    return res;
+}
+window.authenticatedFetch = authenticatedFetch;
+
+// Navigation History Stack
+let navStack = [];
+
+// Human-readable names for each route
+const routeNames = {
+    '/login': 'Iniciar Sesión',
+    '/inicio': 'Inicio',
+    '/cotizacion-rapida': 'Cotización Rápida',
+    '/cotizaciones-rapidas': 'Cotizaciones Rápidas',
+    '/hacer-cotizacion': 'Nueva Cotización',
+    '/cotizacion-completa': 'Generar Cotización',
+    '/editar': 'Archivos',
+    '/config': 'Configuración',
+    '/ver-cotizacion': 'Ver Cotización',
+    '/admin': 'Administración',
+};
+
+// SPA Router implementation
+async function navigateTo(url) {
+    const currentPath = window.location.pathname;
+    // Push current path to history stack before leaving
+    if (currentPath && currentPath !== url && currentPath !== '/login') {
+        navStack.push(currentPath);
+    }
+    history.pushState(null, null, url);
+    await router();
+}
+window.navigateTo = navigateTo;
+
+// Navigate back to the previous page in the internal nav stack
+function navigateBack() {
+    if (navStack.length > 0) {
+        const prevPath = navStack.pop();
+        history.pushState(null, null, prevPath);
+        router();
+    } else {
+        navigateTo('/inicio');
+    }
+}
+window.navigateBack = navigateBack;
+
+// Get the label and destination for the back button
+function getBackButtonInfo() {
+    if (navStack.length === 0) return { label: 'Volver al Inicio', path: '/inicio' };
+    const prevPath = navStack[navStack.length - 1];
+    const name = routeNames[prevPath] || 'Volver';
+    return { label: `Volver a ${name}`, path: prevPath };
+}
+window.getBackButtonInfo = getBackButtonInfo;
+
+// Update the back button text/tooltip on the currently loaded view
+function updateBackButton() {
+    const btn = document.getElementById('page-back-btn');
+    if (!btn) return;
+    const info = getBackButtonInfo();
+    const labelEl = btn.querySelector('.back-btn-label');
+    if (labelEl) labelEl.textContent = info.label;
+    btn.title = info.label;
+}
+window.updateBackButton = updateBackButton;
+
+// Logout with native confirmation modal
+function confirmLogout() {
+    window.showCustomConfirm({
+        title: '¿Cerrar Sesión?',
+        desc: '¿Estás seguro de que deseas cerrar sesión? Tendrás que volver a ingresar tus credenciales para acceder al sistema.',
+        btnText: 'Sí, Cerrar Sesión',
+        confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
+        callback: () => logoutAgent(true)
+    });
+}
+window.confirmLogout = confirmLogout;
+
+const routes = {
+    '/login': { html: '/static/views/login.html', js: '/static/js/login.js', init: 'initLogin' },
+    '/inicio': { html: '/static/views/inicio.html', js: '/static/js/inicio.js', init: 'initInicio' },
+    '/cotizacion-rapida': { html: '/static/views/cotizacion_rapida.html', js: '/static/js/cotizacion_rapida.js', init: 'initCotizacionRapida' },
+    '/cotizaciones-rapidas': { html: '/static/views/cotizaciones_rapidas.html', js: '/static/js/cotizacion_rapida.js', init: 'initCotizacionesRapidas' },
+    '/hacer-cotizacion': { html: '/static/views/opciones_cotizacion.html', js: '/static/js/inicio.js', init: 'initOpciones' },
+    '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
+    '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
+    '/config': { html: '/static/views/configuracion.html', js: '/static/js/cotizar.js', init: 'initConfig' },
+    '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
+    '/admin': { html: '/static/views/admin.html', js: '/static/js/admin.js', init: 'initAdmin' },
+    '/admin-login': { html: '/static/views/admin_login.html', js: '/static/js/admin_login.js', init: 'initAdminLogin' }
+};
+
+let isConfigLoaded = false;
+
+async function loadHeaderConfig() {
+    if (isConfigLoaded || !window.authToken) return;
     try {
         const res = await authenticatedFetch('/api/config');
-        agencyConfig = await res.json();
+        if (res.ok) {
+            const config = await res.json();
 
-        // Update Configuration Form inputs
-        document.getElementById('config_nombre_agencia').value = agencyConfig.nombre_agencia;
-        document.getElementById('config_nombre_agencia_legal').value = agencyConfig.nombre_agencia_legal;
-        document.getElementById('color_primary').value = agencyConfig.colores[0];
-        document.getElementById('color_secondary').value = agencyConfig.colores[1];
-        document.getElementById('color_neutral').value = agencyConfig.colores[2];
-        const slidesTemplateInput = document.getElementById('config_slides_template_id');
-        if (slidesTemplateInput) {
-            slidesTemplateInput.value = agencyConfig.google_slides_template_id || '';
-        }
-        const slidesFolderInput = document.getElementById('config_slides_folder_id');
-        if (slidesFolderInput) {
-            slidesFolderInput.value = agencyConfig.google_slides_folder_id || '';
-        }
+            // Set agency colors dynamically on root
+            document.documentElement.style.setProperty('--primary-color', config.colores[0]);
+            document.documentElement.style.setProperty('--secondary-color', config.colores[1]);
+            document.documentElement.style.setProperty('--accent-color', config.colores[2]);
 
-        // Update header navbar title & colors
-        const navAgencyName = document.getElementById('nav-agency-name');
-        if (navAgencyName) {
-            navAgencyName.innerText = agencyConfig.nombre_agencia.toUpperCase();
-        }
-        document.documentElement.style.setProperty('--primary-color', agencyConfig.colores[0]);
-        document.documentElement.style.setProperty('--secondary-color', agencyConfig.colores[1]);
-        document.documentElement.style.setProperty('--accent-color', agencyConfig.colores[2]);
-
-        if (agencyConfig.logo_base64) {
-            const logoPreview = document.getElementById('preview-logo');
-            logoPreview.src = 'data:image/png;base64,' + agencyConfig.logo_base64;
-            logoPreview.classList.remove('hidden');
-            document.getElementById('data-logo').value = 'data:image/png;base64,' + agencyConfig.logo_base64;
-
-            // Header Logo
-            const navLogo = document.getElementById('nav-logo');
-            navLogo.src = 'data:image/png;base64,' + agencyConfig.logo_base64;
-            navLogo.classList.remove('hidden');
-        }
-    } catch (err) {
-        console.error("Error loading brand configuration:", err);
-    }
-}
-
-// Save Agency Configurations
-async function saveConfig(e) {
-    e.preventDefault();
-    const configData = {
-        nombre_agencia: document.getElementById('config_nombre_agencia').value,
-        nombre_agencia_legal: document.getElementById('config_nombre_agencia_legal').value,
-        colores: [
-            document.getElementById('color_primary').value,
-            document.getElementById('color_secondary').value,
-            document.getElementById('color_neutral').value
-        ],
-        logo_base64: document.getElementById('data-logo').value.includes('base64') ? document.getElementById('data-logo').value.split(',')[1] : document.getElementById('data-logo').value,
-        google_slides_template_id: document.getElementById('config_slides_template_id') ? document.getElementById('config_slides_template_id').value : '',
-        google_slides_folder_id: document.getElementById('config_slides_folder_id') ? document.getElementById('config_slides_folder_id').value : ''
-    };
-
-    try {
-        const res = await authenticatedFetch('/api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(configData)
-        });
-        const result = await res.json();
-        if (result.status === 'success') {
-            showAlert('success', 'Configuración de marca guardada de forma exitosa.');
-            loadConfig(); // Reload styles and values
-        }
-    } catch (err) {
-        showAlert('warning', 'Error al guardar la configuración: ' + err.message);
-    }
-}
-
-// Dynamic Hotel Cards Additions
-function addHotelCard(data = null) {
-    const container = document.getElementById('hotels-container');
-    const currentCards = container.querySelectorAll('.hotel-option-card');
-
-    if (currentCards.length >= 3) {
-        alert("Máximo 3 hoteles permitidos.");
-        return;
-    }
-
-    hotelCount++;
-    const cardId = `hotel-card-${hotelCount}`;
-
-    const card = document.createElement('div');
-    card.className = 'hotel-option-card bg-slate-50/60 border border-slate-200/80 rounded-xl p-5 relative flex flex-col justify-center gap-4 transition-all duration-300 hover:bg-slate-50';
-    card.id = cardId;
-
-    const starsVal = data ? (data.estrellas || data.hotel_estrellas || "★★★★☆") : "★★★★☆";
-
-    const regimenVal = data ? (data.hotel_regimen || data.regimen || 'Desayuno incluido') : 'Desayuno incluido';
-    const standardRegimens = ["All Inclusive", "Desayuno incluido", "Solo alojamiento", "Media Pension", "Desayuno y Cena incluidos"];
-
-    let isRegimenMapped = false;
-    let regimenOptionsHtml = "";
-
-    standardRegimens.forEach(opt => {
-        const isSelected = regimenVal.toLowerCase().trim() === opt.toLowerCase().trim();
-        if (isSelected) isRegimenMapped = true;
-        regimenOptionsHtml += `<option value="${opt}" ${isSelected ? 'selected' : ''}>${opt}</option>`;
-    });
-
-    if (!isRegimenMapped && regimenVal) {
-        regimenOptionsHtml += `<option value="${regimenVal}" selected>${regimenVal}</option>`;
-    }
-
-    let habitacionVal = data ? (data.hotel_habitacion || data.habitacion || '') : '';
-    if (habitacionVal) {
-        habitacionVal = formatHabitacionValue(habitacionVal);
-    }
-
-    card.innerHTML = `
-        <button type="button" class="remove-hotel-btn absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 bg-rose-50 border border-rose-100 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all" onclick="removeHotelCard('${cardId}')">Eliminar Opción</button>
-        
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
-            <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre del Hotel</label>
-                <input type="text" class="hotel-nombre-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Bahia Principe" value="${data ? (data.hotel_nombre || data.nombre || '') : ''}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
-            </div>
-            <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Categoría</label>
-                <select class="hotel-estrellas-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white">
-                    <option value="★★★★★" ${starsVal.includes('5') || starsVal === '★★★★★' ? 'selected' : ''}>5 Estrellas (★★★★★)</option>
-                    <option value="★★★★☆" ${starsVal.includes('4') || starsVal === '★★★★☆' ? 'selected' : ''}>4 Estrellas (★★★★☆)</option>
-                    <option value="★★★☆☆" ${starsVal.includes('3') || starsVal === '★★★☆☆' ? 'selected' : ''}>3 Estrellas (★★★☆☆)</option>
-                    <option value="★★☆☆☆" ${starsVal.includes('2') || starsVal === '★★☆☆☆' ? 'selected' : ''}>2 Estrellas (★★☆☆☆)</option>
-                </select>
-            </div>
-            <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Régimen</label>
-                <select class="hotel-regimen-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white">
-                    ${regimenOptionsHtml}
-                </select>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <span>Habitación</span>
-                    <div class="relative group inline-block">
-                        <svg class="w-3 h-3 text-slate-400 hover:text-slate-600 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
-                            Tipo de habitación cotizada (ej. Estándar, Vista al Mar, Suite).
-                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                        </div>
-                    </div>
-                </label>
-                <input type="text" class="hotel-habitacion-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Estándar Vista Mar" value="${habitacionVal}" onblur="formatHabitacionInput(this)">
-            </div>
-            <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Costo</label>
-                <div class="relative flex items-center">
-                    <span class="absolute left-3 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
-                    <input type="number" class="hotel-costo-val w-full border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary transition-all bg-white" min="0" step="0.01" required value="${data ? (data.monto_alojamiento || data.costo || '') : ''}" placeholder="0.00" oninput="updateRealTimeSummary()">
-                </div>
-            </div>
-        </div>
-        
-        <div class="flex flex-col gap-1 w-full">
-            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Descripción</label>
-            <div class="relative flex flex-col w-full">
-                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[80px] pr-28 resize-y w-full" required placeholder="Ej. Frente al mar..." style="line-height: 1.3;">${data ? (data.hotel_descripcion || data.descripcion || '') : ''}</textarea>
-                <button type="button" class="btn-ia-optimize absolute bottom-1.5 right-1.5 text-[9px] px-2 py-1 bg-gradient-to-r from-brand-primary to-brand-accent text-white font-bold rounded-lg hover:shadow-sm active:scale-95 transition-all" onclick="optimizeDescription(this)">
-                    IA Optimizar
-                </button>
-            </div>
-        </div>
-        
-        <div class="flex flex-col gap-2 w-full">
-            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Imagen del Complejo</label>
-            <div class="grid grid-cols-1 gap-4 w-full">
-                <!-- Foto 1 -->
-                <div class="dropzone relative overflow-hidden border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-4 bg-white flex flex-col items-center justify-center min-h-[110px] cursor-pointer transition-all duration-300 group w-full" id="dropzone-${cardId}-1" tabindex="0" onclick="triggerFileInput('file-${cardId}-1')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-slate-400 group-hover:text-brand-primary mb-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                    <span class="text-xs text-slate-500 font-semibold text-center leading-tight">Seleccionar imagen<br><span class="text-[10px] text-brand-primary/80">Ctrl+V para pegar</span></span>
-                    <input type="file" id="file-${cardId}-1" accept="image/*" class="hidden" onchange="handleImageUpload(this, 'preview-${cardId}-1', 'data-${cardId}-1')">
-                    <img id="preview-${cardId}-1" class="dropzone-preview absolute inset-0 w-full h-full object-cover rounded-xl" style="display: none;" alt="">
-                    <input type="hidden" id="data-${cardId}-1" class="hotel-imagen-val-1">
-                </div>
-            </div>
-        </div>
-    `;
-
-    container.appendChild(card);
-    updateRemoveButtons();
-
-    // Add Drag and Drop listeners to all new dropzones
-    card.querySelectorAll('.dropzone').forEach(dz => {
-        setupSingleDropzone(dz);
-    });
-
-    // Populate previews if data has images
-    if (data) {
-        const img1 = data.imagen1 || data.imagen;
-        if (img1) {
-            const previewEl = document.getElementById(`preview-${cardId}-1`);
-            if (previewEl) {
-                previewEl.src = img1;
-                previewEl.style.display = 'block';
-            }
-            const dataEl = document.getElementById(`data-${cardId}-1`);
-            if (dataEl) dataEl.value = img1;
-            const dz1 = document.getElementById(`dropzone-${cardId}-1`);
-            if (dz1) {
-                const spanEl = dz1.querySelector('span');
-                if (spanEl) spanEl.style.display = 'none';
-                const svgEl = dz1.querySelector('svg');
-                if (svgEl) svgEl.style.display = 'none';
-            }
-        }
-    }
-
-    // Bind helper to the cost input of this new card
-    const costInput = card.querySelector('.hotel-costo-val');
-    if (costInput) {
-        bindInputHelper(costInput);
-    }
-
-    updateRealTimeSummary();
-    updateHotelBadges();
-}
-window.addHotelCard = addHotelCard;
-
-function removeHotelCard(cardId) {
-    const card = document.getElementById(cardId);
-    card.remove();
-    updateRemoveButtons();
-    updateRealTimeSummary();
-    updateHotelBadges();
-}
-window.removeHotelCard = removeHotelCard;
-
-function updateRemoveButtons() {
-    const cards = document.getElementById('hotels-container').querySelectorAll('.hotel-option-card');
-    cards.forEach(card => {
-        const btn = card.querySelector('.remove-hotel-btn');
-        if (cards.length === 1) {
-            btn.classList.add('hidden');
-            btn.classList.remove('block');
-        } else {
-            btn.classList.add('block');
-            btn.classList.remove('hidden');
-        }
-    });
-}
-
-function triggerFileInput(id) {
-    document.getElementById(id).click();
-}
-window.triggerFileInput = triggerFileInput;
-
-// Client-side image resizing and compression
-function handleImageUpload(fileInput, previewId, hiddenInputId) {
-    const file = fileInput.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function (event) {
-        const img = new Image();
-        img.onload = function () {
-            // Resize logic to maximum 800x600 for optimal Slides uploads
-            const max_width = 800;
-            const max_height = 600;
-            let width = img.width;
-            let height = img.height;
-
-            if (width > height) {
-                if (width > max_width) {
-                    height *= max_width / width;
-                    width = max_width;
+            // Update Sidebar and Mobile Logo if present
+            if (config.logo_base64) {
+                const sidebarLogo = document.getElementById('sidebar-logo');
+                if (sidebarLogo) {
+                    sidebarLogo.src = 'data:image/png;base64,' + config.logo_base64;
                 }
-            } else {
-                if (height > max_height) {
-                    width *= max_height / height;
-                    height = max_height;
+                const mobileLogo = document.getElementById('mobile-logo');
+                if (mobileLogo) {
+                    mobileLogo.src = 'data:image/png;base64,' + config.logo_base64;
                 }
             }
+            window.agencyConfig = config;
 
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
+            window.agentColors = {};
+            if (config.agentes && Array.isArray(config.agentes)) {
+                config.agentes.forEach(a => {
+                    if (a.tag_color) {
+                        if (a.username) window.agentColors[a.username.toLowerCase()] = a.tag_color;
+                        if (a.nombre) window.agentColors[a.nombre.toLowerCase()] = a.tag_color;
+                    }
+                });
+            }
 
-            const ctx = canvas.getContext('2d');
+            isConfigLoaded = true;
 
-            // Draw image preserving transparency if PNG
-            const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
-            const mimeType = isPng ? 'image/png' : 'image/jpeg';
-
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Output compressed Base64 string
-            const dataUrl = canvas.toDataURL(mimeType, isPng ? 0.85 : 0.75);
-
-            // Set values
-            const previewEl = document.getElementById(previewId);
-            previewEl.src = dataUrl;
-            previewEl.style.display = 'block';
-
-            // Hide label text & icon
-            const labelText = fileInput.parentElement.querySelector('span');
-            if (labelText) labelText.style.display = 'none';
-            const svgIcon = fileInput.parentElement.querySelector('svg');
-            if (svgIcon) svgIcon.style.display = 'none';
-
-            document.getElementById(hiddenInputId).value = dataUrl;
-        };
-        img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-}
-window.handleImageUpload = handleImageUpload;
-
-// Drag & Drop Setup
-function setupDragAndDrop() {
-    document.querySelectorAll('.dropzone').forEach(dz => {
-        setupSingleDropzone(dz);
-    });
-}
-
-function setupSingleDropzone(dz) {
-    dz.addEventListener('mouseenter', () => {
-        hoveredDropzone = dz;
-        dz.classList.add('border-brand-primary', 'bg-brand-primary/5');
-    });
-
-    dz.addEventListener('mouseleave', () => {
-        if (hoveredDropzone === dz) {
-            hoveredDropzone = null;
-        }
-        dz.classList.remove('border-brand-primary', 'bg-brand-primary/5');
-    });
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dz.addEventListener(eventName, e => {
-            e.preventDefault();
-            dz.classList.add('border-brand-primary', 'bg-brand-primary/5');
-        }, false);
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dz.addEventListener(eventName, e => {
-            e.preventDefault();
-            dz.classList.remove('border-brand-primary', 'bg-brand-primary/5');
-        }, false);
-    });
-
-    dz.addEventListener('drop', e => {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        const fileInput = dz.querySelector('input[type="file"]');
-
-        if (files.length > 0) {
-            fileInput.files = files;
-            fileInput.dispatchEvent(new Event('change'));
-        }
-    }, false);
-
-    // Keyboard accessibility
-    dz.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            dz.click();
-        }
-    });
-}
-
-// Global paste listener on document
-document.addEventListener('paste', e => {
-    if (hoveredDropzone) {
-        const files = e.clipboardData.files;
-        if (files && files.length > 0) {
-            e.preventDefault();
-            const fileInput = hoveredDropzone.querySelector('input[type="file"]');
-            if (fileInput) {
-                fileInput.files = files;
-                fileInput.dispatchEvent(new Event('change'));
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/ver-cotizacion') {
+                const secName = routeNames[currentPath] || 'Inicio';
+                document.title = `${secName} | ${config.nombre_agencia || 'One Trip'}`;
             }
         }
-    }
-});
-
-// Validation rules: Date checks
-function validateDates() {
-    const flightIda = getDatePickerValue('fecha_vuelo_ida');
-    const flightVuelta = getDatePickerValue('fecha_vuelo_vuelta');
-
-    if (flightIda && flightVuelta) {
-        if (new Date(flightVuelta) < new Date(flightIda)) {
-            showAlert('warning', 'La fecha de retorno no puede ser anterior a la fecha de ida.');
-            return false;
-        }
-    }
-    return true;
-}
-window.validateDates = validateDates;
-
-function updateBaseLabel() {
-    const count = parseInt(document.getElementById('cantidad_pasajeros').value) || 1;
-    let base = "Single";
-    if (count === 2) base = "Doble";
-    else if (count === 3) base = "Triple";
-    else if (count === 4) base = "Cuádruple";
-    else if (count > 4) base = "Grupal";
-
-    const resultsLabel = document.getElementById('res-basis-label');
-    if (resultsLabel) resultsLabel.innerText = `Base ${base}`;
-}
-window.updateBaseLabel = updateBaseLabel;
-
-function checkIfFormHasData() {
-    if (isReadOnlyMode) {
-        return false;
-    }
-    const pax = document.getElementById('nombre_pax')?.value || '';
-    const dest = document.getElementById('destino')?.value || '';
-    const flights = document.getElementById('monto_vuelos')?.value || '';
-    const transfers = document.getElementById('monto_traslados')?.value || '';
-    const dateIda = document.getElementById('fecha_vuelo_ida')?.value || '';
-    const dateVuelta = document.getElementById('fecha_vuelo_vuelta')?.value || '';
-    
-    if (pax.trim() !== '' || dest.trim() !== '' || flights.trim() !== '' || transfers.trim() !== '' || dateIda.trim() !== '' || dateVuelta.trim() !== '') {
-        return true;
-    }
-    
-    const hotelCards = document.querySelectorAll('.hotel-option-card');
-    for (let card of hotelCards) {
-        const hName = card.querySelector('.hotel-nombre-val')?.value || '';
-        const hCost = card.querySelector('.hotel-costo-val')?.value || '';
-        const hDesc = card.querySelector('.hotel-descripcion-val')?.value || '';
-        if (hName.trim() !== '' || hCost.trim() !== '' || hDesc.trim() !== '') {
-            return true;
-        }
-    }
-    
-    return false;
-}
-
-// Real-time Cost Calculation and Sidebar Updates
-function updateRealTimeSummary() {
-    const cantPax = parseInt(document.getElementById('cantidad_pasajeros').value) || 1;
-    const flightsCost = parseFloat(document.getElementById('monto_vuelos').value) || 0;
-    const flightsFee = parseFloat(document.getElementById('fee_aereo_monto').value) || 0;
-    const transfersCost = parseFloat(document.getElementById('monto_traslados').value) || 0;
-
-    // Toggle "Limpiar Formulario" button visibility with smooth transitions
-    const clearBtn = document.getElementById('btn-clear-form');
-    if (clearBtn) {
-        if (checkIfFormHasData()) {
-            clearBtn.classList.remove('opacity-0', 'max-h-0', 'pointer-events-none', 'mt-0');
-            clearBtn.classList.add('opacity-100', 'max-h-[100px]', 'pointer-events-auto', 'mt-2');
-        } else {
-            clearBtn.classList.remove('opacity-100', 'max-h-[100px]', 'pointer-events-auto', 'mt-2');
-            clearBtn.classList.add('opacity-0', 'max-h-0', 'pointer-events-none', 'mt-0');
-        }
-    }
-
-    const container = document.getElementById('realtime-breakdown-container');
-    if (!container) return;
-
-    const hotelCards = document.querySelectorAll('.hotel-option-card');
-    if (hotelCards.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-8 text-slate-400 text-xs font-semibold">
-                No hay hoteles agregados aún.
-            </div>
-        `;
-        return;
-    }
-
-    const aereosTotal = flightsCost + flightsFee;
-
-    // We will build a single comparative table
-    let columnsHtml = '';
-    let hotelNamesHtml = '';
-    let flightsHtml = '';
-    let hotelCostsHtml = '';
-    let transfersHtml = '';
-    let adminFeesHtml = '';
-    let totalsHtml = '';
-    let perPersonHtml = '';
-
-    hotelCards.forEach((card, idx) => {
-        const hotelName = card.querySelector('.hotel-nombre-val').value.trim() || `Opción ${idx + 1}`;
-        const hotelCost = parseFloat(card.querySelector('.hotel-costo-val').value) || 0;
-
-        const adminFee = (hotelCost + transfersCost) * 0.05;
-        const total = aereosTotal + hotelCost + transfersCost + adminFee;
-        const perPerson = total / cantPax;
-
-        const isRecomendado = idx === 0;
-        const columnHeader = isRecomendado ? 'Recomendado' : `Opción ${idx + 1}`;
-
-        columnsHtml += `
-            <th class="py-2 px-2 text-right text-[9px] uppercase tracking-wider ${isRecomendado ? 'text-brand-primary font-extrabold' : 'text-slate-400 font-bold'} min-w-[80px]">${columnHeader}</th>
-        `;
-
-        hotelNamesHtml += `
-            <th class="py-1.5 px-2 text-right text-[10px] font-bold text-slate-800 truncate max-w-[100px]" title="${hotelName}">${hotelName}</th>
-        `;
-
-        flightsHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(aereosTotal)}</td>
-        `;
-
-        hotelCostsHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(hotelCost)}</td>
-        `;
-
-        transfersHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(transfersCost)}</td>
-        `;
-
-        adminFeesHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">USD ${formatPriceES(adminFee)}</td>
-        `;
-
-        totalsHtml += `
-            <td class="py-2.5 px-2 text-right text-xs ${isRecomendado ? 'text-brand-primary' : 'text-slate-800'} font-extrabold">USD ${formatPriceES(total)}</td>
-        `;
-
-        perPersonHtml += `
-            <td class="py-2.5 px-2 text-right text-xs text-brand-primary font-extrabold">USD ${formatPriceES(perPerson)}</td>
-        `;
-    });
-
-    container.innerHTML = `
-        <div class="w-full">
-            <table class="w-full text-left border-collapse text-[10px] font-medium">
-                <thead>
-                    <tr class="border-b border-slate-200 text-slate-500 font-bold">
-                        <th class="py-2 pr-2 text-[9px] uppercase tracking-wider text-slate-400 w-[95px]">Concepto</th>
-                        ${columnsHtml}
-                    </tr>
-                    <tr class="border-b border-slate-100 text-slate-700">
-                        <th class="py-1.5 pr-2 text-[9px] uppercase tracking-wider text-slate-400 font-semibold">Hotel</th>
-                        ${hotelNamesHtml}
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 text-slate-600">
-                    <tr>
-                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
-                            <img src="/assets/iconos/avion.svg" class="w-3.5 h-3.5 icon-slate" alt="Vuelos">
-                            <span class="truncate">Vuelos${flightsFee > 0 ? ' + Fee' : ''}</span>
-                        </td>
-                        ${flightsHtml}
-                    </tr>
-                    <tr>
-                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
-                            <img src="/assets/iconos/cama.svg" class="w-3.5 h-3.5 icon-slate" alt="Alojamiento">
-                            <span class="truncate">Alojamiento</span>
-                        </td>
-                        ${hotelCostsHtml}
-                    </tr>
-                    <tr>
-                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
-                            <img src="/assets/iconos/traslados.svg" class="w-3.5 h-3.5 icon-slate" alt="Traslados">
-                            <span class="truncate">Traslados</span>
-                        </td>
-                        ${transfersHtml}
-                    </tr>
-                    <tr>
-                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
-                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Gastos Admin">
-                            <span class="truncate">Gastos Admin (5%)</span>
-                        </td>
-                        ${adminFeesHtml}
-                    </tr>
-                    <tr class="bg-slate-50/50 font-bold border-t border-slate-200">
-                        <td class="py-2.5 pr-2 text-[10px] text-slate-800 uppercase tracking-wider flex items-center gap-1">
-                            <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 icon-dark" alt="Total">
-                            <span>Total</span>
-                        </td>
-                        ${totalsHtml}
-                    </tr>
-                    <tr class="bg-brand-primary/5 font-bold border-t border-brand-primary/10">
-                        <td class="py-2.5 pr-2 text-[9px] text-brand-primary uppercase tracking-widest flex items-center gap-1">
-                            <img src="/assets/iconos/persona.svg" class="w-3.5 h-3.5 icon-brand" alt="Por Pax">
-                            <span class="truncate">Por Pax (${cantPax})</span>
-                        </td>
-                        ${perPersonHtml}
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    `;
-}
-window.updateRealTimeSummary = updateRealTimeSummary;
-
-function scrollToPreview() {
-    const resultsPanel = document.getElementById('results-panel');
-    if (resultsPanel) {
-        resultsPanel.scrollIntoView({ behavior: 'smooth' });
-    }
-}
-window.scrollToPreview = scrollToPreview;
-
-let currentPdfBlob = null;
-let currentPdfFileName = '';
-
-async function generatePDFPreview(e, isViewingSavedQuote = false) {
-    if (e) e.preventDefault();
-    if (!validateDates()) return;
-
-    const imgIda = document.getElementById('data-vuelo-ida').value;
-    const imgVuelta = document.getElementById('data-vuelo-vuelta').value;
-    if (!imgIda || !imgVuelta) {
-        showAlert('warning', 'Debe adjuntar una captura/foto obligatoria para cada tramo de vuelo (Ida y Vuelta).');
-        return;
-    }
-
-    document.getElementById('loading-overlay').style.display = 'flex';
-    const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
-
-    if (isViewingSavedQuote) {
-        document.getElementById('loading-text').innerText = `Cargando cotización para ${paxNameForLoading}`;
-    } else {
-        document.getElementById('loading-text').innerText = `Creando la cotización para ${paxNameForLoading}`;
-    }
-
-    let payload = _buildPayload();
-
-    // Auto-save to Supabase first before generating PDF preview
-    // ONLY if the form is NOT in read-only mode (which means it has been edited or is a new quote)
-    if (!isReadOnlyMode) {
-        try {
-            document.getElementById('loading-text').innerText = `Guardando en la base de datos...`;
-            const saveRes = await authenticatedFetch('/api/cotizaciones', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (saveRes.ok) {
-                const savedQuote = await saveRes.json();
-                currentQuoteId = savedQuote.id;
-                payload.id = currentQuoteId; // Include the generated ID in subsequent PDF payload
-                updateEditingIndicator();
-                console.log("Auto-save to Supabase completed successfully. ID:", currentQuoteId);
-            } else {
-                console.warn("Auto-save to Supabase returned error status. Proceeding with preview.");
-            }
-        } catch (saveErr) {
-            console.warn("Auto-save to Supabase failed (persistence disabled or network error):", saveErr);
-        }
-    } else {
-        console.log("Form is in Read-only mode. Skipping auto-save to Supabase.");
-    }
-
-    if (isViewingSavedQuote) {
-        document.getElementById('loading-text').innerText = `Cargando cotización para ${paxNameForLoading}`;
-    } else {
-        document.getElementById('loading-text').innerText = `Generando cotización para ${paxNameForLoading}...`;
-    }
-
-    try {
-        const res = await authenticatedFetch('/api/cotizar-pdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.detail || 'Error al generar el PDF');
-        }
-
-        const blob = await res.blob();
-        currentPdfBlob = blob;
-
-        document.getElementById('loading-overlay').style.display = 'none';
-
-        // Update PDF iframe preview source
-        const url = window.URL.createObjectURL(blob);
-        currentPdfUrl = url;
-        const iframe = document.getElementById('pdf-preview-iframe');
-        if (iframe) {
-            iframe.src = url;
-        }
-
-        // Build filename for future download
-        const now = new Date();
-        const dd = String(now.getDate()).padStart(2, '0');
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const yyyy = now.getFullYear();
-        const hh = String(now.getHours()).padStart(2, '0');
-        const min = String(now.getMinutes()).padStart(2, '0');
-        const ss = String(now.getSeconds()).padStart(2, '0');
-        const fecha = `${dd}-${mm}-${yyyy}`;
-        const hora = `${hh}-${min}-${ss}`;
-        const paxName = (document.getElementById('nombre_pax').value || 'Pasajero').replace(/[\/\\]/g, '-');
-        const destName = (document.getElementById('destino').value || 'Destino').replace(/[\/\\]/g, '-');
-        currentPdfFileName = `Cotización para ${paxName} - ${destName} - ${fecha}_${hora}.pdf`;
-
-        // Calculate dynamic total price for results display (from payload)
-        const cantPax = payload.cantidad_pasajeros || 1;
-        const flightsCost = payload.monto_vuelos || 0;
-        const flightsFee = payload.fee_aereo || 0;
-        const transfersCost = payload.monto_traslados || 0;
-        const aereosTotal = flightsCost + flightsFee;
-
-        const primaryHotel = payload.hoteles[0];
-        const hotelCost = primaryHotel ? primaryHotel.costo : 0;
-        const adminFee = (hotelCost + transfersCost) * 0.05;
-        const total = aereosTotal + hotelCost + transfersCost + adminFee;
-        const perPerson = total / cantPax;
-
-        const elTotal = document.getElementById('res-total-price');
-        if (elTotal) elTotal.innerText = `USD ${formatPriceES(total)}`;
-        const elPax = document.getElementById('res-pax-price');
-        if (elPax) elPax.innerText = `USD ${formatPriceES(perPerson)} / Pax`;
-        updateBaseLabel();
-
-        // Show results panel
-        const resultsPanel = document.getElementById('results-panel');
-        resultsPanel.classList.remove('hidden');
-        resultsPanel.classList.add('block');
-        resultsPanel.scrollIntoView({ behavior: 'smooth' });
-
-        const btnScroll = document.getElementById('btn-scroll-to-preview');
-        if (btnScroll) {
-            btnScroll.style.display = 'flex';
-        }
-
-        showAlert('success', '✔ Vista previa de PDF generada correctamente.', true);
     } catch (err) {
-        document.getElementById('loading-overlay').style.display = 'none';
-        showAlert('warning', 'Error al generar el PDF: ' + err.message);
+        console.error("Error loading header config:", err);
     }
 }
 window.generatePDFPreview = generatePDFPreview;
@@ -1289,7 +482,6 @@ function _buildPayload() {
             regimen: card.querySelector('.hotel-regimen-val').value,
             habitacion: formatHabitacionValue(card.querySelector('.hotel-habitacion-val').value),
             costo: parseFloat(card.querySelector('.hotel-costo-val').value),
-            monto_alojamiento: parseFloat(card.querySelector('.hotel-costo-val').value),
             descripcion: card.querySelector('.hotel-descripcion-val').value,
             imagen1: card.querySelector('.hotel-imagen-val-1').value,
             imagen2: "",
@@ -1406,82 +598,555 @@ function loadImportedQuoteIntoForm(idx) {
         if (el._flatpickr) {
             el._flatpickr.setDate(pickerVal);
         } else {
-            el.value = pickerVal;
+            if (!localStorage.getItem('otg_agent_token') && !isAgentSessionChecked) {
+                isAgentSessionChecked = true;
+                try {
+                    const res = await fetch('/api/auth/refresh?scope=agent', { method: 'POST' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setAgentSession(data.access_token, data.username);
+                    }
+                } catch (err) {
+                    console.warn("No active agent session cookie found or refresh failed:", err);
+                }
+            }
         }
-    };
-    setDateSafe('fecha_salida', q.fecha_salida);
-    setDateSafe('fecha_vuelo_ida', q.fecha_vuelo_ida || q.fecha_salida);
-    setDateSafe('fecha_vuelo_vuelta', q.fecha_vuelo_vuelta);
-    setDateSafe('validez_cotizacion', q.validez_cotizacion || '');
-
-    // Pricing
-    document.getElementById('monto_vuelos').value = q.monto_vuelos;
-    document.getElementById('monto_traslados').value = q.monto_traslados;
-
-    // Determine fee
-    document.getElementById('fee_aereo_tipo').value = 'fixed';
-    document.getElementById('fee_aereo_monto').value = q.fee_aereo || (q.monto_vuelos * (q.fee_aereo_percent || 10.0) / 100.0);
-    toggleFeeType();
-
-    // Clear dynamic hotels and load this one
-    document.getElementById('hotels-container').innerHTML = '';
-    addHotelCard(q);
-
-    showAlert('success', `Datos de ${q.nombre_pax} cargados en el formulario de edición.`);
-    updateRealTimeSummary();
-}
-window.loadImportedQuoteIntoForm = loadImportedQuoteIntoForm;
-
-function formatToPicker(dateStr) {
-    if (!dateStr) return "";
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-        return `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
     }
-    return dateStr;
+
+    // Auth Guards using isolated tokens per scope
+    const agentToken = localStorage.getItem('otg_agent_token');
+    const adminToken = localStorage.getItem('otg_admin_token');
+
+    if (isTargetAdmin) {
+        if (path === '/admin-login') {
+            if (adminToken) {
+                const payload = decodeTokenPayload(adminToken);
+                if (payload && payload.rol === 'ADMIN_GLOBAL') {
+                    history.pushState(null, null, '/admin');
+                    path = '/admin';
+                    normalizedPath = '/admin';
+                }
+            }
+        } else if (path === '/admin') {
+            if (!adminToken) {
+                history.pushState(null, null, '/admin-login');
+                path = '/admin-login';
+                normalizedPath = '/admin-login';
+            } else {
+                const payload = decodeTokenPayload(adminToken);
+                if (!payload || payload.rol !== 'ADMIN_GLOBAL') {
+                    setTimeout(() => showAlert('error', 'Acceso denegado. Se requieren permisos de Administrador Global.'), 100);
+                    history.pushState(null, null, '/admin-login');
+                    path = '/admin-login';
+                    normalizedPath = '/admin-login';
+                }
+            }
+        }
+    } else {
+        // Agent View Auth Guards
+        if (!agentToken) {
+            if (path !== '/login') {
+                history.pushState(null, null, '/login');
+                path = '/login';
+                normalizedPath = '/login';
+            }
+        } else {
+            // Agent Authenticated
+            if (path === '/login' || path === '/') {
+                history.pushState(null, null, '/inicio');
+                path = '/inicio';
+                normalizedPath = '/inicio';
+            } else if (path === '/cotizaciones-rapidas') {
+                history.pushState(null, null, '/editar?tab=rapidos');
+                path = '/editar';
+                normalizedPath = '/editar';
+            }
+        }
+    }
+
+    const route = routes[normalizedPath] || routes[path] || routes['/inicio'];
+
+    // Handle Sidebar and Mobile Header visibility based on route
+    const sidebarEl = document.getElementById('app-sidebar');
+    const wrapperEl = document.getElementById('main-content-wrapper');
+    const headerEl = document.getElementById('app-top-header');
+
+    if (sidebarEl && wrapperEl) {
+        if (normalizedPath === '/login' || normalizedPath === '/admin-login' || normalizedPath === '/admin') {
+            sidebarEl.classList.add('hidden');
+            if (headerEl) headerEl.classList.add('hidden');
+            wrapperEl.classList.remove('lg:pl-[260px]');
+        } else {
+            sidebarEl.classList.remove('hidden');
+            if (headerEl) headerEl.classList.remove('hidden');
+            wrapperEl.classList.add('lg:pl-[260px]');
+            updateNavActiveState(normalizedPath);
+
+            // Toggle admin button visibility
+            const adminBtn = document.getElementById('sidebar-btn-admin');
+            if (adminBtn) {
+                if (window.userRole === 'ADMIN_GLOBAL') {
+                    adminBtn.classList.remove('hidden');
+                } else {
+                    adminBtn.classList.add('hidden');
+                }
+            }
+
+            // Initialize inner toggle chevron rotation state
+            const innerChevron = document.getElementById('sidebar-inner-chevron');
+            if (innerChevron) {
+                const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+                if (isCollapsed) innerChevron.classList.add('rotate-180');
+                else innerChevron.classList.remove('rotate-180');
+            }
+
+            // Fetch and apply agency configurations
+            loadHeaderConfig();
+
+            // Update Sidebar Session Agent Badge
+            const badge = document.getElementById('sidebar-user-badge');
+            const spanUsername = document.getElementById('sidebar-username-span');
+            if (badge && spanUsername) {
+                const username = window.loggedInUser;
+                if (username) {
+                    if (username === 'guest' || username === 'Invitado') {
+                        spanUsername.innerText = 'Invitado';
+                        const dot = badge.querySelector('span');
+                        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-500';
+                    } else {
+                        const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
+                        spanUsername.innerText = formattedName;
+                        const dot = badge.querySelector('span');
+                        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
+                    }
+                    badge.classList.remove('hidden');
+                    badge.classList.add('flex');
+                } else {
+                    badge.classList.add('hidden');
+                    badge.classList.remove('flex');
+                }
+            }
+            updateHomeButtonVisibility();
+        }
+    }
+
+    // Load view content dynamically
+    const appEl = document.getElementById('app');
+    if (appEl) {
+        try {
+            // Start exit transition
+            appEl.classList.remove('opacity-100');
+            appEl.classList.add('opacity-0');
+
+            // Fetch content concurrently
+            const fetchPromise = fetch(route.html + '?v=' + Date.now());
+
+            // Wait for exit transition to complete (150ms)
+            await new Promise(resolve => setTimeout(resolve, 150));
+
+            const response = await fetchPromise;
+            if (!response.ok) throw new Error(`Failed to load view ${route.html}`);
+            const html = await response.text();
+
+            // Inject new HTML content
+            appEl.innerHTML = html;
+
+            // Force browser reflow to register new element states
+            appEl.offsetHeight;
+
+            // Start entry transition
+            appEl.classList.remove('opacity-0');
+            appEl.classList.add('opacity-100');
+
+            // Update document title dynamically based on section
+            if (path !== '/ver-cotizacion') {
+                const sectionName = routeNames[path] || 'Inicio';
+                const appName = (window.agencyConfig && window.agencyConfig.nombre_agencia) || 'One Trip';
+                document.title = `${sectionName} | ${appName}`;
+            }
+
+            // Import and run dynamic module JS script
+            if (route.js) {
+                const module = await import(route.js + '?v=' + Date.now());
+                const initFunc = module[route.init];
+                if (initFunc && typeof initFunc === 'function') {
+                    initFunc();
+
+                    // Hook for loading quick quote from list
+                    if (route.init === 'initCotizacionRapida' && window.pendingEditQuickBudgetId) {
+                        const quoteId = window.pendingEditQuickBudgetId;
+                        window.pendingEditQuickBudgetId = null;
+                        if (typeof window.loadQuickBudgetIntoForm === 'function') {
+                            window.loadQuickBudgetIntoForm(quoteId);
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("SPA Routing error:", err);
+            appEl.innerHTML = `<div class="p-8 text-center text-rose-500 font-bold">Error al cargar la página: ${err.message}</div>`;
+            appEl.classList.remove('opacity-0');
+            appEl.classList.add('opacity-100');
+        }
+
+        // Update dynamic back button after content loads
+        updateBackButton();
+    }
+}
+window.router = router;
+
+function updateNavActiveState(path) {
+    // Remove active styles from all sidebar items
+    document.querySelectorAll('.sidebar-item').forEach(btn => {
+        btn.classList.remove('sidebar-item-active');
+    });
+
+    let btnId = '';
+    if (path === '/inicio' || path === '/') btnId = 'sidebar-btn-inicio';
+    else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
+    else if (path === '/cotizacion-completa') btnId = 'sidebar-btn-full-quote';
+    else if (path === '/editar') btnId = 'sidebar-btn-editar';
+    else if (path === '/config') btnId = 'sidebar-btn-config';
+    else if (path === '/admin') btnId = 'sidebar-btn-admin';
+
+    const activeBtn = document.getElementById(btnId);
+    if (activeBtn) {
+        activeBtn.classList.add('sidebar-item-active');
+    }
 }
 
-// AI Description Optimizer Frontend API Caller
-async function optimizeDescription(btn) {
-    const wrapper = btn.parentElement;
-    const textarea = wrapper.querySelector('.hotel-descripcion-val');
-    const originalText = textarea.value.trim();
-    if (!originalText) {
-        alert("Por favor, escribe una descripción básica primero para que la IA la optimice.");
+// User session auth operations
+async function logoutAgent(notifyServer = true) {
+    clearAllSessions();
+    try {
+        sessionStorage.setItem('otg_explicit_logout', 'true');
+    } catch (e) { }
+
+    if (notifyServer) {
+        try {
+            await fetch('/api/auth/logout?scope=agent', { method: 'POST', cache: 'no-store' });
+        } catch (e) {
+            console.warn("Logout endpoint error:", e);
+        }
+    }
+
+    const navLogo = document.getElementById('sidebar-logo');
+    if (navLogo) navLogo.src = '/assets/Logo%20ONE%20TRIP.png';
+    const mobileLogo = document.getElementById('mobile-logo');
+    if (mobileLogo) mobileLogo.src = '/assets/Logo%20ONE%20TRIP.png';
+
+    window.location.replace('/login');
+}
+window.logoutAgent = logoutAgent;
+
+async function logoutAdmin(notifyServer = true) {
+    clearAllSessions();
+    try {
+        sessionStorage.setItem('otg_explicit_logout', 'true');
+    } catch (e) { }
+
+    if (notifyServer) {
+        try {
+            await fetch('/api/auth/logout?scope=admin', { method: 'POST', cache: 'no-store' });
+        } catch (e) {
+            console.warn("Logout endpoint error:", e);
+        }
+    }
+
+    window.location.replace('/admin-login');
+}
+window.logoutAdmin = logoutAdmin;
+
+// Intercept routing clicks & logout button clicks
+document.addEventListener('click', e => {
+    const logoutBtn = e.target.closest('#sidebar-btn-logout') || e.target.closest('[data-logout]');
+    if (logoutBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.confirmLogout === 'function') {
+            window.confirmLogout();
+        } else {
+            window.logoutAgent(true);
+        }
         return;
     }
 
-    const originalBtnContent = btn.innerHTML;
-    btn.disabled = true;
-    btn.style.opacity = '0.7';
-    btn.innerHTML = `
-        <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" class="spin-slow animate-spin inline mr-1" style="color: white;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-        Optimizando...
-    `;
+    const link = e.target.closest('[data-link]');
+    if (link) {
+        e.preventDefault();
+        navigateTo(link.getAttribute('href'));
+    }
+});
 
-    try {
-        const res = await authenticatedFetch('/api/optimizar-descripcion', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ descripcion: originalText })
-        });
+// popstate handling for back/forward browser buttons
+window.addEventListener('popstate', router);
 
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.detail || 'Error al optimizar');
+// Header date & time dynamic clock
+window.lastDateTimeString = "";
+function updateHeaderDateTime() {
+    const elements = document.querySelectorAll('.nav-date-time-text');
+    if (elements.length === 0) return;
+
+    const now = new Date();
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+    const dayName = days[now.getDay()];
+    const day = now.getDate();
+    const monthName = months[now.getMonth()];
+    const year = now.getFullYear();
+
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+
+    const dateTimeString = `${dayName}, ${day} de ${monthName} de ${year} - ${hours}:${minutes}`;
+
+    if (dateTimeString !== window.lastDateTimeString) {
+        if (!window.lastDateTimeString) {
+            elements.forEach(el => el.innerText = dateTimeString);
+            window.lastDateTimeString = dateTimeString;
+        } else {
+            elements.forEach(el => el.classList.add('opacity-0', 'scale-95'));
+            setTimeout(() => {
+                elements.forEach(el => el.innerText = dateTimeString);
+                window.lastDateTimeString = dateTimeString;
+                elements.forEach(el => el.classList.remove('opacity-0', 'scale-95'));
+            }, 200);
         }
-
-        const data = await res.json();
-        textarea.value = data.descripcion_optimizada;
-    } catch (err) {
-        alert("Error al optimizar la descripción: " + err.message);
-    } finally {
-        btn.disabled = false;
-        btn.style.opacity = '1.0';
-        btn.innerHTML = originalBtnContent;
     }
 }
-window.optimizeDescription = optimizeDescription;
+window.updateHeaderDateTime = updateHeaderDateTime;
+
+// Initialize application routing
+document.addEventListener('DOMContentLoaded', () => {
+    router();
+    updateHeaderDateTime();
+    setInterval(updateHeaderDateTime, 1000);
+});
+
+// Global keyboard shortcuts (Ctrl + Alt + 9)
+window.addEventListener('keydown', async (e) => {
+    if (e.ctrlKey && e.altKey && (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9')) {
+        const path = window.location.pathname;
+        if (path === '/cotizacion-completa' && typeof window.fillTestData === 'function') {
+            e.preventDefault();
+            await window.fillTestData();
+        } else if (path === '/cotizacion-rapida' && typeof window.fillQuickTestData === 'function') {
+            e.preventDefault();
+            await window.fillQuickTestData();
+        }
+    }
+});
+
+// Centralized Loader Component
+let loadingIconInterval = null;
+let currentLoadingIconIdx = 0;
+
+const loadingTravelIcons = [
+    // asiento-avion.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M581-613.33q-11.33 0-20-6.67t-12-17.67l-57-200q-4.33-16 5.5-29.16Q507.33-880 524-880h263q11.33 0 20 6.67 8.67 6.66 12 17.66l57 200q4.33 16-5.5 29.17-9.83 13.17-26.5 13.17H581ZM606.33-680h193.34l-38.34-133.33h-193l38 133.33Zm-329.66 0q-30.34 0-51.5-21.17Q204-722.33 204-752.67q0-30.33 21.17-52.16 21.16-21.84 51.5-21.84 30.33 0 52.16 21.84 21.84 21.83 21.84 52.16 0 30.34-21.84 51.5Q307-680 276.67-680Zm244.66 560H248q-28.33 0-49.83-19.17-21.5-19.16-27.17-47.5L80-643.33h69.33l87.34 456.66h284.66V-120Zm233.34 93.33L637.33-230h-302q-27 0-47.83-15.83-20.83-15.84-26.17-42.17l-46-236.67q-9.33-46.66 23-82.66 32.34-36 80.34-36 35 0 61.16 22 26.17 22 33.5 56.66l45.34 227.34h154q20.33 0 36.33 11.66 16 11.67 26.33 29L813.33-60l-58.66 33.33ZM606.33-680l-38-133.33 38 133.33Z"/></svg>`,
+    // avion.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M394.33-117.67 298-298.33l-181.33-97 63-62.67 147 26.33L442-546.33 118.33-684l76-76.67L586.67-692l130-130q21.66-21.67 52.66-21.67 31 0 52.67 21.67t21.67 52.5q0 30.83-21.67 52.5L691.67-586.67l68.66 392L684-118.33 546-442 431.33-326.67l26 146-63 63Z"/></svg>`,
+    // boleto-avion.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="m350-328 364-98.67q16.33-4.66 24.17-16.83 7.83-12.17 3.16-28.5-4.66-16.33-17.83-23.17-13.17-6.83-28.7-2.74l-101.47 26.58-164-158L376-616.67 476.67-440l-106 28.67-51.34-41.34-32 10L350-328Zm463.33 168H146.67q-27.5 0-47.09-19.58Q80-199.17 80-226.67V-382q35.67-5.33 59.83-32.83Q164-442.33 164-480t-24.17-65.5Q115.67-573.33 80-578v-155.33q0-27.5 19.58-47.09Q119.17-800 146.67-800h666.66q27.5 0 47.09 19.58Q880-760.83 880-733.33v506.66q0 27.5-19.58 47.09Q840.83-160 813.33-160Zm0-66.67v-506.66H146.67v106.66Q185-602 207.83-563.83q22.84 38.16 22.84 83.83t-22.84 83.83Q185-358 146.67-333.33v106.66h666.66ZM480-480Z"/></svg>`,
+    // brujula.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="m302-302 273.33-82 82-273.33-273.33 82L302-302Zm177.84-131.33q-19.51 0-33.01-13.66-13.5-13.66-13.5-33.17t13.66-33.01q13.66-13.5 33.17-13.5t33.01 13.66q13.5 13.66 13.5 33.17t-13.66 33.01q-13.66 13.5-33.17 13.5ZM480.18-80q-82.83 0-155.67-31.5-72.84-31.5-127.18-85.83Q143-251.67 111.5-324.56T80-480.33q0-82.88 31.5-155.78Q143-709 197.33-763q54.34-54 127.23-85.5T480.33-880q82.88 0 155.78 31.5Q709-817 763-763t85.5 127Q880-563 880-480.18q0 82.83-31.5 155.67Q817-251.67 763-197.46q-54 54.21-127 85.84Q563-80 480.18-80Zm.14-66.67q138.68 0 235.85-97.49 97.16-97.49 97.16-236.16 0-138.68-97.16-235.85-97.17-97.16-235.85-97.16-138.67 0-236.16 97.16-97.49 97.17-97.49 235.85 0 138.67 97.49 236.16 97.49 97.49 236.16 97.49ZM480-480Z"/></svg>`,
+    // cafe.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M160-120v-66.67h640V-120H160Zm154-146.67q-64 0-109-44.66Q160-356 160-420v-420h653.33q27.5 0 47.09 19.58Q880-800.83 880-773.33v146.66q0 27.5-19.58 47.09Q840.83-560 813.33-560h-90.66v140q0 64-45 108.67-45 44.66-109 44.66H314Zm0-66.66h254.65q35.02 0 61.18-26.17Q656-385.67 656-420v-353.33H226.67V-420q0 34.33 26.5 60.5T314-333.33Zm408.67-293.34h90.66v-146.66h-90.66v146.66ZM314-333.33h-87.33H656 314Z"/></svg>`,
+    // cama.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M80-200v-250q0-25.67 10.33-47.67 10.34-22 29.67-37v-114.66Q120-696 152-728t78.67-32H404q22.33 0 41.67 9.5Q465-741 480-724.67q15-16.33 34-25.83t41.33-9.5h173.34q46.66 0 79 32Q840-696 840-649.33v114.66q19.33 15 29.67 37Q880-475.67 880-450v250h-66.67v-80H146.67v80H80Zm433.33-356.67h260v-92.66q0-19-12.83-31.5t-31.83-12.5H553.33q-17 0-28.5 13.16-11.5 13.17-11.5 30.84v92.66Zm-326.66 0h260v-92.66q0-17.67-11.5-30.84-11.5-13.16-28.5-13.16h-176q-18.34 0-31.17 12.83-12.83 12.83-12.83 31.17v92.66Zm-40 210h666.66V-450q0-17-11.5-28.5t-28.5-11.5H186.67q-17 0-28.5 11.5t-11.5 28.5v103.33Zm666.66 0H146.67h666.66Z"/></svg>`,
+    // camioneta.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M153-233q-33-33-33-80.33H40v-373.34Q40-717 61.5-738.5t51.83-21.5H684l236 236v210.67h-80Q840-266 807-233t-80.33 33q-47.34 0-80.34-33t-33-80.33H346.67q0 47.33-33 80.33t-80.34 33Q186-200 153-233Zm447-327h182.67L649.33-693.33H600V-560Zm-246.67 0h180v-133.33h-180V-560Zm-246.66 0h180v-133.33h-180V-560ZM273.5-273.17q16.5-16.5 16.5-40.16 0-23.67-16.5-40.17T233.33-370q-23.66 0-40.16 16.5-16.5 16.5-16.5 40.17 0 23.66 16.5 40.16 16.5 16.5 40.16 16.5 23.67 0 40.17-16.5Zm493.33 0q16.5-16.5 16.5-40.16 0-23.67-16.5-40.17T726.67-370q-23.67 0-40.17 16.5T670-313.33q0 23.66 16.5 40.16 16.5 16.5 40.17 16.5 23.66 0 40.16-16.5ZM106.67-380H142q17-23.33 41.33-35 24.34-11.67 50-11.67 25.67 0 50 11.67 24.34 11.67 41.34 35h310.66q17-23.33 41.34-35 24.33-11.67 50-11.67 25.66 0 50 11.67Q801-403.33 818-380h35.33v-113.33H106.67V-380Zm746.66-113.33H106.67h746.66Z"/></svg>`,
+    // concerje.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M400-80v-66.67h520V-80H400Zm40-120q0-81 51-141.5t129-74.33v-24.71q0-16.79 11.5-28.29t28.5-11.5q17 0 28.5 11.5t11.5 28.5v24.57Q777-402 828.5-341.5 880-281 880-200H440Zm82.33-67h274Q778-305.33 741.5-329.5t-81.36-24.17q-46.14 0-82.81 24.17-36.66 24.17-55 62.5Zm137.34 0ZM40-441.33v-409.34h223.33v57.34L564-878.67l316 97.34v44.66q0 41.67-31.67 70.84-31.66 29.16-73.66 29.16H672v8q0 21-20.5 51.5T612-539l-260 97.67H40ZM106.67-508H196v-276h-89.33v276Zm156.66 0h77.34l240.66-90.33q9.67-3.34 15.5-15.84 5.84-12.5 5.84-22.5h-75l-115.67 38-22.67-64L517-703.33h257.67q12.33 0 24.16-8.67 11.84-8.67 11.84-20.67l-250-76.66L263.33-724v216Z"/></svg>`,
+    // durmiendo.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M40-200v-590h66.67v396h342v-312.67H770q61.88 0 105.94 44.07Q920-618.54 920-556.67V-200h-66.67v-127.33H106.67V-200H40Zm154.67-278q-32-32-32-78.67 0-46.66 32-78.66t78.66-32q46.67 0 78.67 32t32 78.66Q384-510 352-478t-78.67 32q-46.66 0-78.66-32Zm320.66 84h338v-162.67q0-34.37-24.48-58.85Q804.38-640 770-640H515.33v246ZM304.5-525.5q12.83-12.83 12.83-31.17 0-18.33-12.83-31.16-12.83-12.84-31.17-12.84-18.33 0-31.16 12.84-12.84 12.83-12.84 31.16 0 18.34 12.84 31.17 12.83 12.83 31.16 12.83 18.34 0 31.17-12.83Zm-31.17-31.17Zm242-83.33v246-246Z"/></svg>`,
+    // estrellas.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M333.33-259 480-347l146.67 89-39-166.67 129-112-170-15L480-709l-66.67 156.33-170 15 129 112.34-39 166.33ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm457-560 21-89-71-59 94-8 36-84 36 84 94 8-71 59 21 89-80-47-80 47ZM480-483.67Z"/></svg>`,
+    // familia.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M720.05-724.67q-31.05 0-53.22-22.11-22.16-22.11-22.16-53.17 0-31.05 22.11-53.22 22.11-22.16 53.17-22.16 31.05 0 53.22 22.11 22.16 22.11 22.16 53.17 0 31.05-22.11 53.22-22.11 22.16-53.17 22.16ZM666.67-80v-330.67q0-33.33-16.84-60-16.83-26.66-46.83-40L642-625q8-25 29.5-40t48.5-15q27 0 48.5 15t29.5 40l102 298.33H793.33V-80H666.67Zm-212.5-437.5q-17.5-17.5-17.5-42.5t17.5-42.5q17.5-17.5 42.5-17.5t42.5 17.5q17.5 17.5 17.5 42.5t-17.5 42.5q-17.5 17.5-42.5 17.5t-42.5-17.5ZM220.05-724.67q-31.05 0-53.22-22.11-22.16-22.11-22.16-53.17 0-31.05 22.11-53.22 22.11-22.16 53.17-22.16 31.05 0 53.22 22.11 22.16 22.11 22.16 53.17 0 31.05-22.11 53.22-22.11 22.16-53.17 22.16ZM146.67-80v-286.67H80v-246.66q0-27.5 19.58-47.09Q119.17-680 146.67-680h146.66q27.5 0 47.09 19.58Q360-640.83 360-613.33v246.66h-66.67V-80H146.67ZM440-80v-166.67h-46.67v-164q0-20.55 14.39-34.94Q422.11-460 442.67-460h108q20.55 0 34.94 14.39Q600-431.22 600-410.67v164h-46.67V-80H440Z"/></svg>`,
+    // hamburguesa.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M146.67-120q-27.5 0-47.09-19.58Q80-159.17 80-186.67V-312h800v125.33q0 27.5-19.58 47.09Q840.83-120 813.33-120H146.67Zm0-125.33v58.66h666.66v-58.66H146.67Zm274-157.34q-20 21.34-74.67 21.34t-73-21.34Q254.67-424 215.33-424q-39.33 0-59.9 21.33-20.57 21.34-75.43 21.34V-448q34 0 57.33-21.33 23.34-21.34 78-21.34 54.67 0 73 21.34Q306.67-448 346-448t59.33-21.33q20-21.34 74.67-21.34t74.67 21.34Q574.67-448 614-448t57.67-21.33q18.33-21.34 73-21.34 54.66 0 78.66 21.34Q847.33-448 880-448v66.67q-54.67 0-74.67-21.34Q785.33-424 746-424t-58.33 21.33q-19 21.34-73.67 21.34t-74.67-21.34Q519.33-424 480-424t-59.33 21.33ZM80-558.67v-40q0-111 106.17-176.16Q292.33-840 480-840t293.83 65.17Q880-709.67 880-598.67v40H80Zm400-214.66q-140 0-230.83 41.33-90.84 41.33-99.17 106.67h660q-9.67-65.34-99.83-106.67Q620-773.33 480-773.33Zm0 528Zm0-380Z"/></svg>`,
+    // hotel.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M120-120v-556.67h163.33V-840h393.34v326.67H840V-120H528.67v-163.33h-97.34V-120H120Zm66.67-66.67h96.66v-96.66h-96.66v96.66Zm0-163.33h96.66v-96.67h-96.66V-350Zm0-163.33h96.66V-610h-96.66v96.67ZM350-350h96.67v-96.67H350V-350Zm0-163.33h96.67V-610H350v96.67Zm0-163.34h96.67v-96.66H350v96.66ZM513.33-350H610v-96.67h-96.67V-350Zm0-163.33H610V-610h-96.67v96.67Zm0-163.34H610v-96.66h-96.67v96.66Zm163.34 490h96.66v-96.66h-96.66v96.66Zm0-163.33h96.66v-96.67h-96.66V-350Z"/></svg>`,
+    // huellas.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M260-853.33q-49.67 0-81.5 50.66Q146.67-752 146.67-680q0 73 21.16 124.83Q189-503.33 200-486l132.67-27.33q13.66-36 27.16-80.34 13.5-44.33 13.5-86.33 0-64.67-30.16-119Q313-853.33 260-853.33Zm55 546.66q25 0 41.67-18.33 16.66-18.33 16.66-48 0-19-8.66-39.33Q356-432.67 346-448.67L226.67-424q-.67 42 20.16 79.67 20.84 37.66 68.17 37.66Zm385-346.66q-53 0-83.17 54.33-30.16 54.33-30.16 119 0 42.67 13.83 86.5t27.5 80.17l132 26.66q11.67-18 32.5-69.33t20.83-124q0-72-31.83-122.67-31.83-50.66-81.5-50.66Zm-55 546.66q47.33 0 67.83-38t20.5-80l-119.33-24q-9.33 16-18.33 36.34-9 20.33-9 39.33 0 28 16.5 47.17 16.5 19.16 41.83 19.16ZM315-240q-77 0-117-57t-38-128l-18-27q-11-17-36.5-77T80-680q0-103 51-171.5T260-920q85 0 132.5 75.5T440-680q0 58-16 107t-28 79l8 13q8 14 22 44.5t14 63.5q0 57-35.5 95T315-240ZM645-40q-54 0-89.5-38T520-173q0-33 14-63.5t22-44.5l8-13q-12-30-28-79t-16-107q0-89 47.5-164.5T700-720q78 0 129 68.5T880-480q0 91-25.5 150.5T818-253l-18 28q1 71-38.5 128T645-40Z"/></svg>`,
+    // kihing.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M281.33-40 403-660.67q5.33-25.66 24.33-39.16 19-13.5 40-13.5T506.5-704q18.17 9.33 29.5 27.33l39.33 64q18.67 31 50.5 55.5 31.84 24.5 74.17 37.5v-73.66h46.67V-40H700v-411.33q-50-11-93.67-37.67-43.66-26.67-77-65.67L502-418l84.67 80.67V-40H520v-242.67l-94.67-90L352-40h-70.67Zm17-400.33L220-455q-12-2.33-20-14.17-8-11.83-5.67-24.83l30-157q5.34-30 30.67-46.5 25.33-16.5 55.33-11.17l39.34 7.67-51.34 260.67ZM480.17-771.5Q458-793.67 458-824.67t22.17-53.16Q502.33-900 533.33-900q31 0 53.17 22.17 22.17 22.16 22.17 53.16 0 31-22.17 53.17t-53.17 22.17q-31 0-53.16-22.17Z"/></svg>`,
+    // lentes.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M262-320q-61 0-93-16.5T110-398q-15-25-25.5-59.5T65-520q-11 0-18-7t-7-18v-49q0-9 6-15.5t15-8.5q56-11 101.5-16t87.5-5q61 0 110.5 10t77.5 29h85q24-18 76-28.83 52-10.84 112-10.84 41.33 0 86.67 5.34Q843-629 899-618q9 2 15 8.5t6 15.5v49q0 11-7 18t-18 7q-9 28-19.5 62.5T850-398q-26 44-58.5 61T698-320q-63 0-105.33-27.67Q550.33-375.33 530-434q-5.67-16-8.83-32-3.17-16-8.17-32-4-12-12-17.5t-21-5.5q-12 0-20 6t-13 17q-5 16-8.5 32t-8.5 32q-17 60-61 87t-107 27Zm0-46q77 0 105.67-48.33 28.66-48.34 28.66-115 0-25-18.33-35.5t-49.33-18.5q-30-7.67-67.67-9.17t-71.33 3.5q-30.67 4.67-46.17 17.33Q128-559 128-538q0 28.33 4.83 54.33 4.84 26 14.5 48.34 18 39.66 41.84 54.5Q213-366 262-366Zm436 0q49 0 73.5-15.17 24.5-15.16 40.83-54.16Q822-457.67 827-484q5-26.33 5-55 0-21.67-15.5-34.5-15.5-12.83-47.17-16.5-33.66-4.33-70.83-2.67-37.17 1.67-67.17 9.34-31 8-49.33 18.33-18.33 10.33-18.33 35.33 0 66.67 28.66 115.17Q621-366 698-366Z"/></svg>`,
+    // luna.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M484-80q-84 0-157.5-32t-128-86.5Q144-253 112-326.5T80-484q0-146 93-257.5T410-880q-18 98.33 11 192.92 29 94.59 100 165.66t165.5 100.1Q781-392.3 880-410.31q-26 144.13-138 237.22T484-80Zm0-66.67q96 0 175.67-52.66Q739.33-252 787-336.33q-88.67-8-169.67-42.17-81-34.17-143.66-96.5Q411-537.33 377-618t-41.67-168.67q-84.33 46.34-136.5 126.5Q146.67-580 146.67-484q0 140.56 98.39 238.94 98.38 98.39 238.94 98.39ZM473.33-475Z"/></svg>`,
+    // maleta.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M146.67-120q-27.5 0-47.09-19.58Q80-159.17 80-186.67v-466.66q0-27.5 19.58-47.09Q119.17-720 146.67-720H320v-93.33q0-27.5 19.58-47.09Q359.17-880 386.67-880h186.66q27.5 0 47.09 19.58Q640-840.83 640-813.33V-720h173.33q27.5 0 47.09 19.58Q880-680.83 880-653.33v466.66q0 27.5-19.58 47.09Q840.83-120 813.33-120H146.67Zm240-600h186.66v-93.33H386.67V-720Zm-142 66.67h-98v466.66h98v-466.66Zm404.66 466.66v-466.66h-338v466.66h338ZM716-653.33v466.66h97.33v-466.66H716Zm-236 230Z"/></svg>`,
+    // menu-comida.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M226.67-80q-27 0-46.84-19.83Q160-119.67 160-146.67v-96h-40v-66.66h40v-137.34h-40v-66.66h40v-137.34h-40v-66.66h40v-96q0-27 19.83-46.84Q199.67-880 226.67-880h506.66q27 0 46.84 19.83Q800-840.33 800-813.33v666.66q0 27-19.83 46.84Q760.33-80 733.33-80H226.67Zm0-66.67h506.66v-666.66H226.67v96h40v66.66h-40v137.34h40v66.66h-40v137.34h40v66.66h-40v96Zm0 0v-666.66 666.66ZM383.33-280h53.34v-160q27.44-6.91 45.39-28.12Q500-489.33 500-516.79V-680h-40v151h-30v-151h-40v151h-30v-151h-40v163q0 27.67 17.94 48.88 17.95 21.21 45.39 28.12v160Zm223.34 0H660v-400q-50 0-81.67 31.67-31.66 31.66-31.66 81.66V-440h60v160Z"/></svg>`,
+    // mochila.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M266.67-80q-27 0-46.84-19.83Q200-119.67 200-146.67v-340q0-87 47.5-156.33Q295-712.33 370-744.67v-22q0-46 32.12-79.66 32.12-33.67 78-33.67T558-846.33q32 33.66 32 79.66v22Q665-712.33 712.5-643T760-486.67v340q0 27-19.83 46.84Q720.33-80 693.33-80H266.67Zm0-66.67h426.66v-340.11q0-88.22-62.36-150.72Q568.62-700 480.14-700q-88.47 0-150.97 62.4t-62.5 150.93v340Zm383.5-189.83Q660-346.33 660-360v-120H300v66.67h293.33V-360q0 13.67 9.84 23.5 9.83 9.83 23.5 9.83 13.66 0 23.5-9.83ZM436.67-764q7-1.33 20.33-2 13.33-.67 23-.67t23 .67q13.33.67 20.33 2v-2.67q0-19-12.16-32.83Q499-813.33 480-813.33t-31.17 13.83q-12.16 13.83-12.16 32.83v2.67Zm-170 617.33H693.33 266.67Z"/></svg>`,
+    // mundo-sudamerica.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M324-111.5Q251-143 197-197t-85.5-127Q80-397 80-480t31.5-156Q143-709 197-763t127-85.5Q397-880 480-880t156 31.5Q709-817 763-763t85.5 127Q880-563 880-480t-31.5 156Q817-251 763-197t-127 85.5Q563-80 480-80t-156-31.5Zm156-35.17L450.67-176q-6.67-6.67-9.34-13.95-2.66-7.29-2.66-15.61v-233.11q-34.38 0-58.86-24.28-24.48-24.28-24.48-58.38v-41.78L225-693.67q-37 44-57.67 98.1-20.66 54.11-20.66 115.49 0 139.41 96.87 236.41 96.88 97 236.46 97Zm41.33-2Q645.67-165 729.5-258.33q83.83-93.34 83.83-221.52 0-138.6-97.44-236.04-97.43-97.44-236.04-97.44-45.85 0-87.68 11.83-41.84 11.83-78.84 33.17V-688h147.92q18.75 0 35.92 8 17.16 8 28.83 23.33L584.25-584h62.42q17 0 29.16 12.17Q688-559.67 688-542.67v44.09q0 9.45-2.5 17.85-2.5 8.4-7.5 16.4l-156.67 234.4v81.26Z"/></svg>`,
+    // mundo.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q78 0 147.67 28.17 69.66 28.16 123.33 77.16t87.33 116q33.67 67 40 144.67-16.66-9.67-34.33-16.33-17.67-6.67-36.67-11-15.66-85-69.16-151t-133.5-99V-774q0 34.33-23.84 59.5-23.83 25.17-58.16 25.17H438v84.66q0 17-12.83 28.17-12.84 11.17-29.84 11.17h-82V-480H598q-31 31.33-47.83 71.33-16.84 40-16.84 84.67 0 76 31.34 117.33 31.33 41.34 79 91.67Q605-97.67 564-88.83 523-80 480-80Zm-42-68v-80.67q-34.33 0-58.17-25.16Q356-279 356-313.33V-356L155.33-556.67q-4.33 19.34-6.5 38.34-2.16 19-2.16 38.33 0 127 82.83 222T438-148Zm364.5-129.5Q820-295 820-320t-17-42.5Q786-380 761-380q-26 0-43.5 17.5T700-320q0 25 17.5 42.5T760-260q25 0 42.5-17.5ZM760-80q-3 0-16-11l-4-7q-22-38-55.5-67.5T627-232q-14-20-20.5-43.5T600-324q0-66 47-111t113-45q66 0 113 45t47 111q0 25-6.5 48.5T893-232q-24 37-57.5 66.5T780-98l-4 7q-2 5-6.5 8t-9.5 3Z"/></svg>`,
+    // mundo2.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M323.67-111.5q-73-31.5-127.17-85.67-54.17-54.16-85.33-127.5Q80-398 80-481.5q0-83.5 31.17-156 31.16-72.5 85.33-126.67 54.17-54.16 127.17-85 73-30.83 156.5-30.83t156.33 30.83q72.83 30.84 127 85Q817.67-710 848.83-637.5 880-565 880-481.5t-31.17 156.83q-31.16 73.34-85.33 127.5-54.17 54.17-127 85.67T480.17-80q-83.5 0-156.5-31.5ZM480-146q32-36 54-80t36-101.33H390.67Q404-272.67 426-227.67T480-146Zm-91.33-13.33q-22.67-36.34-39.17-77.5Q333-278 322-327.33H182.67q35 64 82.83 103.33t123.17 64.67ZM572-160q66.67-21.33 119.5-64.33t85.83-103H638.67Q627-278.67 610.83-237.5 594.67-196.33 572-160ZM158-394h151.33q-3-24.67-3.83-45.5-.83-20.83-.83-41.83 0-23.67 1.16-43.17Q307-544 310-566.67H158q-6.33 22.67-8.83 41.84-2.5 19.16-2.5 43.5 0 24.33 2.5 44.5 2.5 20.16 8.83 42.83Zm219.33 0h206q3.67-27.33 4.84-46.83 1.16-19.5 1.16-40.5 0-20.34-1.16-39.17-1.17-18.83-4.84-46.17h-206q-3.66 27.34-4.83 46.17-1.17 18.83-1.17 39.17 0 21 1.17 40.5t4.83 46.83ZM650-394h152q6.33-22.67 8.83-42.83 2.5-20.17 2.5-44.5 0-24.34-2.5-43.5-2.5-19.17-8.83-41.84H650.67q3 30 4.16 48.84Q656-499 656-481.33q0 21.66-1.5 41.16-1.5 19.5-4.5 46.17Zm-12-239.33h139.33Q745.67-696 692.83-739q-52.83-43-121.5-61.67Q594-765 610.17-724.5 626.33-684 638-633.33Zm-247.33 0h180q-11.34-50-35-96-23.67-46-55.67-83.34-30 30-51 72.34-21 42.33-38.33 107Zm-208 0h140Q333-682 348.83-722.17 364.67-762.33 388-800q-68.67 18.67-120.5 61t-84.83 105.67Z"/></svg>`,
+    // nadando.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M80-120v-69.33q36.67-2 57.33-20.67 20.67-18.67 70-18.67 49.34 0 75.67 21t63.67 21q37.33 0 60.66-21 23.34-21 72.67-21t75.67 21q26.33 21 63.66 21 37.34 0 61-21 23.67-21 73-21 49.34 0 69.67 18.67t57 20.67V-120q-43-2-66.17-21.67-23.16-19.66-60.5-19.66-37.33 0-62.33 20.66Q666-120 619.33-120q-46.66 0-74.33-20.67-27.67-20.66-65-20.66t-63.33 20.66Q390.67-120 344-120t-73-20.67q-26.33-20.66-63.67-20.66-37.33 0-60.83 19.66Q123-122 80-120Zm0-185.33V-372q36.67-2 57.33-20.33 20.67-18.34 70-18.34 49.34 0 74.5 19.34Q307-372 344-372q37.33 0 62-19.33 24.67-19.34 74-19.34t74.33 19.34q25 19.33 62.34 19.33Q654-372 679-391.33q25-19.34 74.33-19.34 49.34 0 69.67 18.34Q843.33-374 880-372v66.67q-43-2-66.17-21.67-23.16-19.67-60.5-19.67-37.33 0-61.83 20.67t-72.17 20.67q-47 0-74.5-20.67T480-346.67q-38 0-61.83 20.67-23.84 20.67-71.5 20.67-47.67 0-74.84-20.67-27.16-20.67-64.5-20.67-37.33 0-60.83 19.67T80-305.33ZM284-512l134.33-134.33L369-695.67q-33.67-33.66-69.33-46.33Q264-754.67 210-754.67v-86q73 0 120.33 17.5 47.34 17.5 92.34 62.5l254 254q-13 9.67-28 14.5-15 4.84-32 4.84-37.34 0-62.67-20.67t-74-20.67q-48.67 0-73.67 20.67T344-487.33q-19 0-34-6.84Q295-501 284-512Zm452.67-297.83q28 28.16 28 68.5 0 40.66-28 68.66t-68.67 28q-40.67 0-68.67-28t-28-68.66q0-40.34 28-68.5Q627.33-838 668-838t68.67 28.17Z"/></svg>`,
+    // pasaporte.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M340-220h280v-60H340v60Zm140-120q83 0 141.5-58.5T680-540q0-83-58.5-141.5T480-740q-83 0-141.5 58.5T280-540q0 83 58.5 141.5T480-340Zm0-67q-8-11-17-36.5T451-510h58q-3 41-12 66.5T480-407Zm-72-13q-24-15-41-38t-23-52h47q2 25 6 47.5t11 42.5Zm144 0q7-20 11-42.5t6-47.5h47q-6 29-23 52t-41 38ZM344-570q6-29 23-52t41-38q-7 20-11 42.5t-6 47.5h-47Zm107 0q3-41 12-66.5t17-36.5q8 11 17 36.5t12 66.5h-58Zm118 0q-2-25-6-47.5T552-660q24 15 41 38t23 52h-47ZM160-80v-800h573.33q27.5 0 47.09 19.58Q800-840.83 800-813.33v666.66q0 27.5-19.58 47.09Q760.83-80 733.33-80H160Zm66.67-66.67h506.66v-666.66H226.67v666.66Zm0 0v-666.66 666.66Z"/></svg>`,
+    // persona.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M164.67-80v-228.67H274V-80H164.67Zm208 0v-502Q320-560.33 297-516.5t-23 105.83h-66.67q0-124 73.67-194t200.33-70q106 0 161.34-43.5Q698-761.67 698-864h66.67q0 92.67-41.5 154.83-41.5 62.17-129.84 85.84V-80h-66.66v-250h-87.34v250h-66.66Zm108.72-649.33q-31.06 0-53.22-22.12Q406-773.56 406-804.61q0-31.06 22.11-53.22Q450.23-880 481.28-880t53.22 22.11q22.17 22.12 22.17 53.17t-22.12 53.22q-22.11 22.17-53.16 22.17Z"/></svg>`,
+    // silla-playa.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M505.33-120v-444.67q-14.66-20.66-38.16-33-23.5-12.33-51.5-12.33t-51.5 13.17q-23.5 13.16-38.84 34.83H260q0-115.67 81.11-196.83Q422.22-840 538.67-840q116.72 0 198.02 81.17Q818-677.67 818-562h-65.33q-15.34-21.67-38.74-34.83Q690.54-610 662-610q-27.67 0-51.17 12.33Q587.33-585.33 572-564v444h-66.67Zm26.34-513.33h14.66q23.19-20.59 52.93-31.96Q629-676.67 663-676.67q16.04 0 31.35 2.84 15.32 2.83 30.32 8.16-27-49-76.34-78.33Q599-773.33 539-773.33T429.67-744q-49.34 29.33-76.34 78.33 15-5.33 30.32-8.16 15.31-2.84 31.35-2.84 34 0 63.74 11.38 29.74 11.37 52.93 31.96ZM645.33-120v-237.33H880V-120h-66.67v-170.67H712V-120h-66.67ZM160-120v-118q-17.33-1.67-29.95-14.31-12.61-12.63-14.72-30.69L80-675.33h20.78q19.12 0 33.67 13.33T151-629.67l25.33 272.34h189q27 0 46.84 19.83Q432-317.67 432-290.67v53.34h-40.67V-120h-46.66v-117.33h-138V-120H160Zm379.33-513.33Z"/></svg>`,
+    // ski.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M740.67-40q-24.67 0-48.84-4-24.16-4-47.16-11.33L80.67-261 96-305.33l284.67 103.66 69.66-180L296.67-542q-24.34-26.67-19.17-61.5 5.17-34.83 35.83-52.83L463-743q15-8.67 31.5-9.5 16.5-.83 31.5 4.83 15 5.34 26.83 17Q564.67-719 570-703l13 43q15.67 50.33 47.17 83.33t76.5 49.34l21-64L772-578l-41 126.67q-70-13.34-123-55.34t-80-110l-121.67 70 123 142.67L443-179.33l136.67 49.66L670.33-410q11.34 3.67 22 6.67 10.67 3 21.67 5.33l-91 284.67 37.67 13q18.66 6.66 38.5 10.16 19.83 3.5 41.5 3.5 28 0 53.83-5.33t50.5-17.33l35 35q-32.67 17-67 25.66Q778.67-40 740.67-40Zm-128.5-691.5Q590-753.67 590-784.67t22.17-53.16Q634.33-860 665.33-860q31 0 53.17 22.17 22.17 22.16 22.17 53.16 0 31-22.17 53.17t-53.17 22.17q-31 0-53.16-22.17Z"/></svg>`,
+    // sofa.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M813.33-80v-606.67q0-36.33-25.16-61.5-25.17-25.16-61.5-25.16H680v58.66q0 9.15-6.1 15.24-6.09 6.1-15.23 6.1h-224q-11.34 0-17.17-12.34-5.83-12.33-.83-22.33l76-164q5.66-13 17.76-20.5 12.1-7.5 28.24-7.5h92q21.14 0 35.23 16 14.1 16 14.1 37.33V-840h46.67q64 0 108.66 44.67Q880-750.67 880-686.67V-80h-66.67ZM504.67-760h108.66v-93.33h-66.66l-42 93.33ZM193.33-80q-48.16 0-80.75-32.58Q80-145.17 80-193.33v-100q0-30.34 22-57.63 22-27.29 58-33.04v-96q0-27.5 19.58-47.08 19.59-19.59 47.09-19.59H560q27.5 0 47.08 19.59 19.59 19.58 19.59 47.08v96q36 5.73 58 31.53t22 59.14v100q0 48.16-32.59 80.75Q641.5-80 593.33-80h-400Zm33.34-400v110q18 15 29 34.45 11 19.45 11 42.22v26.66H520v-26.66q0-22.77 11-42.22T560-370v-110H226.67Zm-33.34 333.33h400q21 0 33.84-14.58Q640-175.83 640-193.33v-100q0-12-7.33-19.34-7.34-7.33-19.34-7.33T594-312.67q-7.33 7.34-7.33 19.34V-200H200v-93.33q0-12-7.33-19.34-7.34-7.33-19.34-7.33T154-312.67q-7.33 7.34-7.33 19.34v100q0 17.5 12.83 32.08 12.83 14.58 33.83 14.58Zm326.67-120H266.67 520ZM226.67-480H560 226.67ZM200-146.67h386.67H200Z"/></svg>`,
+    // sombrilla.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="m790.67-125.33-260-260L580-434.67l260 260-49.33 49.34Zm-562-40Q173.33-224 146.67-296 120-368 120-442.67q0-78 29-152T237.33-728q59.34-59.33 133.84-88.5t152.5-29.17q74.66 0 146.5 26.84Q742-792 800-736.67L228.67-165.33Zm4.66-100 64-64.67q-16-21.67-31.5-46t-28.5-50.67q-13-26.33-22-54-9-27.66-13.33-56-21.67 69-12.83 140 8.83 71 44.16 131.34Zm115.34-113.34 238-240q-45-35-91.17-55.5T408-701.5q-41.33-6.83-73.83-.83T284-678.67q-17.67 18-22.67 50.5t2.5 73q7.5 40.5 28.67 85.84 21.17 45.33 56.17 90.66ZM635.33-668 702-732q-61.67-38.67-133-46.67t-140.33 15.34Q456-759 483-750t53.33 21.17q26.34 12.16 51.17 27.66 24.83 15.5 47.83 33.17Z"/></svg>`,
+    // teleferico.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M194.67-120q-30.8 0-52.74-21.93Q120-163.87 120-194.67v-248Q120-508 166-554t110-46h170.67v-122.33L40-611.33v-66l209.67-57.34q-3.34-5.66-4.84-11.87-1.5-6.21-1.5-13.46 0-22.22 15.82-37.78 15.81-15.55 38.4-15.55 20.78 0 36.45 14.66 15.67 14.67 16.33 36.34l96.34-26V-840h66.66v33l103.34-27.67q-3.67-6-5.5-12.5-1.84-6.5-1.84-14.16 0-22.5 15.82-38.25 15.81-15.75 38.4-15.75 20.78 0 36.62 15.33 15.83 15.33 16.5 37.67L920-918v66.67l-406.67 111V-600h171.34q64.66 0 110 46Q840-508 840-442.67v248q0 30.8-21.74 52.74Q796.53-120 766-120H194.67Zm-8-66.67h586.66v-98H186.67v98Zm0-164.66h151v-182H276q-36.33 0-62.83 26.63t-26.5 64.03v91.34Zm217.66 0h151v-182h-151v182Zm218 0h151v-91.33q0-37.67-26.04-64.17-26.05-26.5-62.62-26.5h-62.34v182ZM186.67-186.67v-98 98Z"/></svg>`,
+    // tren.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M160-340v-380q0-45 21.83-75.83 21.84-30.84 63.17-49.34 41.33-18.5 100.83-26.66Q405.33-880 480-880q79.33 0 139.17 7.83 59.83 7.84 100 26.34 40.16 18.5 60.5 49Q800-766.33 800-720v380q0 59-40.5 99.5T660-200l60 60v20h-73.33l-80-80H393.33l-80 80H240v-20l60-60q-59 0-99.5-40.5T160-340Zm320-473.33q-115.33 0-167 14.5T240-760h483.33q-17-23.67-72.5-38.5-55.5-14.83-170.83-14.83ZM226.67-550h222.66v-143.33H226.67V-550ZM660-483.33H226.67h506.66H660ZM516-550h217.33v-143.33H516V-550ZM377-333q16.33-16.33 16.33-40.33T377-413.67Q360.67-430 336.67-430t-40.34 16.33Q280-397.33 280-373.33q0 24 16.33 40.33 16.34 16.33 40.34 16.33 24 0 40.33-16.33Zm286.67 0Q680-349.33 680-373.33t-16.33-40.34Q647.33-430 623.33-430q-24 0-40.33 16.33-16.33 16.34-16.33 40.34 0 24 16.33 40.33t40.33 16.33q24 0 40.33-16.33ZM300-263.33h360q31.33 0 52.33-22.34 21-22.33 21-54.33v-143.33H226.67V-340q0 32 21 54.33 21 22.34 52.33 22.34ZM480-760h243.33H240h240Z"/></svg>`,
+    // ubicacion.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M324-111.5Q251-143 197-197t-85.5-127Q80-397 80-480t31.5-156Q143-709 197-763t127-85.5Q397-880 480-880t156 31.5Q709-817 763-763t85.5 127Q880-563 880-480t-31.5 156Q817-251 763-197t-127 85.5Q563-80 480-80t-156-31.5Zm156-163.17q41.67-42.33 74.43-87.06 28.09-38.21 51.5-83.87 23.4-45.67 23.4-90.4 0-62-43.66-105.67Q542-685.33 480-685.33t-105.67 43.66Q330.67-598 330.67-536.25q0 44.92 23.4 90.6 23.41 45.68 51.5 83.9Q438.33-317 480-274.67Zm-39.83-221.66Q424-512.67 424-536q0-23.33 16.17-39.67Q456.33-592 480-592q23.67 0 39.83 16.33Q536-559.33 536-536q0 23.33-16.17 39.67Q503.67-480 480-480q-23.67 0-39.83-16.33Z"/></svg>`,
+    // valija.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M266.67-120q-27.5 0-47.09-19.58Q200-159.17 200-186.67v-466.66q0-27.5 19.58-47.09Q239.17-720 266.67-720h96.66v-93.33q0-27.5 19.59-47.09Q402.5-880 430-880h100q27.5 0 47.08 19.58 19.59 19.59 19.59 47.09V-720h96.66q27.5 0 47.09 19.58Q760-680.83 760-653.33v466.66q0 27.5-19.58 47.09Q720.83-120 693.33-120q0 17-11.5 28.5T653.33-80q-17 0-28.5-11.5t-11.5-28.5H346.67q0 17-11.5 28.5T306.67-80q-17 0-28.5-11.5t-11.5-28.5Zm0-66.67h426.66v-466.66H266.67v466.66ZM363.33-240H430v-360h-66.67v360ZM530-240h66.67v-360H530v360ZM430-720h100v-93.33H430V-720Zm50 300Z"/></svg>`,
+    // valija2.svg
+    `<svg class="w-16 h-16" xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor"><path d="M266.67-80v-43.33q-27.67 0-47.17-19.59Q200-162.5 200-190v-463.33q0-27.5 19.58-47.09Q239.17-720 266.67-720h96.66v-123.33q0-15 10.84-25.84Q385-880 400-880h160q15 0 25.83 10.83 10.84 10.84 10.84 25.84V-720h96.66q27.5 0 47.09 19.58Q760-680.83 760-653.33V-190q0 27.5-19.58 47.08-19.59 19.59-47.09 19.59V-80h-66.66v-43.33H333.33V-80h-66.66ZM430-720h100v-93.33H430V-720Zm160.83 223.5q54.5-13.17 102.5-42.83v-114H266.67v114q48 29.66 102.5 42.83 54.5 13.17 110.83 13.17t110.83-13.17ZM446.67-373.33v-41.34q-48-3.66-93.34-16Q308-443 266.67-466v276h426.66v-276q-41.33 23-86.66 35.33-45.34 12.34-93.34 16v41.34h-66.66Zm33.33 0Zm0-110Zm0 17.33Z"/></svg>`
+];
+
+// Variable global para controlar peticiones abortables
+window.activeRequestController = null;
+
+function getAbortSignal(forceNew = false) {
+    if (forceNew && window.activeRequestController) {
+        try {
+            window.activeRequestController.abort();
+        } catch (e) { }
+        window.activeRequestController = null;
+    }
+    if (!window.activeRequestController) {
+        window.activeRequestController = new AbortController();
+    }
+    return window.activeRequestController.signal;
+}
+window.getAbortSignal = getAbortSignal;
+
+function showLoader(text = 'Cargando...') {
+    const appEl = document.getElementById('app');
+    if (!appEl) return;
+
+    // Prevent body scrolling while loading
+    document.body.classList.add('overflow-hidden');
+
+    let overlay = document.getElementById('app-loader-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'app-loader-overlay';
+        overlay.className = 'bg-slate-50/80 backdrop-blur-sm flex flex-col items-center justify-center gap-6 transition-opacity duration-300 opacity-0';
+        overlay.innerHTML = `
+            <div class="relative flex items-center justify-center">
+                <span id="loading-travel-icon" class="block w-16 h-16 text-brand-primary transition-all duration-100 ease-in-out transform">
+                    <!-- Default compass icon -->
+                    <svg class="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88"></polygon>
+                    </svg>
+                </span>
+            </div>
+            <span id="loading-text" class="text-base font-bold text-slate-800 text-center max-w-xs select-none">Cargando...</span>
+        `;
+        appEl.appendChild(overlay);
+
+        // Force browser reflow to enable transition
+        overlay.offsetHeight;
+    }
+
+    const loadingText = overlay.querySelector('#loading-text');
+    if (loadingText) {
+        let formattedText = text.trim();
+        // Convert to sentence case if it is sustained uppercase
+        if (formattedText === formattedText.toUpperCase()) {
+            formattedText = formattedText.toLowerCase();
+        }
+        if (formattedText) {
+            formattedText = formattedText.charAt(0).toUpperCase() + formattedText.slice(1);
+        }
+        loadingText.innerText = formattedText || 'Cargando...';
+    }
+
+    overlay.classList.remove('opacity-0');
+    overlay.classList.add('opacity-100');
+
+    startLoaderIconCycling();
+}
+
+function hideLoader() {
+    // Restore scrolling
+    document.body.classList.remove('overflow-hidden');
+
+    const overlay = document.getElementById('app-loader-overlay');
+    if (!overlay) return;
+
+    overlay.classList.remove('opacity-100');
+    overlay.classList.add('opacity-0');
+
+    setTimeout(() => {
+        if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+        }
+    }, 300);
+
+    stopLoaderIconCycling();
+}
+
+let unshownIconIndices = [];
+
+function getNextRandomIcon() {
+    if (!unshownIconIndices || unshownIconIndices.length === 0) {
+        unshownIconIndices = Array.from({ length: loadingTravelIcons.length }, (_, i) => i);
+        // Fisher-Yates shuffle
+        for (let i = unshownIconIndices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [unshownIconIndices[i], unshownIconIndices[j]] = [unshownIconIndices[j], unshownIconIndices[i]];
+        }
+    }
+    return unshownIconIndices.pop();
+}
+
+function startLoaderIconCycling() {
+    if (loadingIconInterval) clearInterval(loadingIconInterval);
+
+    currentLoadingIconIdx = getNextRandomIcon();
+
+    const container = document.getElementById('loading-travel-icon');
+    if (container) {
+        container.innerHTML = loadingTravelIcons[currentLoadingIconIdx];
+    }
+
+    loadingIconInterval = setInterval(() => {
+        const container = document.getElementById('loading-travel-icon');
+        if (!container) return;
+
+        container.classList.add('opacity-0', 'scale-75');
+
+        setTimeout(() => {
+            currentLoadingIconIdx = getNextRandomIcon();
+            container.innerHTML = loadingTravelIcons[currentLoadingIconIdx];
+            container.classList.remove('opacity-0', 'scale-75');
+        }, 100);
+    }, 400);
+}
+
+function stopLoaderIconCycling() {
+    if (loadingIconInterval) {
+        clearInterval(loadingIconInterval);
+        loadingIconInterval = null;
+    }
+}
+
+window.showLoader = showLoader;
+window.hideLoader = hideLoader;
 
 let currentConfirmCallback = null;
 let currentCancelCallback = null;
@@ -1518,26 +1183,6 @@ function showCustomConfirm({ title, desc, btnText, confirmColorClass, callback, 
 }
 window.showCustomConfirm = showCustomConfirm;
 
-function confirmNewQuote() {
-    showCustomConfirm({
-        title: '¿Limpiar formulario?',
-        desc: 'Se borrarán todos los datos cargados en el formulario actual para iniciar una nueva cotización. Esta acción no se puede deshacer.',
-        btnText: 'Sí, Limpiar',
-        callback: () => {
-            currentQuoteId = null;
-            enableFormEditing(true); // Habilitar formulario para la nueva cotización
-            resetForm();
-            switchTab('cotizacion-tab');
-            showAlert('success', 'Formulario reiniciado. Listo para crear una nueva cotización.');
-        },
-        cancelCallback: () => {
-            switchTab('cotizacion-tab');
-            showAlert('info', 'Permaneces en el formulario actual con los datos ingresados.');
-        }
-    });
-}
-window.confirmNewQuote = confirmNewQuote;
-
 function closeConfirmModal(confirmAction) {
     const modal = document.getElementById('confirm-modal');
     const box = document.getElementById('confirm-modal-box');
@@ -1558,1378 +1203,122 @@ function closeConfirmModal(confirmAction) {
 }
 window.closeConfirmModal = closeConfirmModal;
 
-function resetForm() {
-    // Clear general details
-    document.getElementById('nombre_pax').value = '';
-    document.getElementById('destino').value = '';
-    document.getElementById('cantidad_pasajeros').value = '';
+// Sidebar toggle behavior (mobile drawer and desktop collapse)
+function toggleSidebar(force) {
+    const isMobile = window.innerWidth < 1024;
+    const innerChevron = document.getElementById('sidebar-inner-chevron');
 
-    const clearDateSafe = (id) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (el._flatpickr) {
-            el._flatpickr.clear();
+    if (isMobile) {
+        // Mobile drawer behavior
+        const sidebar = document.getElementById('app-sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (!sidebar || !backdrop) return;
+
+        const isOpen = sidebar.classList.contains('translate-x-0');
+        const shouldOpen = typeof force === 'boolean' ? force : !isOpen;
+
+        if (shouldOpen) {
+            sidebar.classList.remove('-translate-x-full');
+            sidebar.classList.add('translate-x-0');
+            backdrop.classList.remove('hidden');
+            backdrop.classList.add('block');
         } else {
-            el.value = '';
-        }
-    };
-    clearDateSafe('fecha_salida');
-    clearDateSafe('fecha_vuelo_ida');
-    clearDateSafe('fecha_vuelo_vuelta');
-    clearDateSafe('validez_cotizacion');
-
-    // Reset flight dropzones
-    const resetDropzone = (dropzoneId, previewId, dataId) => {
-        const dataEl = document.getElementById(dataId);
-        if (dataEl) dataEl.value = '';
-
-        const preview = document.getElementById(previewId);
-        if (preview) {
-            preview.src = '';
-            preview.style.display = 'none';
-        }
-
-        const dz = document.getElementById(dropzoneId);
-        if (dz) {
-            const span = dz.querySelector('span');
-            if (span) span.style.display = 'block';
-            const svg = dz.querySelector('svg');
-            if (svg) svg.style.display = 'block';
-        }
-    };
-
-    resetDropzone('dropzone-vuelo-ida', 'preview-vuelo-ida', 'data-vuelo-ida');
-    resetDropzone('dropzone-vuelo-vuelta', 'preview-vuelo-vuelta', 'data-vuelo-vuelta');
-
-    // Clear flights costs
-    document.getElementById('monto_vuelos').value = '';
-    document.getElementById('fee_aereo_monto').value = '';
-    document.getElementById('monto_traslados').value = '';
-
-    // Clear and reset hotels
-    const container = document.getElementById('hotels-container');
-    if (container) {
-        container.innerHTML = '';
-    }
-    hotelCount = 0;
-    addHotelCard();
-
-    // Hide results
-    const results = document.getElementById('results-panel');
-    if (results) {
-        results.classList.add('hidden');
-        results.classList.remove('block');
-    }
-    const btnScroll = document.getElementById('btn-scroll-to-preview');
-    if (btnScroll) {
-        btnScroll.style.display = 'none';
-    }
-
-    // Reset baggage selection
-    setBaggageSelection([]);
-
-    // Update summary
-    updateRealTimeSummary();
-
-    // Switch to tab
-    switchTab('cotizacion-tab');
-}
-window.resetForm = resetForm;
-
-// V3 Functional Additions
-
-let selectedBaggage = [];
-
-function updateBaggageUI(type, isActive) {
-    const btn = document.getElementById(`btn-bag-${type}`);
-    if (!btn) return;
-
-    const span = btn.querySelector('span');
-    const iconContainer = btn.querySelector('.icon-container');
-    const checkDot = btn.querySelector('.check-dot');
-    const img = btn.querySelector('img');
-
-    if (isActive) {
-        btn.classList.remove('border-slate-200/80', 'bg-white/40', 'hover:bg-white/60');
-        btn.classList.add('border-emerald-500/30', 'bg-emerald-500/5', 'hover:bg-emerald-500/10', 'active');
-
-        if (span) {
-            span.classList.remove('text-slate-600');
-            span.classList.add('text-emerald-700');
-        }
-        if (iconContainer) {
-            iconContainer.classList.remove('bg-slate-100/80', 'text-slate-400');
-            iconContainer.classList.add('bg-emerald-500/10', 'text-emerald-600');
-        }
-        if (checkDot) {
-            checkDot.classList.remove('hidden');
-        }
-        if (img) {
-            img.style.filter = 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(130deg) brightness(95%) contrast(92%)';
-            img.classList.remove('opacity-60');
-            img.classList.add('opacity-100');
+            sidebar.classList.add('-translate-x-full');
+            sidebar.classList.remove('translate-x-0');
+            backdrop.classList.remove('block');
+            backdrop.classList.add('hidden');
         }
     } else {
-        btn.classList.remove('border-emerald-500/30', 'bg-emerald-500/5', 'hover:bg-emerald-500/10', 'active');
-        btn.classList.add('border-slate-200/80', 'bg-white/40', 'hover:bg-white/60');
+        // Desktop collapse inline behavior
+        const body = document.body;
+        const shouldCollapse = typeof force === 'boolean' ? !force : !body.classList.contains('sidebar-collapsed');
 
-        if (span) {
-            span.classList.remove('text-emerald-700');
-            span.classList.add('text-slate-600');
-        }
-        if (iconContainer) {
-            iconContainer.classList.remove('bg-emerald-500/10', 'text-emerald-600');
-            iconContainer.classList.add('bg-slate-100/80', 'text-slate-400');
-        }
-        if (checkDot) {
-            checkDot.classList.add('hidden');
-        }
-        if (img) {
-            img.style.filter = '';
-            img.classList.remove('opacity-100');
-            img.classList.add('opacity-60');
-        }
-    }
-}
-window.updateBaggageUI = updateBaggageUI;
-
-function toggleBaggage(type) {
-    const btn = document.getElementById(`btn-bag-${type}`);
-    if (!btn) return;
-
-    const idx = selectedBaggage.indexOf(type);
-    let isActive = false;
-    if (idx > -1) {
-        selectedBaggage.splice(idx, 1);
-    } else {
-        selectedBaggage.push(type);
-        isActive = true;
-    }
-
-    updateBaggageUI(type, isActive);
-
-    document.getElementById('equipaje_seleccionado').value = JSON.stringify(selectedBaggage);
-    updateRealTimeSummary();
-}
-window.toggleBaggage = toggleBaggage;
-
-function setBaggageSelection(arr) {
-    selectedBaggage = [];
-    ['mano', 'carry', 'valija'].forEach(type => {
-        updateBaggageUI(type, false);
-    });
-
-    if (Array.isArray(arr)) {
-        arr.forEach(type => {
-            selectedBaggage.push(type);
-            updateBaggageUI(type, true);
-        });
-    }
-    document.getElementById('equipaje_seleccionado').value = JSON.stringify(selectedBaggage);
-}
-window.setBaggageSelection = setBaggageSelection;
-
-function setupSidebarResizer() {
-    const resizer = document.getElementById('layout-resizer');
-    const sidebar = document.getElementById('sidebar-container');
-    if (!resizer || !sidebar) return;
-
-    // Load initial width from localStorage if exists
-    try {
-        const savedWidth = localStorage.getItem('sidebarWidth');
-        if (savedWidth) {
-            sidebarWidth = parseInt(savedWidth);
-            const isCollapsed = sidebar.classList.contains('w-0') || sidebar.style.width === '0px';
-            if (!isCollapsed) {
-                sidebar.style.width = `${sidebarWidth}px`;
-                sidebar.style.minWidth = `${sidebarWidth}px`;
-                sidebar.style.maxWidth = `${sidebarWidth}px`;
-            }
-        }
-    } catch (e) {
-        console.warn('localStorage is not accessible:', e);
-    }
-
-    resizer.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return; // Left click only
-        e.preventDefault(); // Prevent text selection/drag behaviors
-
-        isDraggingSidebar = true;
-        document.body.classList.add('is-resizing');
-        resizer.classList.add('is-dragging');
-
-        const startWidth = sidebar.getBoundingClientRect().width;
-        const startX = e.clientX;
-
-        function onMouseMove(moveEvent) {
-            if (!isDraggingSidebar) return;
-            const deltaX = moveEvent.clientX - startX;
-            // Moving left (negative deltaX) increases width of right-positioned sidebar
-            let newWidth = startWidth - deltaX;
-
-            const minW = 280;
-            const maxW = 600;
-            if (newWidth < minW) newWidth = minW;
-            if (newWidth > maxW) newWidth = maxW;
-
-            sidebarWidth = newWidth;
-            sidebar.style.width = `${newWidth}px`;
-            sidebar.style.minWidth = `${newWidth}px`;
-            sidebar.style.maxWidth = `${newWidth}px`;
-        }
-
-        function onMouseUp() {
-            isDraggingSidebar = false;
-            document.body.classList.remove('is-resizing');
-            resizer.classList.remove('is-dragging');
-
-            try {
-                localStorage.setItem('sidebarWidth', sidebarWidth);
-            } catch (e) {
-                console.warn('localStorage is not accessible:', e);
-            }
-
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-        }
-
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-    });
-}
-window.setupSidebarResizer = setupSidebarResizer;
-
-async function handlePDFEditImport(inputEl) {
-    const file = inputEl.files[0];
-    if (!file) return;
-
-    document.getElementById('loading-overlay').style.display = 'flex';
-    document.getElementById('loading-text').innerText = 'Extrayendo metadatos del PDF...';
-
-    try {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const response = await authenticatedFetch('/api/extraer-pdf', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || 'Error al extraer los datos del PDF.');
-        }
-
-        const data = await response.json();
-        if (!data) throw new Error("No se encontraron metadatos en el PDF.");
-
-        // Set quote ID if it exists in metadata
-        currentQuoteId = data.id || null;
-        updateEditingIndicator();
-
-        // Populating basic data
-        document.getElementById('nombre_pax').value = data.nombre_pax || '';
-        document.getElementById('destino').value = data.destino || '';
-        document.getElementById('cantidad_pasajeros').value = data.cantidad_pasajeros || 1;
-        document.getElementById('origen').value = data.origen || 'Córdoba';
-        document.getElementById('agente_nombre').value = data.agente_nombre || 'Uriel';
-
-        const formatToPicker = (val) => {
-            if (!val) return '';
-            if (val.includes('-')) return val; // already YYYY-MM-DD
-            if (val.includes('/')) {
-                const parts = val.split('/');
-                return `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
-            }
-            return val;
-        };
-
-        // Update Flatpickr date fields
-        const flightIdaStr = formatToPicker(data.fecha_vuelo_ida);
-        document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(flightIdaStr);
-        if (flightIdaStr && document.getElementById('fecha_vuelo_vuelta')._flatpickr) {
-            document.getElementById('fecha_vuelo_vuelta')._flatpickr.set('minDate', flightIdaStr);
-        }
-        document.getElementById('fecha_vuelo_vuelta')._flatpickr.setDate(formatToPicker(data.fecha_vuelo_vuelta));
-        if (document.getElementById('validez_cotizacion') && document.getElementById('validez_cotizacion')._flatpickr) {
-            document.getElementById('validez_cotizacion')._flatpickr.setDate(formatToPicker(data.validez_cotizacion || ''));
-        }
-
-        // Costs
-        document.getElementById('monto_vuelos').value = data.monto_vuelos || '';
-        document.getElementById('fee_aereo_monto').value = data.fee_aereo || '';
-        document.getElementById('monto_traslados').value = data.monto_traslados || '';
-
-        if (data.fee_aereo) {
-            document.getElementById('fee_aereo_tipo').value = 'fixed';
+        if (shouldCollapse) {
+            body.classList.add('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', 'true');
+            if (innerChevron) innerChevron.classList.add('rotate-180');
         } else {
-            document.getElementById('fee_aereo_tipo').value = 'auto';
+            body.classList.remove('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', 'false');
+            if (innerChevron) innerChevron.classList.remove('rotate-180');
         }
-        toggleFeeType();
+    }
 
-        // Baggage selection
-        setBaggageSelection(data.equipaje || []);
+    updateHomeButtonVisibility();
+}
+window.toggleSidebar = toggleSidebar;
 
-        // Flight Images
-        const populateImage = (previewId, dataId, dzId, b64) => {
-            const preview = document.getElementById(previewId);
-            const dataInput = document.getElementById(dataId);
-            const dz = document.getElementById(dzId);
-            if (preview && dataInput && dz) {
-                if (b64) {
-                    preview.src = b64;
-                    preview.style.display = 'block';
-                    dataInput.value = b64;
+function updateHomeButtonVisibility() {
+    const isMobile = window.innerWidth < 1024;
+    const homeBtn = document.getElementById('top-nav-inicio-btn');
+    if (!homeBtn) return;
 
-                    const span = dz.querySelector('span');
-                    const svg = dz.querySelector('svg');
-                    if (span) span.style.display = 'none';
-                    if (svg) svg.style.display = 'none';
-                } else {
-                    preview.src = '';
-                    preview.style.display = 'none';
-                    dataInput.value = '';
-
-                    const span = dz.querySelector('span');
-                    const svg = dz.querySelector('svg');
-                    if (span) span.style.display = 'block';
-                    if (svg) svg.style.display = 'block';
-                }
-            }
-        };
-
-        populateImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida', data.img_vuelo_ida);
-        populateImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta', data.img_vuelo_vuelta);
-
-        // Hotels
-        const hotelsContainer = document.getElementById('hotels-container');
-        hotelsContainer.innerHTML = ''; // Clear existing hotels
-        hotelCount = 0; // Reset counter
-
-        const hotels = data.hoteles || [];
-        if (hotels.length === 0) {
-            addHotelCard();
+    if (isMobile) {
+        const sidebar = document.getElementById('app-sidebar');
+        const isOpen = sidebar && sidebar.classList.contains('translate-x-0');
+        if (isOpen) {
+            homeBtn.classList.add('hidden');
         } else {
-            hotels.forEach(h => {
-                addHotelCard(h);
-            });
-        }
-
-        // Scroll & feedback
-        updateRealTimeSummary();
-        switchTab('cotizacion-tab');
-        showAlert('success', 'Cotización importada con éxito del PDF.');
-
-    } catch (e) {
-        console.error(e);
-        showAlert('error', e.message || 'Error al importar la cotización.');
-    } finally {
-        document.getElementById('loading-overlay').style.display = 'none';
-        inputEl.value = ''; // Reset file input
-    }
-}
-window.handlePDFEditImport = handlePDFEditImport;
-
-async function fillTestData() {
-    // 1. Reset form
-    resetForm();
-
-    // 2. Populate general fields
-    document.getElementById('nombre_pax').value = 'Mariana López';
-    document.getElementById('destino').value = 'Punta Cana';
-    document.getElementById('cantidad_pasajeros').value = 2;
-    document.getElementById('origen').value = 'Córdoba';
-    document.getElementById('agente_nombre').value = 'Uriel';
-
-    // Calculate sample dates
-    const today = new Date();
-
-    // Departure date = today + 30 days
-    const departureDate = new Date(today);
-    departureDate.setDate(today.getDate() + 30);
-
-    // Return date = today + 37 days
-    const returnDate = new Date(today);
-    returnDate.setDate(today.getDate() + 37);
-
-    // Validity date = today + 5 days
-    const validityDate = new Date(today);
-    validityDate.setDate(today.getDate() + 5);
-
-    // Format helper to YYYY-MM-DD
-    const toYMD = (d) => {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const r = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${r}`;
-    };
-
-    // Set dates in Flatpickr instances
-    const depDateStr = toYMD(departureDate);
-    document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(depDateStr);
-    if (depDateStr && document.getElementById('fecha_vuelo_vuelta')._flatpickr) {
-        document.getElementById('fecha_vuelo_vuelta')._flatpickr.set('minDate', depDateStr);
-    }
-    document.getElementById('fecha_vuelo_vuelta')._flatpickr.setDate(toYMD(returnDate));
-    document.getElementById('validez_cotizacion')._flatpickr.setDate(toYMD(validityDate));
-
-    // 3. Set flight costs & fees
-    document.getElementById('monto_vuelos').value = '1250.00';
-    document.getElementById('fee_aereo_tipo').value = 'auto';
-    document.getElementById('monto_traslados').value = '150.00';
-    toggleFeeType(); // Trigger auto calculation
-
-    // 4. Select baggage
-    setBaggageSelection(['mano', 'carry']);
-
-    // 5. Fetch mock base64 images from assets/test
-    const getBase64FromUrl = async (url) => {
-        try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            const blob = await res.blob();
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(blob);
-            });
-        } catch (err) {
-            console.error("Error loading test image:", url, err);
-            return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; // Fallback
-        }
-    };
-
-    // Fetch images in parallel
-    const [imgIdaB64, imgVueltaB64, hotel1B64, hotel2B64] = await Promise.all([
-        getBase64FromUrl('/assets/test/tramo-ida.png'),
-        getBase64FromUrl('/assets/test/tramo-vuelta.png'),
-        getBase64FromUrl('/assets/test/hotel-test-1.jpg'),
-        getBase64FromUrl('/assets/test/hotel-test-2.avif')
-    ]);
-
-    const setMockFlightImage = (previewId, dataId, dropzoneId, b64) => {
-        const preview = document.getElementById(previewId);
-        if (preview) {
-            preview.src = b64;
-            preview.style.display = 'block';
-        }
-        const dataEl = document.getElementById(dataId);
-        if (dataEl) dataEl.value = b64;
-
-        const dz = document.getElementById(dropzoneId);
-        if (dz) {
-            const span = dz.querySelector('span');
-            if (span) span.style.display = 'none';
-            const svg = dz.querySelector('svg');
-            if (svg) svg.style.display = 'none';
-        }
-    };
-
-    setMockFlightImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida', imgIdaB64);
-    setMockFlightImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta', imgVueltaB64);
-
-    // 6. Clear and load mock hotels
-    const hotelsContainer = document.getElementById('hotels-container');
-    hotelsContainer.innerHTML = '';
-    hotelCount = 0;
-
-    // Add Hotel 1 (Nuestra recomendación)
-    addHotelCard({
-        nombre: 'Lopesan Costa Bávaro',
-        estrellas: '5',
-        habitacion: 'Junior Suite Tropical',
-        regimen: 'Todo Incluido',
-        costo: 2450.00,
-        descripcion: 'Espectacular resort de 5 estrellas con infinitas piscinas frente a la playa de arena blanca, múltiples restaurantes gourmet y actividades todo el día.',
-        imagen1: hotel1B64
-    });
-
-    // Add Hotel 2
-    addHotelCard({
-        nombre: 'Barceló Bávaro Palace',
-        estrellas: '4',
-        habitacion: 'Superior Room',
-        regimen: 'Todo Incluido',
-        costo: 2100.00,
-        descripcion: 'Resort ideal con campo de golf, parque acuático, spa de primer nivel y acceso directo a una de las 10 mejores playas del mundo.',
-        imagen1: hotel2B64
-    });
-
-    // 7. Update base label & real-time summary
-    updateBaseLabel();
-    updateRealTimeSummary();
-
-    showAlert('success', '✔ Datos de prueba cargados correctamente con fotos de prueba.');
-}
-window.fillTestData = fillTestData;
-
-// ── CRUD Functions for Supabase ──
-
-async function loadSavedQuotesList() {
-    const tbody = document.getElementById('db-quotes-table-body');
-    if (!tbody) return;
-
-    // Limpiar input de búsqueda cuando se recarga la lista
-    const searchInput = document.getElementById('quote-search-input');
-    if (searchInput) searchInput.value = '';
-
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="7" class="p-8 text-center text-slate-400">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" class="spin-slow animate-spin inline mr-2 text-brand-primary"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-                Cargando cotizaciones desde Supabase...
-            </td>
-        </tr>
-    `;
-
-    try {
-        const res = await authenticatedFetch('/api/cotizaciones');
-        if (!res.ok) throw new Error("Error al obtener las cotizaciones de la base de datos.");
-        const quotes = await res.json();
-
-        // Almacenar en la variable global
-        allSavedQuotes = quotes;
-
-        // Renderizar cotizaciones (por defecto, todas filtradas pero limitadas a 10)
-        renderQuotesTable(allSavedQuotes);
-
-    } catch (err) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="7" class="p-8 text-center text-rose-500 font-bold">
-                    Error al cargar las cotizaciones: ${err.message}
-                </td>
-            </tr>
-        `;
-    }
-}
-
-function renderQuotesTable(quotesList) {
-    const tbody = document.getElementById('db-quotes-table-body');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-    if (quotesList.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="7" class="p-8 text-center text-slate-400 font-semibold">
-                    No se encontraron cotizaciones.
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    // Limitar visualización a un máximo de 10 elementos (ya ordenados de Supabase)
-    const quotesToDisplay = quotesList.slice(0, 10);
-
-    quotesToDisplay.forEach(q => {
-        const tr = document.createElement('tr');
-        tr.className = 'border-b border-slate-100 hover:bg-rose-50/30 transition-colors duration-150';
-
-        // Format date YYYY-MM-DD to DD/MM/YYYY
-        let fechaSalidaFormatted = q.fecha_salida || '';
-        if (fechaSalidaFormatted.includes('-')) {
-            const parts = fechaSalidaFormatted.split('-');
-            if (parts.length === 3) {
-                fechaSalidaFormatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
-            }
-        }
-
-        const totalUSD = q.costo_total || 0;
-        const fechaCreadoFormatted = formatCreatedAt(q.created_at);
-
-        tr.innerHTML = `
-            <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
-            <td class="p-3 font-semibold text-slate-800">${q.nombre_pax || 'Sin Nombre'}</td>
-            <td class="p-3">${q.destino || 'Sin Destino'}</td>
-            <td class="p-3 hidden md:table-cell">${q.agente_nombre || '-'}</td>
-            <td class="p-3 hidden sm:table-cell">${fechaSalidaFormatted}</td>
-            <td class="p-3 text-right font-semibold text-brand-primary">USD ${formatPriceES(totalUSD)}</td>
-            <td class="p-3 flex justify-center gap-2">
-                <button type="button" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="loadSavedQuoteIntoForm('${q.id}')">Ver</button>
-                <button type="button" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-500 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer" onclick="deleteSavedQuote('${q.id}')">Borrar</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function filterSavedQuotes() {
-    const query = document.getElementById('quote-search-input').value.toLowerCase().trim();
-    if (!query) {
-        renderQuotesTable(allSavedQuotes);
-        return;
-    }
-
-    const filtered = allSavedQuotes.filter(q => {
-        const name = (q.nombre_pax || '').toLowerCase();
-        const dest = (q.destino || '').toLowerCase();
-        return name.includes(query) || dest.includes(query);
-    });
-
-    renderQuotesTable(filtered);
-}
-
-function formatCreatedAt(isoStr) {
-    if (!isoStr) return '-';
-    try {
-        const d = new Date(isoStr);
-        if (isNaN(d.getTime())) return '-';
-
-        const hh = String(d.getHours()).padStart(2, '0');
-        const min = String(d.getMinutes()).padStart(2, '0');
-
-        const today = new Date();
-        const todayYear = today.getFullYear();
-        const todayMonth = today.getMonth();
-        const todayDay = today.getDate();
-
-        const targetYear = d.getFullYear();
-        const targetMonth = d.getMonth();
-        const targetDay = d.getDate();
-
-        if (todayYear === targetYear && todayMonth === targetMonth && todayDay === targetDay) {
-            return `Hoy, ${hh}:${min}`;
-        }
-
-        const yesterday = new Date(today);
-        yesterday.setDate(today.getDate() - 1);
-        if (yesterday.getFullYear() === targetYear && yesterday.getMonth() === targetMonth && yesterday.getDate() === targetDay) {
-            return `Ayer, ${hh}:${min}`;
-        }
-
-        const dd = String(targetDay).padStart(2, '0');
-        const mm = String(targetMonth + 1).padStart(2, '0');
-        const yyyy = targetYear;
-        return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
-    } catch (e) {
-        return '-';
-    }
-}
-
-window.loadSavedQuotesList = loadSavedQuotesList;
-window.filterSavedQuotes = filterSavedQuotes;
-
-let isReadOnlyMode = false;
-
-function enableFormEditing(enabled) {
-    isReadOnlyMode = !enabled;
-    const form = document.getElementById('quote-form');
-    if (!form) return;
-
-    // Deshabilitar todos los inputs, textareas y selectores
-    const inputs = form.querySelectorAll('input, textarea, select');
-    inputs.forEach(el => {
-        el.disabled = !enabled;
-    });
-
-    // Deshabilitar botones de equipaje
-    const bagButtons = form.querySelectorAll('.baggage-opt-btn');
-    bagButtons.forEach(btn => {
-        if (enabled) {
-            btn.style.pointerEvents = 'auto';
-            btn.style.opacity = '1';
-        } else {
-            btn.style.pointerEvents = 'none';
-            btn.style.opacity = '0.7';
-        }
-    });
-
-    // Deshabilitar flatpickrs
-    const dateInputs = ['fecha_vuelo_ida', 'fecha_vuelo_vuelta', 'validez_cotizacion'];
-    dateInputs.forEach(id => {
-        const el = document.getElementById(id);
-        if (el && el._flatpickr) {
-            el._flatpickr.input.disabled = !enabled;
-            if (el._flatpickr.altInput) {
-                el._flatpickr.altInput.disabled = !enabled;
-            }
-        }
-    });
-
-    // Deshabilitar dropzones de imágenes
-    const dropzones = form.querySelectorAll('.dropzone');
-    dropzones.forEach(dz => {
-        if (enabled) {
-            dz.style.pointerEvents = 'auto';
-            dz.style.opacity = '1';
-        } else {
-            dz.style.pointerEvents = 'none';
-            dz.style.opacity = '0.7';
-        }
-    });
-
-    // Deshabilitar botones de añadir/remover hotel
-    const actionButtons = form.querySelectorAll('.add-hotel-btn, .btn-remove-hotel, .btn-optimize-desc');
-    actionButtons.forEach(btn => {
-        if (enabled) {
-            btn.style.pointerEvents = 'auto';
-            btn.style.opacity = '1';
-            btn.disabled = false;
-        } else {
-            btn.style.pointerEvents = 'none';
-            btn.style.opacity = '0.5';
-            btn.disabled = true;
-        }
-    });
-
-    // El botón de Generar Cotización permanece habilitado para poder generarla directamente sin editar
-    const submitBtn = document.getElementById('btn-generar-preview');
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.style.opacity = '1';
-        submitBtn.style.pointerEvents = 'auto';
-    }
-
-    // Actualizar indicador de edición
-    updateEditingIndicator();
-
-    // Actualizar el resumen en tiempo real y la visibilidad de los controles
-    updateRealTimeSummary();
-}
-window.enableFormEditing = enableFormEditing;
-
-async function loadSavedQuoteIntoForm(quoteId) {
-    const cachedQuote = allSavedQuotes.find(item => item.id === quoteId);
-    const passengerName = cachedQuote ? cachedQuote.nombre_pax : 'Pasajero';
-
-    document.getElementById('loading-overlay').style.display = 'flex';
-    document.getElementById('loading-text').innerText = `Cargando cotización para ${passengerName}`;
-
-    try {
-        const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`);
-        if (!res.ok) throw new Error("No se pudo cargar la cotización solicitada.");
-        const q = await res.json();
-
-        switchTab('cotizacion-tab');
-
-        // Fill basic data fields
-        document.getElementById('nombre_pax').value = q.nombre_pax || '';
-        document.getElementById('destino').value = q.destino || '';
-        document.getElementById('cantidad_pasajeros').value = q.cantidad_pasajeros || 1;
-        document.getElementById('origen').value = q.origen || 'Córdoba';
-        document.getElementById('agente_nombre').value = q.agente_nombre || 'Uriel';
-
-        const formatToPicker = (val) => {
-            if (!val) return '';
-            if (val.includes('-')) return val; // YYYY-MM-DD
-            if (val.includes('/')) {
-                const parts = val.split('/');
-                return `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
-            }
-            return val;
-        };
-
-        // Set dates
-        const dateIda = formatToPicker(q.fecha_vuelo_ida);
-        document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(dateIda);
-        if (dateIda && document.getElementById('fecha_vuelo_vuelta')._flatpickr) {
-            document.getElementById('fecha_vuelo_vuelta')._flatpickr.set('minDate', dateIda);
-        }
-        document.getElementById('fecha_vuelo_vuelta')._flatpickr.setDate(formatToPicker(q.fecha_vuelo_vuelta));
-        if (document.getElementById('validez_cotizacion') && document.getElementById('validez_cotizacion')._flatpickr) {
-            document.getElementById('validez_cotizacion')._flatpickr.setDate(formatToPicker(q.validez_cotizacion || ''));
-        }
-
-        // Costs
-        document.getElementById('monto_vuelos').value = q.monto_vuelos || '';
-        document.getElementById('fee_aereo_monto').value = q.fee_aereo || '';
-        document.getElementById('monto_traslados').value = q.monto_traslados || '';
-
-        if (q.fee_aereo) {
-            document.getElementById('fee_aereo_tipo').value = 'fixed';
-        } else {
-            document.getElementById('fee_aereo_tipo').value = 'auto';
-        }
-        toggleFeeType();
-
-        // Baggage selection
-        setBaggageSelection(q.equipaje || []);
-
-        // Flight Images
-        const populateImage = (previewId, dataId, dzId, b64) => {
-            const preview = document.getElementById(previewId);
-            const dataInput = document.getElementById(dataId);
-            const dz = document.getElementById(dzId);
-            if (preview && dataInput && dz) {
-                if (b64) {
-                    preview.src = b64;
-                    preview.style.display = 'block';
-                    dataInput.value = b64;
-
-                    const span = dz.querySelector('span');
-                    const svg = dz.querySelector('svg');
-                    if (span) span.style.display = 'none';
-                    if (svg) svg.style.display = 'none';
-                } else {
-                    preview.src = '';
-                    preview.style.display = 'none';
-                    dataInput.value = '';
-
-                    const span = dz.querySelector('span');
-                    const svg = dz.querySelector('svg');
-                    if (span) span.style.display = 'block';
-                    if (svg) svg.style.display = 'block';
-                }
-            }
-        };
-
-        populateImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida', q.img_vuelo_ida);
-        populateImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta', q.img_vuelo_vuelta);
-
-        // Hotels
-        const hotelsContainer = document.getElementById('hotels-container');
-        hotelsContainer.innerHTML = ''; // Clear existing hotels
-        hotelCount = 0; // Reset counter
-
-        const hotels = q.hoteles || [];
-        if (hotels.length === 0) {
-            addHotelCard();
-        } else {
-            hotels.forEach(h => {
-                addHotelCard(h);
-            });
-        }
-
-        // Update edit state and enter Read-only mode
-        currentQuoteId = q.id;
-        enableFormEditing(false);
-
-        // Update breakdown
-        updateRealTimeSummary();
-
-        // Ensure the correct passenger name is used in the loading text for generation
-        const exactPassengerName = q.nombre_pax || 'Pasajero';
-        document.getElementById('loading-text').innerText = `Cargando cotización para ${exactPassengerName}`;
-
-        // Auto-generate the PDF preview
-        await generatePDFPreview(null, true);
-
-    } catch (err) {
-        document.getElementById('loading-overlay').style.display = 'none';
-        showAlert('warning', 'Error al cargar la cotización: ' + err.message);
-    }
-}
-window.loadSavedQuoteIntoForm = loadSavedQuoteIntoForm;
-
-async function deleteSavedQuote(quoteId) {
-    showCustomConfirm({
-        title: '¿Eliminar cotización permanentemente?',
-        desc: 'Esta acción borrará el registro de Supabase de forma definitiva. No se puede deshacer.',
-        btnText: 'Sí, Eliminar',
-        confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
-        callback: async () => {
-            try {
-                const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!res.ok) throw new Error("Error al eliminar la cotización de la base de datos.");
-
-                showAlert('success', '✔ Cotización eliminada con éxito.');
-
-                // If current quote is being edited, reset the form
-                if (currentQuoteId == quoteId) {
-                    cancelEditingQuote();
-                }
-                loadSavedQuotesList();
-            } catch (err) {
-                showAlert('warning', 'Error al eliminar la cotización: ' + err.message);
-            }
-        }
-    });
-}
-window.deleteSavedQuote = deleteSavedQuote;
-
-function duplicateCurrentQuote() {
-    if (!currentQuoteId) return;
-    currentQuoteId = null;
-    enableFormEditing(true); // Permitir edición
-    updateEditingIndicator();
-    showAlert('success', 'La cotización se ha duplicado en el formulario. Al presionar "Generar Cotización" se creará un nuevo registro.');
-}
-window.duplicateCurrentQuote = duplicateCurrentQuote;
-
-function cancelEditingQuote() {
-    currentQuoteId = null;
-    enableFormEditing(true); // Habilitar formulario
-    resetForm();
-    showAlert('success', 'Formulario reiniciado. Modo de edición cancelado.');
-}
-window.cancelEditingQuote = cancelEditingQuote;
-
-function closeSavedQuoteView() {
-    currentQuoteId = null;
-    enableFormEditing(true); // Habilitar formulario
-    resetForm();
-    switchTab('editar-tab');
-    loadSavedQuotesList();
-    showAlert('success', 'Visualización cerrada. Retornando a la lista de cotizaciones.');
-}
-window.closeSavedQuoteView = closeSavedQuoteView;
-
-function confirmEditQuote() {
-    showCustomConfirm({
-        title: '¿Habilitar edición de cotización?',
-        desc: 'Vas a modificar una cotización existente. Al presionar "Generar Cotización" se actualizará este registro (ID #' + currentQuoteId + ') en Supabase de forma permanente.',
-        btnText: 'Sí, Habilitar Edición',
-        confirmColorClass: 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20',
-        callback: () => {
-            enableFormEditing(true);
-            showAlert('success', 'Edición habilitada. Los cambios que realices se guardarán al generar la cotización.');
-        }
-    });
-}
-window.confirmEditQuote = confirmEditQuote;
-
-function updateEditingIndicator() {
-    const indicator = document.getElementById('editing-indicator');
-    const indicatorText = document.getElementById('editing-indicator-text');
-    const actionsContainer = document.getElementById('editing-indicator-actions');
-    if (!indicator || !indicatorText || !actionsContainer) return;
-
-    if (currentQuoteId) {
-        indicator.classList.remove('hidden');
-        indicator.classList.add('flex');
-
-        if (isReadOnlyMode) {
-            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando cotización guardada (ID #${currentQuoteId})</span>`;
-
-            actionsContainer.innerHTML = `
-                <button type="button" onclick="confirmEditQuote()" class="px-3 py-1 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-brand-primary/20">Editar Cotización</button>
-                <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
-                <button type="button" onclick="closeSavedQuoteView()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cerrar</button>
-            `;
-        } else {
-            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Editando cotización guardada (ID #${currentQuoteId})</span>`;
-
-            actionsContainer.innerHTML = `
-                <button type="button" onclick="duplicateCurrentQuote()" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Duplicar como Nueva</button>
-                <button type="button" onclick="closeSavedQuoteView()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cancelar Edición</button>
-            `;
+            homeBtn.classList.remove('hidden');
         }
     } else {
-        indicator.classList.add('hidden');
-        indicator.classList.remove('flex');
-    }
-}
-window.updateEditingIndicator = updateEditingIndicator;
-
-// ── Autenticación de Usuarios y Control de Sesión ────────────────────────────
-
-async function checkSession() {
-    // Intentar autorefrescar la sesión en base a la cookie HttpOnly del navegador
-    const success = await refreshSession(true);
-    if (!success) {
-        showLoginScreen();
-    }
-}
-async function refreshSession(isInitialCheck = false) {
-    try {
-        const res = await fetch('/api/auth/refresh', {
-            method: 'POST'
-        });
-
-        if (!res.ok) return false;
-
-        const data = await res.json();
-        loginSuccess(data.access_token, data.username, isInitialCheck);
-        return true;
-    } catch (err) {
-        console.warn("Fallo al refrescar sesión:", err);
-        return false;
-    }
-}
-
-function showSessionPrompt(token, username) {
-    showLoginScreen();
-
-    // Ocultar formulario estándar y bienvenida
-    const welcomeSection = document.getElementById('login-welcome-section');
-    const loginForm = document.getElementById('login-form');
-    if (welcomeSection) welcomeSection.classList.add('hidden');
-    if (loginForm) loginForm.classList.add('hidden');
-
-    // Mostrar sección de sesión activa
-    const sessionActiveContainer = document.getElementById('session-active-container');
-    const sessionActiveUsername = document.getElementById('session-active-username');
-    const sessionActiveBtnName = document.getElementById('session-active-btn-name');
-
-    if (sessionActiveContainer) sessionActiveContainer.classList.remove('hidden');
-    if (sessionActiveUsername) {
-        sessionActiveUsername.innerText = username === 'guest' ? 'Invitado' : username;
-    }
-    if (sessionActiveBtnName) {
-        sessionActiveBtnName.innerText = username === 'guest' ? 'Invitado' : username;
-    }
-
-    // Configurar botones
-    const btnContinue = document.getElementById('btn-continue-session');
-    if (btnContinue) {
-        btnContinue.onclick = function () {
-            loginSuccess(token, username);
-        };
-    }
-
-    const btnLogout = document.getElementById('btn-logout-session');
-    if (btnLogout) {
-        btnLogout.onclick = function () {
-            logoutAgent(true);
-        };
-    }
-}
-window.showSessionPrompt = showSessionPrompt;
-
-function showLoginScreen() {
-    const loginScreen = document.getElementById('login-screen');
-    const appContent = document.getElementById('app-content');
-
-    if (loginScreen) {
-        loginScreen.classList.remove('opacity-0', 'pointer-events-none');
-        loginScreen.classList.add('opacity-100', 'pointer-events-auto');
-    }
-    if (appContent) {
-        appContent.classList.add('hidden');
-        appContent.classList.remove('app-fade-in');
-    }
-
-    // Restablecer visibilidad estándar
-    const welcomeSection = document.getElementById('login-welcome-section');
-    const loginForm = document.getElementById('login-form');
-    const sessionActiveContainer = document.getElementById('session-active-container');
-    if (welcomeSection) welcomeSection.classList.remove('hidden');
-    if (loginForm) loginForm.classList.remove('hidden');
-    if (sessionActiveContainer) sessionActiveContainer.classList.add('hidden');
-
-    // Iniciar slideshow de fondos de login
-    startLoginSlideshow();
-}
-
-function startLoginSlideshow() {
-    if (loginSlideshowInterval) clearInterval(loginSlideshowInterval);
-
-    const layers = document.querySelectorAll('.login-bg-layer');
-    if (layers.length === 0) return;
-
-    // Activar primera capa
-    let currentIdx = 0;
-    layers.forEach(l => l.classList.remove('active'));
-    layers[currentIdx].classList.add('active');
-
-    loginSlideshowInterval = setInterval(() => {
-        layers[currentIdx].classList.remove('active');
-        currentIdx = (currentIdx + 1) % layers.length;
-        layers[currentIdx].classList.add('active');
-    }, 6000); // Rota cada 6 segundos
-}
-
-function stopLoginSlideshow() {
-    if (loginSlideshowInterval) {
-        clearInterval(loginSlideshowInterval);
-        loginSlideshowInterval = null;
-    }
-}
-
-async function handleLoginSubmit(e) {
-    if (e) e.preventDefault();
-
-    const usernameInput = document.getElementById('login_username');
-    const passwordInput = document.getElementById('login_password');
-    const alertEl = document.getElementById('login-alert-message');
-
-    if (!usernameInput || !passwordInput) return;
-
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
-
-    if (alertEl) {
-        alertEl.classList.add('hidden');
-        alertEl.className = "hidden p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300";
-    }
-
-    try {
-        const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || "Credenciales inválidas");
-        }
-
-        const data = await res.json();
-        loginSuccess(data.access_token, data.username);
-
-        // Limpiar formulario
-        usernameInput.value = '';
-        passwordInput.value = '';
-    } catch (err) {
-        if (alertEl) {
-            alertEl.innerText = "Error: " + err.message;
-            alertEl.classList.remove('hidden');
-            alertEl.classList.add('bg-rose-50', 'border-rose-100', 'text-rose-600');
-        }
-    }
-}
-
-function loginSuccess(token, username, isInitialCheck = false) {
-    authToken = token;
-    loggedInUser = username;
-
-    stopLoginSlideshow();
-
-    const overlay = document.getElementById('loading-overlay');
-    const loadingText = document.getElementById('loading-text');
-
-    if (!isInitialCheck) {
-        // Mostrar overlay de carga con mensaje personalizado
-        if (overlay) {
-            if (loadingText) loadingText.innerText = "Cargando aplicación...";
-            overlay.style.display = 'flex';
-            overlay.classList.remove('hidden');
-        }
-    }
-
-    // Controlar UI según el rol (Invitado vs Agente)
-    const btnGenerar = document.getElementById('btn-generar-preview');
-    const navSavedQuotes = document.getElementById('nav-btn-saved-quotes');
-    const navConfig = document.getElementById('nav-btn-config');
-    const navTestData = document.getElementById('nav-btn-test-data');
-
-    const mobileSavedQuotes = document.getElementById('mobile-nav-btn-saved-quotes');
-    const mobileConfig = document.getElementById('mobile-nav-btn-config');
-    const mobileTestData = document.getElementById('mobile-nav-btn-test-data');
-
-    if (username === 'guest') {
-        if (navSavedQuotes) navSavedQuotes.classList.add('hidden');
-        if (navConfig) navConfig.classList.add('hidden');
-        if (navTestData) navTestData.classList.add('hidden');
-
-        if (mobileSavedQuotes) mobileSavedQuotes.classList.add('hidden');
-        if (mobileConfig) mobileConfig.classList.add('hidden');
-        if (mobileTestData) mobileTestData.classList.add('hidden');
-
-        if (btnGenerar) {
-            btnGenerar.disabled = true;
-            btnGenerar.classList.add('opacity-50', 'pointer-events-none', 'cursor-not-allowed');
-            btnGenerar.innerHTML = `
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                GENERAR COTIZACIÓN (Solo Agentes)
-            `;
-        }
-    } else {
-        if (navSavedQuotes) navSavedQuotes.classList.remove('hidden');
-        if (navConfig) navConfig.classList.remove('hidden');
-        if (navTestData) navTestData.classList.remove('hidden');
-
-        if (mobileSavedQuotes) mobileSavedQuotes.classList.remove('hidden');
-        if (mobileConfig) mobileConfig.classList.remove('hidden');
-        if (mobileTestData) mobileTestData.classList.remove('hidden');
-
-        if (btnGenerar) {
-            btnGenerar.disabled = false;
-            btnGenerar.classList.remove('opacity-50', 'pointer-events-none', 'cursor-not-allowed');
-            btnGenerar.innerHTML = `
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                GENERAR COTIZACIÓN
-            `;
-        }
-    }
-
-    // Cargar datos iniciales
-    loadConfig();
-
-    // Actualizar badge del agente logueado en la navegación
-    const badge = document.getElementById('logged-user-badge');
-    const spanUsername = document.getElementById('logged-username-span');
-    if (badge && spanUsername) {
-        if (username === 'guest') {
-            spanUsername.innerText = 'Invitado';
-            // Poner el puntito en color gris para invitado
-            const dot = badge.querySelector('span');
-            if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-400';
+        const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+        if (isCollapsed) {
+            homeBtn.classList.remove('hidden');
         } else {
-            // Capitalizar primer letra del nombre del agente
-            const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
-            spanUsername.innerText = formattedName;
-            const dot = badge.querySelector('span');
-            if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
-        }
-        badge.classList.remove('hidden');
-        badge.classList.add('flex');
-    }
-
-    // Asegurar que haya una tarjeta de hotel vacía si no hay hoteles cargados
-    const hotelsContainer = document.getElementById('hotels-container');
-    if (hotelsContainer && hotelsContainer.children.length === 0) {
-        addHotelCard();
-    }
-
-    if (!isInitialCheck) {
-        // Ocultar login y mostrar app con animación tras una breve demora
-        setTimeout(() => {
-            const loginScreen = document.getElementById('login-screen');
-            const appContent = document.getElementById('app-content');
-
-            if (loginScreen) {
-                loginScreen.classList.add('opacity-0', 'pointer-events-none');
-                loginScreen.classList.remove('opacity-100', 'pointer-events-auto');
-            }
-            if (appContent) {
-                appContent.classList.remove('hidden');
-                appContent.classList.add('app-fade-in');
-            }
-
-            // Ocultar overlay de carga y restablecer texto
-            if (overlay) {
-                overlay.style.display = 'none';
-                overlay.classList.add('hidden');
-            }
-            if (loadingText) {
-                loadingText.innerText = "Generando cotización...";
-            }
-        }, 2000);
-    } else {
-        // Carga inicial: transición inmediata
-        const loginScreen = document.getElementById('login-screen');
-        const appContent = document.getElementById('app-content');
-
-        if (loginScreen) {
-            loginScreen.classList.add('opacity-0', 'pointer-events-none');
-            loginScreen.classList.remove('opacity-100', 'pointer-events-auto');
-        }
-        if (appContent) {
-            appContent.classList.remove('hidden');
-            appContent.classList.add('app-fade-in');
+            homeBtn.classList.add('hidden');
         }
     }
 }
+window.updateHomeButtonVisibility = updateHomeButtonVisibility;
+window.addEventListener('resize', updateHomeButtonVisibility);
 
-function logoutAgent(notifyServer = true, reasonMessage = null) {
-    if (notifyServer) {
-        fetch('/api/auth/logout', {
-            method: 'POST'
-        }).catch(err => console.warn("Logout request failed:", err));
+// Fallback for loading quick budgets when cotizacion_rapida.js is not loaded yet
+window.loadQuickBudgetIntoForm = function (quoteId) {
+    const isFormPage = !!document.getElementById('quick-budget-body');
+    if (!isFormPage) {
+        window.pendingEditQuickBudgetId = quoteId;
+        window.navigateTo(`/cotizacion-rapida?id=${quoteId}`);
+    }
+};
+
+let faviconTimer = null;
+function changeFavicon(type) {
+    if (faviconTimer) {
+        clearTimeout(faviconTimer);
+        faviconTimer = null;
     }
 
-    authToken = null;
-    loggedInUser = null;
+    const faviconEl = document.querySelector('link[rel="icon"]') || document.querySelector('link[rel="shortcut icon"]');
+    if (!faviconEl) return;
 
-    // Ocultar badge del agente logueado
-    const badge = document.getElementById('logged-user-badge');
-    if (badge) {
-        badge.classList.add('hidden');
-        badge.classList.remove('flex');
+    let href = '/assets/favicon.png';
+    let duration = 0;
+
+    switch (type) {
+        case 'loading':
+            href = '/assets/favicon-loading.png';
+            break;
+        case 'success':
+            href = '/assets/favicon-ok.png';
+            duration = 3000;
+            break;
+        case 'error':
+            href = '/assets/favicon-error.png';
+            duration = 4000;
+            break;
+        case 'default':
+        default:
+            href = '/assets/favicon.png';
+            break;
     }
 
-    // Reset form to blank
-    resetForm();
-    currentQuoteId = null;
-    updateEditingIndicator();
+    faviconEl.setAttribute('href', href + '?v=' + Date.now());
 
-    // Ocultar resultados previos
-    const resultsPanel = document.getElementById('results-panel');
-    if (resultsPanel) {
-        resultsPanel.classList.add('hidden');
-        resultsPanel.classList.remove('block');
-    }
-
-    showLoginScreen();
-
-    // Mostrar mensaje de aviso en la UI si está definido
-    if (reasonMessage) {
-        const alertEl = document.getElementById('login-alert-message');
-        if (alertEl) {
-            alertEl.innerText = reasonMessage;
-            alertEl.classList.remove('hidden');
-            alertEl.className = "p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300 bg-rose-50 border-rose-100 text-rose-600";
-        }
-    }
-}
-
-async function loginAsGuest() {
-    const alertEl = document.getElementById('login-alert-message');
-    if (alertEl) {
-        alertEl.classList.add('hidden');
-        alertEl.className = "hidden p-3 rounded-xl border text-xs font-semibold leading-relaxed transition-all duration-300";
-    }
-
-    try {
-        const res = await fetch('/api/auth/login-guest', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || "No se pudo ingresar como invitado");
-        }
-
-        const data = await res.json();
-        loginSuccess(data.access_token, data.username);
-    } catch (err) {
-        if (alertEl) {
-            alertEl.innerText = "Error: " + err.message;
-            alertEl.classList.remove('hidden');
-            alertEl.classList.add('bg-rose-50', 'border-rose-100', 'text-rose-600');
-        }
+    if (duration > 0) {
+        faviconTimer = setTimeout(() => {
+            changeFavicon('default');
+        }, duration);
     }
 }
-
-function openPDFInNewTab() {
-    if (!currentPdfUrl) {
-        showAlert('warning', 'No hay ningún PDF generado para previsualizar.');
-        return;
-    }
-    window.open(currentPdfUrl, '_blank');
-}
-
-function toggleLoginPassword() {
-    const passwordInput = document.getElementById('login_password');
-    const eyeOpen = document.getElementById('svg-eye-open');
-    const eyeClosed = document.getElementById('svg-eye-closed');
-    if (!passwordInput || !eyeOpen || !eyeClosed) return;
-
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        eyeOpen.classList.add('hidden');
-        eyeClosed.classList.remove('hidden');
-    } else {
-        passwordInput.type = 'password';
-        eyeOpen.classList.remove('hidden');
-        eyeClosed.classList.add('hidden');
-    }
-}
-
-function toggleMobileMenu() {
-    const mobileMenu = document.getElementById('mobile-menu');
-    const hamburgerIcon = document.getElementById('hamburger-icon');
-    const closeIcon = document.getElementById('close-icon');
-    if (!mobileMenu) return;
-
-    if (mobileMenu.classList.contains('hidden')) {
-        mobileMenu.classList.remove('hidden');
-        if (hamburgerIcon) hamburgerIcon.classList.add('hidden');
-        if (closeIcon) closeIcon.classList.remove('hidden');
-    } else {
-        mobileMenu.classList.add('hidden');
-        if (hamburgerIcon) hamburgerIcon.classList.remove('hidden');
-        if (closeIcon) closeIcon.classList.add('hidden');
-    }
-}
-
-window.logoutAgent = logoutAgent;
-window.handleLoginSubmit = handleLoginSubmit;
-window.checkSession = checkSession;
-window.loginAsGuest = loginAsGuest;
-window.openPDFInNewTab = openPDFInNewTab;
-window.toggleLoginPassword = toggleLoginPassword;
-window.toggleMobileMenu = toggleMobileMenu;
+window.changeFavicon = changeFavicon;

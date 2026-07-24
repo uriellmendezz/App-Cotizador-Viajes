@@ -429,7 +429,8 @@ def create_presentation_from_template(template_id: str, folder_id: str, quote_da
             requests.append({"deleteObject": {"objectId": extra_slide["objectId"]}})
     
     # Deleting empty hotel options
-    hotels = quote_data.get("hoteles", [])
+    hoteles_raw = quote_data.get("hoteles", [])
+    hotels = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     if is_v2:
         if len(hotels) < 3:
             print("[Slides] Removing empty Hotel 3 group...")
@@ -459,12 +460,22 @@ def create_presentation_from_template(template_id: str, folder_id: str, quote_da
     costo_total = float(quote_data.get("costo_total", 0.0))
     precio_persona = float(quote_data.get("precio_persona", 0.0))
     
+    # Detect currency
+    moneda = quote_data.get("moneda")
+    if not moneda:
+        for h in hoteles_raw:
+            if h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+                moneda = h.get("moneda")
+                break
+    if not moneda:
+        moneda = "USD"
+
     # Formatting values
     def fmt_curr(val):
         try:
-            return f"USD ${float(val):,.2f}".replace(",", ".")
+            return f"{moneda} ${float(val):,.2f}".replace(",", ".")
         except (ValueError, TypeError):
-            return "USD $0.00"
+            return f"{moneda} $0.00"
             
     today_str = datetime.now().strftime("%d/%m/%Y")
     
@@ -775,10 +786,20 @@ def create_presentation_from_template(template_id: str, folder_id: str, quote_da
             
             # 7c. Set checklist text dynamically
             if h_num == 1:
-                set_shape_text(requests, "g3f1aacc1efc_0_451", f"Vuelos desde {quote_data.get('origen', '')} hacia {destination} para {cant_pax} pasajeros.", font_size=9)
+                pax_str = "un pasajero" if cant_pax == 1 else f"{cant_pax} pasajeros"
+                set_shape_text(requests, "g3f1aacc1efc_0_451", f"Vuelos desde {quote_data.get('origen', '')} hacia {destination} para {pax_str}.", font_size=9)
                 set_shape_text(requests, "g3f1aacc1efc_0_445", f"Estadía en {destination} por {noches_str}.", font_size=9)
                 set_shape_text(requests, "g3f1aacc1efc_0_448", quote_data.get("detalle_traslado", "Traslados de llegada y regreso (Aeropuerto/Hotel/Aeropuerto)"), font_size=9)
-                set_shape_text(requests, "g3f1aacc1efc_0_339", destination.upper(), font_size=40, bold=True, alignment="CENTER", weight=900)
+                dest_len = len(destination)
+                if dest_len > 25:
+                    dest_font_size = 20
+                elif dest_len > 18:
+                    dest_font_size = 26
+                elif dest_len > 12:
+                    dest_font_size = 32
+                else:
+                    dest_font_size = 40
+                set_shape_text(requests, "g3f1aacc1efc_0_339", destination.upper(), font_size=dest_font_size, bold=True, alignment="CENTER", weight=900)
                 set_shape_text(requests, "g3f1aacc1efc_0_340", f"Propuesta para {passenger_name} con salida el {quote_data.get('fecha_salida')}.", font_size=11, bold=True, alignment="CENTER")
                 set_shape_text(requests, "g3f1aacc1efc_0_334", quote_data.get("fecha_vuelo_ida", ""), font_size=7, bold=True)
                 set_shape_text(requests, "g3f1aacc1efc_0_336", quote_data.get("fecha_vuelo_vuelta", ""), font_size=7, bold=True)
