@@ -232,8 +232,8 @@ def resolve_agent_names(quotes: list, current_user: dict = None) -> list:
         if not agent_name or "-" in str(agent_name) or len(str(agent_name)) > 20:
             if user_id_curr and q.get("agente_id") == user_id_curr:
                 q["agente_nombre"] = user_name_curr
-            else:
-                q["agente_nombre"] = "Agente"
+            # No fallback to "Agente" — preserve agente_id for traceability.
+            # The frontend's getCleanAgentName() handles display formatting.
 
     return quotes
 
@@ -374,14 +374,15 @@ def api_refresh(
         from app.database import get_supabase_client
         supabase = get_supabase_client()
         
-        nombre = "Agente" if is_uuid else username.capitalize()
+        nombre = None if is_uuid else username.capitalize()
         email = f"{username}@onetrip.com" if not is_uuid else None
         rol = "ADMIN_GLOBAL" if username in ("admin", "uriel") else "AGENTE_SUCURSAL"
         sucursal_id = None
+        sucursal_nombre = None
         
         if supabase and is_uuid:
             try:
-                profile_res = supabase.table("perfiles").select("*").eq("id", username).execute()
+                profile_res = supabase.table("perfiles").select("*, sucursales!perfiles_sucursal_id_fkey(nombre)").eq("id", username).execute()
                 if profile_res.data:
                     profile = profile_res.data[0]
                     fetched_name = profile.get("nombre") or profile.get("username")
@@ -392,8 +393,18 @@ def api_refresh(
                     email = profile.get("email") or email
                     rol = profile.get("rol") or rol
                     sucursal_id = str(profile.get("sucursal_id")) if profile.get("sucursal_id") else None
+                    suc_data = profile.get("sucursales")
+                    if isinstance(suc_data, dict):
+                        sucursal_nombre = suc_data.get("nombre")
             except Exception as e:
                 print(f"Error refrescando perfil desde base de datos: {e}")
+        
+        # If nombre is still None after DB lookup, derive from email or keep sub
+        if not nombre:
+            if email:
+                nombre = email.split("@")[0].capitalize()
+            else:
+                nombre = username  # Keep sub (UUID) — frontend handles display
                 
         # Verificar coincidencia de scope con el rol obtenido
         if scope == "admin" and rol != "ADMIN_GLOBAL":
@@ -408,10 +419,12 @@ def api_refresh(
                 "email": email,
                 "rol": rol,
                 "sucursal_id": sucursal_id,
+                "sucursal_nombre": sucursal_nombre,
                 "type": "access"
             },
             expires_delta=timedelta(minutes=60)
         )
+        print(f"[AUTH REFRESH] sub={username}, nombre={nombre}, rol={rol}")
         return {"access_token": new_access_token, "username": nombre}
     except Exception as e:
         cookie_to_delete = "otg_admin_refresh" if scope == "admin" else "otg_agent_refresh"

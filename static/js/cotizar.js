@@ -1679,7 +1679,7 @@ function _buildPayload() {
         cantidad_pasajeros: parseInt(document.getElementById('cantidad_pasajeros').value),
         fecha_salida: formatDatePickerDate(getDatePickerValue('fecha_vuelo_ida')),
         origen: document.getElementById('origen').value,
-        agente_nombre: window.loggedInUser || 'Uriel',
+        agente_nombre: window.loggedInUser || '',
         fecha_vuelo_ida: formatDatePickerDate(getDatePickerValue('fecha_vuelo_ida')),
         fecha_vuelo_vuelta: formatDatePickerDate(getDatePickerValue('fecha_vuelo_vuelta')),
         validez_cotizacion: formatDatePickerDate(getDatePickerValue('validez_cotizacion')),

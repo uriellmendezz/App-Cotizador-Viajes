@@ -59,9 +59,13 @@ window.resolveDisplayName = resolveDisplayName;
 function setAgentSession(token, username) {
     if (token) {
         const payload = decodeTokenPayload(token);
-        const displayName = resolveDisplayName(username, payload, 'Agente');
+        const displayName = resolveDisplayName(username, payload, username || null);
         localStorage.setItem('otg_agent_token', token);
-        localStorage.setItem('otg_agent_user', displayName);
+        if (displayName) {
+            localStorage.setItem('otg_agent_user', displayName);
+        } else {
+            localStorage.removeItem('otg_agent_user');
+        }
         if (payload?.rol) localStorage.setItem('otg_agent_role', payload.rol);
         else localStorage.removeItem('otg_agent_role');
         if (payload?.sucursal_id) localStorage.setItem('otg_agent_sucursal_id', payload.sucursal_id);

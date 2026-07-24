@@ -30,8 +30,6 @@ def api_save_cotizacion_rapida(payload: dict, current_user: dict = Depends(get_c
     saved = save_cotizacion_rapida(payload)
     if not saved:
         raise HTTPException(status_code=500, detail="No se pudo guardar el presupuesto rápido en la base de datos.")
-    if saved.get("agente_nombre") is None or "-" in str(saved.get("agente_nombre")):
-        saved["agente_nombre"] = current_user.get("nombre")
     return saved
 
 @router.get("")
