@@ -721,11 +721,11 @@ async function router() {
         if (normalizedPath === '/login' || normalizedPath === '/admin-login' || normalizedPath === '/admin') {
             sidebarEl.classList.add('hidden');
             if (headerEl) headerEl.classList.add('hidden');
-            wrapperEl.classList.remove('lg:pl-[260px]');
+            wrapperEl.classList.remove('lg:pl-[220px]');
         } else {
             sidebarEl.classList.remove('hidden');
             if (headerEl) headerEl.classList.remove('hidden');
-            wrapperEl.classList.add('lg:pl-[260px]');
+            wrapperEl.classList.add('lg:pl-[220px]');
             updateNavActiveState(normalizedPath);
 
             // Toggle admin button visibility

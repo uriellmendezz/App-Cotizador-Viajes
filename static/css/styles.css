@@ -455,11 +455,11 @@ textarea:focus {
 @media (min-width: 1024px) {
     /* Smooth width transition for sidebar and padding transition for wrapper */
     #app-sidebar {
-        width: 260px;
+        width: 220px;
         transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     #main-content-wrapper {
-        padding-left: 260px !important;
+        padding-left: 220px !important;
         transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
 
@@ -597,7 +597,7 @@ textarea:focus {
 
 @media (min-width: 1024px) {
     #app-loader-overlay {
-        left: 260px;
+        left: 220px;
         transition: left 0.3s ease;
     }
     
