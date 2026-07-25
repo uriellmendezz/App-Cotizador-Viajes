@@ -691,17 +691,62 @@ async function loadConfig() {
         const res = await authenticatedFetch('/api/config');
         const data = await res.json();
         
+        // Configure Section 4 (Solicitar Alta de Agente) read-only mode for non-owners
+        const isOwner = data.is_owner || window.userRole === 'DUENO_FRANQUICIA' || window.userRole === 'ADMIN_SUCURSAL' || window.userRole === 'ADMIN_GLOBAL';
+        const noticeEl = document.getElementById('request-agent-readonly-notice');
+        const badgeEl = document.getElementById('request-agent-badge');
+        const formInputIds = ['new_agent_name', 'new_agent_email', 'new_agent_role', 'new_agent_notes'];
+        const submitBtn = document.getElementById('btn-request-agent-submit');
+
+        if (!isOwner) {
+            if (noticeEl) noticeEl.classList.remove('hidden');
+            if (badgeEl) {
+                badgeEl.innerText = 'Modo Lectura (Solo Dueños)';
+                badgeEl.className = 'px-3 py-1 bg-amber-100 text-amber-800 border border-amber-300 rounded-full text-[10px] font-bold uppercase tracking-wider';
+            }
+            formInputIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = true;
+                    el.readOnly = true;
+                    el.classList.add('bg-slate-100', 'cursor-not-allowed', 'opacity-75', 'select-none');
+                }
+            });
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            }
+        } else {
+            if (noticeEl) noticeEl.classList.add('hidden');
+            if (badgeEl) {
+                badgeEl.innerText = 'Exclusivo Franquicia';
+                badgeEl.className = 'px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200/80 rounded-full text-[10px] font-bold uppercase tracking-wider';
+            }
+            formInputIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = false;
+                    el.readOnly = false;
+                    el.classList.remove('bg-slate-100', 'cursor-not-allowed', 'opacity-75', 'select-none');
+                }
+            });
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            }
+        }
+
         const accessDeniedEl = document.getElementById('config-access-denied');
         const ownerPanelEl = document.getElementById('config-owner-panel');
-        
-        if (!data.is_owner) {
-            if (accessDeniedEl) accessDeniedEl.classList.remove('hidden');
-            if (ownerPanelEl) ownerPanelEl.classList.add('hidden');
-            return;
+        if (accessDeniedEl && ownerPanelEl) {
+            if (!data.is_owner) {
+                accessDeniedEl.classList.remove('hidden');
+                ownerPanelEl.classList.add('hidden');
+            } else {
+                accessDeniedEl.classList.add('hidden');
+                ownerPanelEl.classList.remove('hidden');
+            }
         }
-        
-        if (accessDeniedEl) accessDeniedEl.classList.add('hidden');
-        if (ownerPanelEl) ownerPanelEl.classList.remove('hidden');
         
         // Render Agent Colors List
         const listContainer = document.getElementById('agent-colors-list');
@@ -817,10 +862,16 @@ window.saveConfig = saveAgentColors;
 async function submitAgentRequest(e) {
     if (e) e.preventDefault();
     
-    const nombre = document.getElementById('new_agent_name').value.trim();
-    const email = document.getElementById('new_agent_email').value.trim();
-    const rol = document.getElementById('new_agent_role').value;
-    const notas = document.getElementById('new_agent_notes').value.trim();
+    const isOwner = window.agencyConfig?.is_owner || window.userRole === 'DUENO_FRANQUICIA' || window.userRole === 'ADMIN_SUCURSAL' || window.userRole === 'ADMIN_GLOBAL';
+    if (!isOwner) {
+        showAlert('warning', 'Modo Lectura: La solicitud de alta de nuevos agentes es exclusiva para dueños de franquicias.');
+        return;
+    }
+    
+    const nombre = document.getElementById('new_agent_name')?.value.trim() || '';
+    const email = document.getElementById('new_agent_email')?.value.trim() || '';
+    const rol = document.getElementById('new_agent_role')?.value || 'AGENTE_SUCURSAL';
+    const notas = document.getElementById('new_agent_notes')?.value.trim() || '';
     
     if (!nombre || !email) {
         showAlert('warning', 'Por favor complete todos los campos obligatorios del formulario.');
@@ -995,10 +1046,24 @@ function addHotelCard(data = null) {
         <div class="flex flex-col gap-1 w-full">
             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Descripción</label>
             <div class="relative flex flex-col w-full">
-                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[80px] pr-28 resize-y w-full" required placeholder="Ej. Frente al mar..." style="line-height: 1.3;">${data ? (data.hotel_descripcion || data.descripcion || '') : ''}</textarea>
-                <button type="button" class="btn-ia-optimize absolute bottom-1.5 right-1.5 text-[9px] px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg hover:shadow-sm active:scale-95 transition-all cursor-pointer" onclick="optimizeDescription(this)">
-                    Mejorar con IA
-                </button>
+                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[85px] pr-[190px] resize-y w-full" required placeholder="Ej. Frente al mar..." style="line-height: 1.3;" oninput="updateHotelDescCharCounter(this); saveDetailedQuoteFormState();" onkeyup="updateHotelDescCharCounter(this)" onpaste="setTimeout(() => updateHotelDescCharCounter(this), 10);">${data ? (data.hotel_descripcion || data.descripcion || '') : ''}</textarea>
+                
+                <!-- Custom Error Tooltip -->
+                <div class="hotel-desc-error-tooltip hidden absolute -top-8 right-0 bg-rose-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-md shadow-lg pointer-events-none z-20 transition-all flex items-center gap-1">
+                    <svg class="w-3 h-3 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Superaste el máximo de caracteres
+                    <div class="absolute top-full right-4 border-4 border-transparent border-t-rose-600"></div>
+                </div>
+
+                <!-- Bottom Right Controls: Counter & IA Button -->
+                <div class="absolute bottom-1.5 right-1.5 flex items-center gap-2 z-10 pointer-events-none">
+                    <span class="hotel-desc-counter text-[10px] font-semibold text-slate-400 select-none transition-colors">0/200</span>
+                    <button type="button" class="btn-ia-optimize pointer-events-auto text-[9px] px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg hover:shadow-sm active:scale-95 transition-all cursor-pointer" onclick="optimizeDescription(this)">
+                        Mejorar con IA
+                    </button>
+                </div>
             </div>
         </div>
         
@@ -1020,6 +1085,11 @@ function addHotelCard(data = null) {
     container.appendChild(card);
     updateRemoveButtons();
     updateCurrencyLabels();
+
+    // Initialize character counter for hotel description
+    card.querySelectorAll('.hotel-descripcion-val').forEach(ta => {
+        updateHotelDescCharCounter(ta);
+    });
 
     // Add Drag and Drop listeners to all new dropzones
     card.querySelectorAll('.dropzone').forEach(dz => {
@@ -1494,6 +1564,19 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         return;
     }
 
+    // Validate hotel description character limits (max 200 chars)
+    const hotelOptionCards = document.querySelectorAll('.hotel-option-card');
+    for (const card of hotelOptionCards) {
+        const descInput = card.querySelector('.hotel-descripcion-val');
+        if (descInput && descInput.value.length > 200) {
+            updateHotelDescCharCounter(descInput);
+            descInput.focus();
+            descInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showAlert('warning', 'Superaste el máximo de caracteres (200 máx.). Acota la descripción para continuar.');
+            return;
+        }
+    }
+
     const paxNameForLoading = document.getElementById('nombre_pax').value || 'Pasajero';
 
     const formTab = document.getElementById('cotizacion-tab');
@@ -1569,7 +1652,7 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         currentPdfUrl = url;
         const iframe = document.getElementById('pdf-preview-iframe');
         if (iframe) {
-            iframe.src = url;
+            iframe.src = url + '#navpanes=0&zoom=75';
         }
 
         // Build filename for future download
@@ -1659,7 +1742,8 @@ window.downloadPDFBlob = downloadPDFBlob;
 function openPDFInNewTab() {
     const url = window.currentPdfUrl;
     if (url) {
-        window.open(url, '_blank');
+        const targetUrl = url.includes('#') ? url : url + '#navpanes=0&zoom=75';
+        window.open(targetUrl, '_blank');
     } else {
         showAlert('warning', 'No hay ningún PDF generado para abrir.');
     }
@@ -1679,7 +1763,7 @@ function _buildPayload() {
         cantidad_pasajeros: parseInt(document.getElementById('cantidad_pasajeros').value),
         fecha_salida: formatDatePickerDate(getDatePickerValue('fecha_vuelo_ida')),
         origen: document.getElementById('origen').value,
-        agente_nombre: window.loggedInUser || 'Uriel',
+        agente_nombre: window.loggedInUser || '',
         fecha_vuelo_ida: formatDatePickerDate(getDatePickerValue('fecha_vuelo_ida')),
         fecha_vuelo_vuelta: formatDatePickerDate(getDatePickerValue('fecha_vuelo_vuelta')),
         validez_cotizacion: formatDatePickerDate(getDatePickerValue('validez_cotizacion')),
@@ -1889,8 +1973,12 @@ function formatToPicker(dateStr) {
 
 // AI Description Optimizer Frontend API Caller
 async function optimizeDescription(btn) {
-    const wrapper = btn.parentElement;
-    const textarea = wrapper.querySelector('.hotel-descripcion-val');
+    const relativeContainer = btn.closest('.relative') || btn.parentElement;
+    const textarea = relativeContainer ? relativeContainer.querySelector('.hotel-descripcion-val') : null;
+    if (!textarea) {
+        alert("No se encontró el campo de descripción.");
+        return;
+    }
     const originalText = textarea.value.trim();
     if (!originalText) {
         alert("Por favor, escribe una descripción básica primero para que la IA la optimice.");
@@ -1918,7 +2006,8 @@ async function optimizeDescription(btn) {
         }
 
         const data = await res.json();
-        textarea.value = data.descripcion_optimizada;
+        textarea.value = data.descripcion_optimizada || '';
+        updateHotelDescCharCounter(textarea);
         saveDetailedQuoteFormState();
     } catch (err) {
         alert("Error al optimizar la descripción: " + err.message);
@@ -1929,6 +2018,37 @@ async function optimizeDescription(btn) {
     }
 }
 window.optimizeDescription = optimizeDescription;
+
+function updateHotelDescCharCounter(textarea) {
+    if (!textarea) return;
+    const wrapper = textarea.closest('.relative') || textarea.parentElement;
+    const counter = wrapper ? wrapper.querySelector('.hotel-desc-counter') : null;
+    const errorTooltip = wrapper ? wrapper.querySelector('.hotel-desc-error-tooltip') : null;
+    
+    const max = 200;
+    const len = textarea.value ? textarea.value.length : 0;
+    
+    if (counter) {
+        counter.textContent = `${len}/${max}`;
+        if (len > max) {
+            counter.className = 'hotel-desc-counter text-[10px] font-black text-rose-500 select-none transition-colors animate-pulse';
+            textarea.classList.add('border-rose-500', 'focus:border-rose-500', 'bg-rose-50/20');
+            textarea.classList.remove('border-slate-200', 'focus:border-brand-primary');
+            if (errorTooltip) errorTooltip.classList.remove('hidden');
+        } else if (len === max) {
+            counter.className = 'hotel-desc-counter text-[10px] font-bold text-amber-600 select-none transition-colors';
+            textarea.classList.remove('border-rose-500', 'focus:border-rose-500', 'bg-rose-50/20');
+            textarea.classList.add('border-slate-200', 'focus:border-brand-primary');
+            if (errorTooltip) errorTooltip.classList.add('hidden');
+        } else {
+            counter.className = 'hotel-desc-counter text-[10px] font-semibold text-slate-400 select-none transition-colors';
+            textarea.classList.remove('border-rose-500', 'focus:border-rose-500', 'bg-rose-50/20');
+            textarea.classList.add('border-slate-200', 'focus:border-brand-primary');
+            if (errorTooltip) errorTooltip.classList.add('hidden');
+        }
+    }
+}
+window.updateHotelDescCharCounter = updateHotelDescCharCounter;
 
 
 function confirmNewQuote() {
@@ -2578,11 +2698,14 @@ function updateTabButtonsUI() {
 }
 
 function getCleanAgentName(rawName) {
-    if (!rawName || rawName === '-') return 'Agente';
+    const activeUser = window.loggedInUser || localStorage.getItem('otg_agent_user');
+    if (!rawName || rawName === '-') {
+        return (activeUser && activeUser !== 'Agente') ? (activeUser.charAt(0).toUpperCase() + activeUser.slice(1).toLowerCase()) : 'Agente';
+    }
     let name = String(rawName).trim();
     if (name.includes('-') || name.length > 20) {
-        if (window.userId && (name === window.userId || name.toLowerCase() === window.userId.toLowerCase())) {
-            return window.loggedInUser ? (window.loggedInUser.charAt(0).toUpperCase() + window.loggedInUser.slice(1).toLowerCase()) : 'Uriel';
+        if (activeUser && activeUser !== 'Agente') {
+            return activeUser.charAt(0).toUpperCase() + activeUser.slice(1).toLowerCase();
         }
         return 'Agente';
     }
@@ -3246,6 +3369,10 @@ function duplicateCurrentQuote() {
     if (!currentQuoteId) return;
     currentQuoteId = null;
     window.currentQuoteOwner = null;
+    const nameInput = document.getElementById('nombre_pax');
+    if (nameInput && nameInput.value && !nameInput.value.startsWith('Copia de ')) {
+        nameInput.value = 'Copia de ' + nameInput.value;
+    }
     enableFormEditing(true); // Permitir edición
     updateEditingIndicator();
     showAlert('success', 'La cotización se ha duplicado en el formulario. Al presionar "Generar Cotización" se creará un nuevo registro.');
@@ -3640,7 +3767,7 @@ export async function initVerCotizacion() {
         // Populate left column PDF viewer
         const iframe = document.getElementById('ver-pdf-iframe');
         if (iframe) {
-            iframe.src = pdfUrl + '#zoom=75';
+            iframe.src = pdfUrl + '#navpanes=0&zoom=75';
         }
 
         // Populate right column details
@@ -3672,16 +3799,35 @@ export async function initVerCotizacion() {
         document.getElementById('ver-created-at').textContent = formatDate(quote.created_at);
         document.getElementById('ver-updated-at').textContent = formatDate(quote.updated_at || quote.created_at);
 
-        // Control the visibility of the Edit button based on current user ownership
+        // Control the visibility of Edit and Delete buttons based on current user ownership / admin role
         const currentUser = (window.loggedInUser || '').toLowerCase();
-        const quoteOwner = (quote.agente_nombre || '').toLowerCase();
-        const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
+        const currentUserId = (window.userId || '').toLowerCase();
+        const userRole = window.userRole;
+
+        const quoteOwnerName = (quote.agente_nombre || '').toLowerCase();
+        const quoteOwnerId = (quote.agente_id || '').toLowerCase();
+
+        const isOwner = userRole === 'ADMIN_GLOBAL' ||
+            (currentUserId && quoteOwnerId && currentUserId === quoteOwnerId) ||
+            (currentUser && quoteOwnerName && currentUser === quoteOwnerName);
+
         const editBtn = document.getElementById('btn-edit-quote-view');
         if (editBtn) {
+            const wrapper = editBtn.closest('.relative.group') || editBtn;
             if (isOwner) {
-                editBtn.classList.remove('hidden');
+                wrapper.classList.remove('hidden');
             } else {
-                editBtn.classList.add('hidden');
+                wrapper.classList.add('hidden');
+            }
+        }
+
+        const deleteBtn = document.getElementById('btn-delete-quote-view');
+        if (deleteBtn) {
+            const wrapper = deleteBtn.closest('.relative.group') || deleteBtn;
+            if (isOwner) {
+                wrapper.classList.remove('hidden');
+            } else {
+                wrapper.classList.add('hidden');
             }
         }
 
@@ -3703,6 +3849,87 @@ export function editQuoteFromView() {
     navigateTo('/cotizacion-completa');
 }
 window.editQuoteFromView = editQuoteFromView;
+
+async function duplicateQuoteFromView() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const quoteId = urlParams.get('id') || currentQuoteId;
+    if (!quoteId) {
+        showAlert('warning', 'No hay ninguna cotización seleccionada para duplicar.');
+        return;
+    }
+
+    window.changeFavicon('loading');
+    window.showLoader("Duplicando cotización...");
+    const signal = window.getAbortSignal(true);
+
+    try {
+        const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}/duplicar`, {
+            method: 'POST',
+            signal
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Error al duplicar la cotización.");
+        }
+        const cloned = await res.json();
+        window.hideLoader();
+        window.changeFavicon('success');
+        showAlert('success', '✔ Cotización duplicada con éxito como "' + (cloned.nombre_pax || cloned.pasajero_nombre) + '".');
+        
+        window.pendingEditQuoteId = cloned.id;
+        window.pendingEditQuoteEditable = true;
+        navigateTo('/cotizacion-completa');
+    } catch (e) {
+        if (e.name === 'AbortError') return;
+        window.hideLoader();
+        window.changeFavicon('error');
+        showAlert('warning', "Error al duplicar la cotización: " + e.message);
+    }
+}
+window.duplicateQuoteFromView = duplicateQuoteFromView;
+
+function deleteQuoteFromView() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const quoteId = urlParams.get('id') || currentQuoteId;
+    if (!quoteId) {
+        showAlert('warning', 'No hay ninguna cotización seleccionada para eliminar.');
+        return;
+    }
+
+    showCustomConfirm({
+        title: '¿Eliminar cotización?',
+        desc: '¿Estás seguro de que deseas eliminar esta cotización? Esta acción no se puede deshacer.',
+        btnText: 'Sí, Eliminar',
+        confirmColorClass: 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20',
+        callback: async () => {
+            window.changeFavicon('loading');
+            window.showLoader("Eliminando cotización...");
+            try {
+                const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`, {
+                    method: 'DELETE'
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "Error al eliminar la cotización.");
+                }
+                window.hideLoader();
+                window.changeFavicon('success');
+                showAlert('success', '✔ Cotización eliminada con éxito.');
+                
+                if (window.navStack && window.navStack.length > 0) {
+                    navigateBack();
+                } else {
+                    navigateTo('/editar');
+                }
+            } catch (e) {
+                window.hideLoader();
+                window.changeFavicon('error');
+                showAlert('warning', "Error al eliminar la cotización: " + e.message);
+            }
+        }
+    });
+}
+window.deleteQuoteFromView = deleteQuoteFromView;
 
 function updateCurrencyLabels() {
     const selectedCurrency = document.getElementById('moneda_seleccionada')?.value || 'USD';

@@ -257,18 +257,25 @@ def get_config(current_agent: dict = Depends(get_current_active_agent)):
                 owner_id = sucursal.get("owner_id")
                 if owner_id and str(owner_id) == str(agent_id):
                     is_owner = True
-                elif rol == "ADMIN_GLOBAL":
+                elif rol in ("DUENO_FRANQUICIA", "ADMIN_SUCURSAL", "ADMIN_GLOBAL"):
                     is_owner = True
-                    
-                if is_owner:
-                    agents_res = client.table("perfiles").select("id, nombre, username, tag_color").eq("sucursal_id", sucursal_id).execute()
-                    if agents_res and hasattr(agents_res, 'data'):
-                        agentes_list = agents_res.data
-        elif rol == "ADMIN_GLOBAL":
-            is_owner = True
-            agents_res = client.table("perfiles").select("id, nombre, username, tag_color").execute()
-            if agents_res and hasattr(agents_res, 'data'):
+
+            agents_res = client.table("perfiles").select("id, nombre, username, tag_color, color_tag").or_(f"sucursal_id.eq.{sucursal_id},franchise_id.eq.{sucursal_id}").execute()
+            if agents_res and hasattr(agents_res, 'data') and agents_res.data:
                 agentes_list = agents_res.data
+                for a in agentes_list:
+                    c = a.get("color_tag") or a.get("tag_color") or "#3b82f6"
+                    a["tag_color"] = c
+                    a["color_tag"] = c
+        elif rol in ("DUENO_FRANQUICIA", "ADMIN_SUCURSAL", "ADMIN_GLOBAL"):
+            is_owner = True
+            agents_res = client.table("perfiles").select("id, nombre, username, tag_color, color_tag").execute()
+            if agents_res and hasattr(agents_res, 'data') and agents_res.data:
+                agentes_list = agents_res.data
+                for a in agentes_list:
+                    c = a.get("color_tag") or a.get("tag_color") or "#3b82f6"
+                    a["tag_color"] = c
+                    a["color_tag"] = c
     except Exception as e:
         print(f"Error fetching config: {e}")
         
@@ -396,8 +403,9 @@ def optimizar_descripcion(payload: dict, current_user: str = Depends(get_current
     prompt_sistema = (
         "Eres un redactor experto en marketing de turismo de lujo para la agencia de viajes One Trip Giordano. "
         "Tu tarea es optimizar la descripción de un hotel provista por el agente de viajes para hacerla sumamente atractiva, fluida y persuasiva. "
-        "Destaca sus servicios principales, régimen, ubicación y ventajas de forma elegante y descriptiva. "
-        "Mantén la descripción concisa (máximo 4 líneas o alrededor de 60-80 palabras). "
+        "Destaca sus servicios principales, régimen, ubicación y ventajas de forma elegante. "
+        "REGLA CRÍTICA DE LONGITUD: La descripción optimizada DEBE tener una extensión entre 150 y 200 tokens/caracteres (idealmente entre 160 y 190 caracteres), "
+        "aprovechando el contenido al máximo sin cortar oraciones a la mitad y sin exceder jamás los 200 tokens totales. "
         "No agregues saludos, firmas, introducciones ni explicaciones. Responde únicamente con el texto final optimizado."
     )
     
@@ -407,12 +415,13 @@ def optimizar_descripcion(payload: dict, current_user: str = Depends(get_current
         "Content-Type": "application/json"
     }
     data = {
-        "model": "groq/ollama/mistral-7b-instruct:latest",
+        "model": "llama-3.3-70b-versatile",
         "messages": [
             {"role": "system", "content": prompt_sistema},
             {"role": "user", "content": descripcion_original}
         ],
-        "temperature": 0.7
+        "temperature": 0.7,
+        "max_tokens": 200
     }
     
     try:
@@ -422,8 +431,8 @@ def optimizar_descripcion(payload: dict, current_user: str = Depends(get_current
         descripcion_optimizada = res_data["choices"][0]["message"]["content"].strip()
         return {"descripcion_optimizada": descripcion_optimizada}
     except Exception as e:
-        print(f"Error calling Groq API with main model: {e}")
-        fallback_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+        print(f"Error calling Groq API with main model llama-3.3-70b-versatile: {e}")
+        fallback_models = ["llama-3.1-8b-instant", "mixtral-8x7b-32768"]
         for m in fallback_models:
             try:
                 print(f"Trying fallback model: {m}...")
@@ -868,10 +877,55 @@ def api_delete_cotizacion(quote_id: str, current_user: dict = Depends(get_curren
         raise HTTPException(status_code=404, detail=f"Cotización con ID {quote_id} no encontrada.")
         
     if current_user.get("rol") != "ADMIN_GLOBAL":
-        if str(quote.get("sucursal_id")) != str(current_user.get("sucursal_id")):
-            raise HTTPException(status_code=403, detail="No tienes permisos para eliminar esta cotización.")
+        user_id = str(current_user.get("id") or "")
+        user_name = str(current_user.get("nombre") or "").strip().lower()
+        quote_agent_id = str(quote.get("agente_id") or "")
+        quote_agent_name = str(quote.get("agente_nombre") or "").strip().lower()
+        
+        is_creator = (user_id and user_id == quote_agent_id) or (user_name and user_name == quote_agent_name)
+        if not is_creator:
+            raise HTTPException(
+                status_code=403, 
+                detail="Acceso denegado. Solo el agente creador de la cotización puede eliminarla."
+            )
 
     success = delete_cotizacion(quote_id_typed)
     if not success:
         raise HTTPException(status_code=500, detail=f"No se pudo eliminar la cotización con ID {quote_id}.")
     return {"status": "success", "message": f"Cotización {quote_id} eliminada con éxito."}
+
+@router.post("/cotizaciones/{quote_id}/duplicar")
+def api_duplicate_cotizacion(quote_id: str, current_user: dict = Depends(get_current_active_agent)):
+    try:
+        quote_id_typed = int(quote_id)
+    except ValueError:
+        quote_id_typed = quote_id
+        
+    existing = get_cotizacion_by_id(quote_id_typed)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Cotización con ID {quote_id} no encontrada.")
+        
+    if current_user.get("rol") != "ADMIN_GLOBAL":
+        if existing.get("sucursal_id") and current_user.get("sucursal_id"):
+            if str(existing.get("sucursal_id")) != str(current_user.get("sucursal_id")):
+                raise HTTPException(status_code=403, detail="No tienes permisos para duplicar esta cotización.")
+
+    cloned_payload = existing.copy()
+    cloned_payload.pop("id", None)
+    cloned_payload.pop("created_at", None)
+    cloned_payload.pop("updated_at", None)
+
+    original_nombre = cloned_payload.get("nombre_pax", "")
+    if not str(original_nombre).startswith("Copia de "):
+        cloned_payload["nombre_pax"] = f"Copia de {original_nombre}"
+        
+    cloned_payload["agente_id"] = current_user.get("id")
+    cloned_payload["sucursal_id"] = current_user.get("sucursal_id")
+    cloned_payload["agente_nombre"] = current_user.get("nombre")
+    cloned_payload["created_at"] = datetime.utcnow().isoformat()
+
+    saved = save_cotizacion(cloned_payload)
+    if not saved:
+        raise HTTPException(status_code=500, detail="No se pudo duplicar la cotización en la base de datos.")
+    return saved
+

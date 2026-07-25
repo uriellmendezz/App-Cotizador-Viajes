@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Import routers
-from app.routers import auth, cotizaciones, presupuestos, admin
+from app.routers import auth, cotizaciones, presupuestos, admin, user_franchise
 
 load_dotenv()
 
@@ -29,6 +29,7 @@ app.include_router(auth.router)
 app.include_router(cotizaciones.router)
 app.include_router(presupuestos.router)
 app.include_router(admin.router)
+app.include_router(user_franchise.router)
 
 # Mount static and assets files
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")

@@ -4,7 +4,14 @@ export async function initInicio() {
     if (!titleEl) return;
 
     // Capitalize Agent Name
-    const username = window.loggedInUser || "Agente";
+    let rawUser = window.loggedInUser || localStorage.getItem('otg_agent_user');
+    if (!rawUser || rawUser === 'Agente' || rawUser === 'guest' || rawUser === 'Invitado') {
+        const payload = window.decodeTokenPayload ? window.decodeTokenPayload(window.authToken) : null;
+        if (payload?.nombre && payload.nombre !== 'Agente') rawUser = payload.nombre;
+        else if (payload?.username && payload.username !== 'Agente') rawUser = payload.username;
+        else if (payload?.email) rawUser = payload.email.split('@')[0];
+    }
+    const username = (rawUser && rawUser !== 'guest' && rawUser !== 'Invitado') ? rawUser : "Agente";
     const agentName = username.charAt(0).toUpperCase() + username.slice(1);
 
     // Start loading quotes in parallel

@@ -3,6 +3,38 @@
     try { localStorage.removeItem(key); } catch (e) {}
 });
 
+// ──────────────────────────────────────────────────────────────────────────────
+// IN-MEMORY TOKEN STATE
+// Access Tokens are stored ONLY in memory (never localStorage/sessionStorage)
+// to mitigate XSS token theft. They are recovered via Silent Refresh on reload.
+// ──────────────────────────────────────────────────────────────────────────────
+let _agentAccessToken = null;
+let _adminAccessToken = null;
+
+// Refresh queue for concurrent 401 handling
+let _isRefreshing = false;
+let _refreshQueue = [];  // Array of { resolve, reject }
+let _proactiveRenewalTimer = null;
+
+function _processRefreshQueue(error, token) {
+    _refreshQueue.forEach(pending => {
+        if (error) {
+            pending.reject(error);
+        } else {
+            pending.resolve(token);
+        }
+    });
+    _refreshQueue = [];
+}
+
+/** Get the agent access token from memory. */
+function getAgentToken() { return _agentAccessToken; }
+window.getAgentToken = getAgentToken;
+
+/** Get the admin access token from memory. */
+function getAdminToken() { return _adminAccessToken; }
+window.getAdminToken = getAdminToken;
+
 // Helper: Check if path belongs to admin route
 function isAdminPath(path = window.location.pathname) {
     return path === '/admin' || path === '/admin-login';
@@ -18,11 +50,17 @@ if (window.innerWidth >= 1024) {
 
 // Session Management Helpers
 function decodeTokenPayload(token) {
-    if (!token) return null;
+    if (!token || typeof token !== 'string') return null;
     try {
-        const base64Url = token.split('.')[0];
+        const parts = token.split('.');
+        if (parts.length < 1) return null;
+        // Custom HMAC token format: payload_b64.signature_b64 (2 parts)
+        // The payload is in parts[0], NOT parts[1] (which is the signature)
+        const base64Url = parts[0];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        // Add padding if needed
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        const jsonPayload = decodeURIComponent(window.atob(padded).split('').map(function(c) {
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
         return JSON.parse(jsonPayload);
@@ -39,56 +77,78 @@ function isUuidString(str) {
 }
 window.isUuidString = isUuidString;
 
-function resolveDisplayName(username, payload, fallback = 'Invitado') {
-    if (username && !isUuidString(username)) {
+function resolveDisplayName(username, payload, fallback = null) {
+    if (username && username !== 'guest' && username !== 'Invitado' && username !== 'Agente' && !isUuidString(username)) {
         return username;
     }
-    if (payload?.nombre && !isUuidString(payload.nombre)) {
+    if (payload?.nombre && payload.nombre !== 'guest' && payload.nombre !== 'Invitado' && payload.nombre !== 'Agente' && !isUuidString(payload.nombre)) {
         return payload.nombre;
     }
-    if (payload?.username && !isUuidString(payload.username)) {
+    if (payload?.username && payload.username !== 'guest' && payload.username !== 'Invitado' && payload.username !== 'Agente' && !isUuidString(payload.username)) {
         return payload.username;
     }
-    if (payload?.email) {
-        return payload.email.split('@')[0];
+    if (payload?.email && typeof payload.email === 'string' && payload.email.includes('@')) {
+        const parts = payload.email.split('@')[0];
+        if (parts) return parts.charAt(0).toUpperCase() + parts.slice(1).toLowerCase();
     }
+    try {
+        const stored = localStorage.getItem('otg_agent_user') || localStorage.getItem('otg_admin_user');
+        if (stored && stored !== 'guest' && stored !== 'Invitado' && stored !== 'Agente' && !isUuidString(stored)) {
+            return stored;
+        }
+    } catch (e) {}
+
     return fallback;
 }
 window.resolveDisplayName = resolveDisplayName;
 
 function setAgentSession(token, username) {
+    // Store token ONLY in memory (never localStorage)
+    _agentAccessToken = token || null;
     if (token) {
         const payload = decodeTokenPayload(token);
-        const displayName = resolveDisplayName(username, payload, 'Agente');
-        localStorage.setItem('otg_agent_token', token);
-        localStorage.setItem('otg_agent_user', displayName);
+        const displayName = resolveDisplayName(username, payload, null);
+        const existingStored = localStorage.getItem('otg_agent_user');
+
+        if (displayName && !isUuidString(displayName) && displayName !== 'Agente') {
+            localStorage.setItem('otg_agent_user', displayName);
+        } else if (existingStored && !isUuidString(existingStored) && existingStored !== 'guest' && existingStored !== 'Invitado' && existingStored !== 'Agente') {
+            // Preserve existing valid user name if incoming name from refresh is UUID/Agente/null
+        } else if (username && !isUuidString(username) && username !== 'Agente') {
+            localStorage.setItem('otg_agent_user', username);
+        }
+
         if (payload?.rol) localStorage.setItem('otg_agent_role', payload.rol);
-        else localStorage.removeItem('otg_agent_role');
         if (payload?.sucursal_id) localStorage.setItem('otg_agent_sucursal_id', payload.sucursal_id);
-        else localStorage.removeItem('otg_agent_sucursal_id');
         if (payload?.sucursal_nombre) localStorage.setItem('otg_agent_sucursal_nombre', payload.sucursal_nombre);
-        else localStorage.removeItem('otg_agent_sucursal_nombre');
+
+        // Schedule proactive renewal before the token expires
+        _scheduleProactiveRenewal(payload, 'agent');
     } else {
-        localStorage.removeItem('otg_agent_token');
         localStorage.removeItem('otg_agent_user');
         localStorage.removeItem('otg_agent_role');
         localStorage.removeItem('otg_agent_sucursal_id');
         localStorage.removeItem('otg_agent_sucursal_nombre');
+        _clearProactiveRenewal();
     }
     updateAdminBtnVisibility();
 }
 window.setAgentSession = setAgentSession;
 
 function setAdminSession(token, username) {
+    // Store token ONLY in memory (never localStorage)
+    _adminAccessToken = token || null;
     if (token) {
         const payload = decodeTokenPayload(token);
         const displayName = resolveDisplayName(username, payload, 'Administrador');
-        localStorage.setItem('otg_admin_token', token);
-        localStorage.setItem('otg_admin_user', displayName);
+        const existingStored = localStorage.getItem('otg_admin_user');
+        if (displayName && !isUuidString(displayName)) {
+            localStorage.setItem('otg_admin_user', displayName);
+        } else if (existingStored && !isUuidString(existingStored)) {
+            // Preserve existing admin user
+        }
         if (payload?.rol) localStorage.setItem('otg_admin_role', payload.rol);
-        else localStorage.removeItem('otg_admin_role');
     } else {
-        localStorage.removeItem('otg_admin_token');
         localStorage.removeItem('otg_admin_user');
         localStorage.removeItem('otg_admin_role');
     }
@@ -97,9 +157,16 @@ function setAdminSession(token, username) {
 window.setAdminSession = setAdminSession;
 
 function clearAllSessions() {
+    // Clear in-memory tokens
+    _agentAccessToken = null;
+    _adminAccessToken = null;
+    _clearProactiveRenewal();
+
     const keysToRemove = [
-        'otg_agent_token', 'otg_agent_user', 'otg_agent_role', 'otg_agent_sucursal_id', 'otg_agent_sucursal_nombre',
-        'otg_admin_token', 'otg_admin_user', 'otg_admin_role',
+        'otg_agent_user', 'otg_agent_role', 'otg_agent_sucursal_id', 'otg_agent_sucursal_nombre',
+        'otg_admin_user', 'otg_admin_role',
+        // Legacy keys
+        'otg_agent_token', 'otg_admin_token',
         'authToken', 'loggedInUser', 'userRole', 'userSucursalId', 'userSucursalNombre',
         'adminAuthToken', 'adminLoggedInUser'
     ];
@@ -113,7 +180,7 @@ function clearAllSessions() {
     window.userId = null;
 
     const spanUsername = document.getElementById('sidebar-username-span');
-    if (spanUsername) spanUsername.innerText = 'Invitado';
+    if (spanUsername) spanUsername.innerText = '';
 
     const userBadge = document.getElementById('sidebar-user-badge');
     if (userBadge) {
@@ -143,11 +210,21 @@ window.setSession = setSession;
 function updateAdminBtnVisibility() {
     const adminBtn = document.getElementById('sidebar-btn-admin');
     if (adminBtn) {
-        const adminToken = localStorage.getItem('otg_admin_token');
-        if (adminToken) {
+        if (_adminAccessToken) {
             adminBtn.classList.remove('hidden');
         } else {
             adminBtn.classList.add('hidden');
+        }
+    }
+
+    const franchiseAdminBtn = document.getElementById('sidebar-btn-administrar');
+    if (franchiseAdminBtn) {
+        const role = window.userRole;
+        const isOwner = window.agencyConfig?.is_owner || false;
+        if (role === 'DUENO_FRANQUICIA' || role === 'ADMIN_SUCURSAL' || role === 'ADMIN_GLOBAL' || isOwner) {
+            franchiseAdminBtn.classList.remove('hidden');
+        } else {
+            franchiseAdminBtn.classList.add('hidden');
         }
     }
 }
@@ -155,9 +232,10 @@ function updateAdminBtnVisibility() {
 // Dynamic properties on window for seamless backward compatibility
 Object.defineProperty(window, 'authToken', {
     get: () => {
-        return isAdminPath() 
-            ? (localStorage.getItem('otg_admin_token') || null) 
-            : (localStorage.getItem('otg_agent_token') || null);
+        // Read from in-memory state, NOT localStorage
+        return isAdminPath()
+            ? (_adminAccessToken || null)
+            : (_agentAccessToken || null);
     },
     configurable: true
 });
@@ -168,9 +246,12 @@ Object.defineProperty(window, 'loggedInUser', {
             ? (localStorage.getItem('otg_admin_user') || null) 
             : (localStorage.getItem('otg_agent_user') || null);
         const token = window.authToken;
-        if (!token && !raw) return 'Invitado';
-        const payload = decodeTokenPayload(token);
-        return resolveDisplayName(raw, payload, isAdminPath() ? 'Administrador' : 'Invitado');
+        const payload = token ? decodeTokenPayload(token) : null;
+        let name = resolveDisplayName(raw, payload, null);
+        if (!name && raw && !isUuidString(raw) && raw !== 'guest' && raw !== 'Invitado' && raw !== 'Agente') {
+            name = raw;
+        }
+        return (name && name !== 'guest' && name !== 'Invitado' && name !== 'Agente') ? name : null;
     },
     configurable: true
 });
@@ -239,14 +320,18 @@ function formatPriceES(val) {
 }
 window.formatPriceES = formatPriceES;
 
-// Authenticated Fetch Wrapper
+// ──────────────────────────────────────────────────────────────────────────────
+// AUTHENTICATED FETCH — with 401 Interceptor & Refresh Queue
+// Handles concurrent 401s: only one refresh request is fired; all pending
+// requests wait for the same result and then retry transparently.
+// ──────────────────────────────────────────────────────────────────────────────
 async function authenticatedFetch(url, options = {}) {
     if (!options.headers) {
         options.headers = {};
     }
 
     const isAdminCall = url.startsWith('/api/admin') || isAdminPath();
-    const token = isAdminCall ? localStorage.getItem('otg_admin_token') : localStorage.getItem('otg_agent_token');
+    const token = isAdminCall ? _adminAccessToken : _agentAccessToken;
 
     if (token) {
         options.headers['Authorization'] = `Bearer ${token}`;
@@ -256,9 +341,28 @@ async function authenticatedFetch(url, options = {}) {
 
     // Auto-refresh token if 401
     if (res.status === 401 && token) {
+        // If a refresh is already in progress, wait for it
+        if (_isRefreshing) {
+            try {
+                const newToken = await new Promise((resolve, reject) => {
+                    _refreshQueue.push({ resolve, reject });
+                });
+                options.headers['Authorization'] = `Bearer ${newToken}`;
+                return await fetch(url, options);
+            } catch (err) {
+                // Refresh failed — the logout was already triggered
+                return res;
+            }
+        }
+
+        // Start a new refresh
+        _isRefreshing = true;
         try {
             const scope = isAdminCall ? 'admin' : 'agent';
-            const refreshRes = await fetch(`/api/auth/refresh?scope=${scope}`, { method: 'POST' });
+            const refreshRes = await fetch(`/api/auth/refresh?scope=${scope}`, {
+                method: 'POST',
+                credentials: 'same-origin',  // Ensure cookies are sent
+            });
             if (refreshRes.ok) {
                 const data = await refreshRes.json();
                 if (isAdminCall) {
@@ -267,10 +371,15 @@ async function authenticatedFetch(url, options = {}) {
                     setAgentSession(data.access_token, data.username);
                 }
 
-                // Retry request
-                options.headers['Authorization'] = `Bearer ${data.access_token}`;
+                const newToken = data.access_token;
+                _processRefreshQueue(null, newToken);
+
+                // Retry the original request with the new token
+                options.headers['Authorization'] = `Bearer ${newToken}`;
                 res = await fetch(url, options);
             } else {
+                const error = new Error('Refresh failed');
+                _processRefreshQueue(error, null);
                 if (isAdminCall) {
                     logoutAdmin(false);
                 } else {
@@ -278,16 +387,65 @@ async function authenticatedFetch(url, options = {}) {
                 }
             }
         } catch (err) {
+            const error = new Error('Refresh network error');
+            _processRefreshQueue(error, null);
             if (isAdminCall) {
                 logoutAdmin(false);
             } else {
                 logoutAgent(false);
             }
+        } finally {
+            _isRefreshing = false;
         }
     }
     return res;
 }
 window.authenticatedFetch = authenticatedFetch;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PROACTIVE TOKEN RENEWAL
+// Schedules a silent refresh 2 minutes before the Access Token expires,
+// preventing 401 errors during active use.
+// ──────────────────────────────────────────────────────────────────────────────
+function _scheduleProactiveRenewal(payload, scope) {
+    _clearProactiveRenewal();
+    if (!payload || !payload.exp) return;
+
+    const expiresAtMs = payload.exp * 1000;
+    const renewAtMs = expiresAtMs - (2 * 60 * 1000);  // 2 minutes before expiry
+    const delayMs = renewAtMs - Date.now();
+
+    if (delayMs <= 0) return;  // Already past renewal time
+
+    _proactiveRenewalTimer = setTimeout(async () => {
+        try {
+            const res = await fetch(`/api/auth/refresh?scope=${scope}`, {
+                method: 'POST',
+                credentials: 'same-origin',
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (scope === 'admin') {
+                    setAdminSession(data.access_token, data.username);
+                } else {
+                    setAgentSession(data.access_token, data.username);
+                }
+                console.log(`[AUTH] Proactive ${scope} token renewal successful.`);
+            } else {
+                console.warn(`[AUTH] Proactive ${scope} token renewal failed (${res.status}).`);
+            }
+        } catch (err) {
+            console.warn(`[AUTH] Proactive ${scope} token renewal error:`, err);
+        }
+    }, delayMs);
+}
+
+function _clearProactiveRenewal() {
+    if (_proactiveRenewalTimer) {
+        clearTimeout(_proactiveRenewalTimer);
+        _proactiveRenewalTimer = null;
+    }
+}
 
 // Navigation History Stack
 let navStack = [];
@@ -301,8 +459,8 @@ const routeNames = {
     '/hacer-cotizacion': 'Nueva Cotización',
     '/cotizacion-completa': 'Generar Cotización',
     '/editar': 'Archivos',
-    '/config': 'Configuración',
     '/ver-cotizacion': 'Ver Cotización',
+    '/administrar': 'Administración de Franquicia',
     '/admin': 'Administración',
 };
 
@@ -370,8 +528,8 @@ const routes = {
     '/hacer-cotizacion': { html: '/static/views/opciones_cotizacion.html', js: '/static/js/inicio.js', init: 'initOpciones' },
     '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
-    '/config': { html: '/static/views/configuracion.html', js: '/static/js/cotizar.js', init: 'initConfig' },
     '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
+    '/administrar': { html: '/static/views/administrar.html', js: '/static/js/administrar.js', init: 'initAdministrar' },
     '/admin': { html: '/static/views/admin.html', js: '/static/js/admin.js', init: 'initAdmin' },
     '/admin-login': { html: '/static/views/admin_login.html', js: '/static/js/admin_login.js', init: 'initAdminLogin' }
 };
@@ -464,39 +622,65 @@ async function router() {
     } catch (e) {}
 
     // Silently restore session via cookie once on startup for the current context
+    // Since tokens are in memory, after page reload they will be null.
+    // The cookie-based refresh recovers them.
     if (!isExplicitLogout) {
         if (isTargetAdmin) {
-            if (!localStorage.getItem('otg_admin_token') && !isAdminSessionChecked) {
+            let isExpired = false;
+            if (_adminAccessToken) {
+                const payload = decodeTokenPayload(_adminAccessToken);
+                if (!payload || (payload.exp && payload.exp * 1000 < Date.now())) {
+                    isExpired = true;
+                }
+            }
+            if ((!_adminAccessToken || isExpired) && !isAdminSessionChecked) {
                 isAdminSessionChecked = true;
                 try {
-                    const res = await fetch('/api/auth/refresh?scope=admin', { method: 'POST' });
+                    const res = await fetch('/api/auth/refresh?scope=admin', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                    });
                     if (res.ok) {
                         const data = await res.json();
                         setAdminSession(data.access_token, data.username);
+                    } else {
+                        setAdminSession(null, null);
                     }
                 } catch (err) {
-                    console.warn("No active admin session cookie found or refresh failed:", err);
+                    setAdminSession(null, null);
                 }
             }
         } else {
-            if (!localStorage.getItem('otg_agent_token') && !isAgentSessionChecked) {
+            let isExpired = false;
+            if (_agentAccessToken) {
+                const payload = decodeTokenPayload(_agentAccessToken);
+                if (!payload || (payload.exp && payload.exp * 1000 < Date.now())) {
+                    isExpired = true;
+                }
+            }
+            if ((!_agentAccessToken || isExpired) && !isAgentSessionChecked) {
                 isAgentSessionChecked = true;
                 try {
-                    const res = await fetch('/api/auth/refresh?scope=agent', { method: 'POST' });
+                    const res = await fetch('/api/auth/refresh?scope=agent', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                    });
                     if (res.ok) {
                         const data = await res.json();
                         setAgentSession(data.access_token, data.username);
+                    } else if (res.status === 401 || res.status === 403) {
+                        setAgentSession(null, null);
                     }
                 } catch (err) {
-                    console.warn("No active agent session cookie found or refresh failed:", err);
+                    console.warn('[AUTH] Error de red en refresco inicial. Preservando sesión local:', err);
                 }
             }
         }
     }
 
-    // Auth Guards using isolated tokens per scope
-    const agentToken = localStorage.getItem('otg_agent_token');
-    const adminToken = localStorage.getItem('otg_admin_token');
+    // Auth Guards using in-memory tokens
+    const agentToken = _agentAccessToken;
+    const adminToken = _adminAccessToken;
 
     if (isTargetAdmin) {
         if (path === '/admin-login') {
@@ -516,7 +700,7 @@ async function router() {
             } else {
                 const payload = decodeTokenPayload(adminToken);
                 if (!payload || payload.rol !== 'ADMIN_GLOBAL') {
-                    setTimeout(() => showAlert('error', 'Acceso denegado. Se requieren permisos de Administrador Global.'), 100);
+                    setAdminSession(null, null);
                     history.pushState(null, null, '/admin-login');
                     path = '/admin-login';
                     normalizedPath = '/admin-login';
@@ -532,8 +716,16 @@ async function router() {
                 normalizedPath = '/login';
             }
         } else {
-            // Agent Authenticated
-            if (path === '/login' || path === '/') {
+            // Validate token payload
+            const payload = decodeTokenPayload(agentToken);
+            if (!payload) {
+                setAgentSession(null, null);
+                if (path !== '/login') {
+                    history.pushState(null, null, '/login');
+                    path = '/login';
+                    normalizedPath = '/login';
+                }
+            } else if (path === '/login' || path === '/') {
                 history.pushState(null, null, '/inicio');
                 path = '/inicio';
                 normalizedPath = '/inicio';
@@ -541,6 +733,16 @@ async function router() {
                 history.pushState(null, null, '/editar?tab=rapidos');
                 path = '/editar';
                 normalizedPath = '/editar';
+            } else if (path === '/administrar') {
+                const role = payload?.rol || window.userRole;
+                const isOwner = window.agencyConfig?.is_owner || false;
+                const canAccessAdmin = role === 'DUENO_FRANQUICIA' || role === 'ADMIN_SUCURSAL' || role === 'ADMIN_GLOBAL' || isOwner;
+                if (!canAccessAdmin) {
+                    showAlert('warning', 'Acceso denegado (403): El panel de administración de franquicia requiere privilegios de Dueño o Administrador.');
+                    history.pushState(null, null, '/inicio');
+                    path = '/inicio';
+                    normalizedPath = '/inicio';
+                }
             }
         }
     }
@@ -556,11 +758,11 @@ async function router() {
         if (normalizedPath === '/login' || normalizedPath === '/admin-login' || normalizedPath === '/admin') {
             sidebarEl.classList.add('hidden');
             if (headerEl) headerEl.classList.add('hidden');
-            wrapperEl.classList.remove('lg:pl-[260px]');
+            wrapperEl.classList.remove('lg:pl-[220px]');
         } else {
             sidebarEl.classList.remove('hidden');
             if (headerEl) headerEl.classList.remove('hidden');
-            wrapperEl.classList.add('lg:pl-[260px]');
+            wrapperEl.classList.add('lg:pl-[220px]');
             updateNavActiveState(normalizedPath);
 
             // Toggle admin button visibility
@@ -589,17 +791,11 @@ async function router() {
             const spanUsername = document.getElementById('sidebar-username-span');
             if (badge && spanUsername) {
                 const username = window.loggedInUser;
-                if (username) {
-                    if (username === 'guest' || username === 'Invitado') {
-                        spanUsername.innerText = 'Invitado';
-                        const dot = badge.querySelector('span');
-                        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-500';
-                    } else {
-                        const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
-                        spanUsername.innerText = formattedName;
-                        const dot = badge.querySelector('span');
-                        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
-                    }
+                if (username && username !== 'guest' && username !== 'Invitado') {
+                    const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
+                    spanUsername.innerText = formattedName;
+                    const dot = badge.querySelector('span');
+                    if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
                     badge.classList.remove('hidden');
                     badge.classList.add('flex');
                 } else {
@@ -687,7 +883,6 @@ function updateNavActiveState(path) {
     else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
     else if (path === '/cotizacion-completa') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
-    else if (path === '/config') btnId = 'sidebar-btn-config';
     else if (path === '/admin') btnId = 'sidebar-btn-admin';
 
     const activeBtn = document.getElementById(btnId);
@@ -705,7 +900,7 @@ async function logoutAgent(notifyServer = true) {
 
     if (notifyServer) {
         try {
-            await fetch('/api/auth/logout?scope=agent', { method: 'POST', cache: 'no-store' });
+            await fetch('/api/auth/logout?scope=agent', { method: 'POST', cache: 'no-store', credentials: 'same-origin' });
         } catch (e) {
             console.warn("Logout endpoint error:", e);
         }
@@ -728,7 +923,7 @@ async function logoutAdmin(notifyServer = true) {
 
     if (notifyServer) {
         try {
-            await fetch('/api/auth/logout?scope=admin', { method: 'POST', cache: 'no-store' });
+            await fetch('/api/auth/logout?scope=admin', { method: 'POST', cache: 'no-store', credentials: 'same-origin' });
         } catch (e) {
             console.warn("Logout endpoint error:", e);
         }

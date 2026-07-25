@@ -61,7 +61,7 @@
     class="bg-slate-50 text-slate-800 font-sans min-h-screen selection:bg-brand-primary selection:text-white flex flex-col lg:flex-row overflow-x-hidden">
     <!-- Sidebar Navigation -->
     <aside id="app-sidebar"
-        class="fixed top-0 left-0 bottom-0 w-[260px] sidebar-light text-slate-600 border-r z-50 flex flex-col justify-between -translate-x-full lg:translate-x-0 transition-transform duration-300 hidden">
+        class="fixed top-0 left-0 bottom-0 w-[220px] sidebar-light text-slate-600 border-r z-50 flex flex-col justify-between -translate-x-full lg:translate-x-0 transition-transform duration-300 hidden">
         <!-- Top: Brand Logo & Section Grouping -->
         <div class="flex flex-col flex-1 py-6 px-4 space-y-8 overflow-y-auto">
             <!-- Brand Logo & Inner Collapse Arrow -->
@@ -130,16 +130,15 @@
                         </svg>
                         <span class="sidebar-text">Archivos</span>
                     </button>
-                    <!-- Configuración -->
-                    <button id="sidebar-btn-config" onclick="navigateTo('/config')" data-tooltip="Configuración"
-                        class="sidebar-item sidebar-item-style w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold cursor-pointer">
+                    <!-- Administrar (Franquicia / Sucursal) -->
+                    <button id="sidebar-btn-administrar" onclick="navigateTo('/administrar')" data-tooltip="Administrar"
+                        class="sidebar-item sidebar-item-style w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold cursor-pointer hidden">
                         <svg class="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24"
                             stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
-                        <span class="sidebar-text">Configuración</span>
+                        <span class="sidebar-text">Administrar</span>
                     </button>
                 </div>
             </div>

@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -99,7 +100,8 @@ def save_cotizacion(quote_data: dict) -> dict | None:
             
             # RBAC and Branch fields
             "sucursal_id": quote_data.get("sucursal_id"),
-            "agente_id": quote_data.get("agente_id")
+            "agente_id": quote_data.get("agente_id"),
+            "created_at": datetime.utcnow().isoformat()
         }
         
         quote_id = quote_data.get("id")
@@ -220,7 +222,8 @@ def save_cotizacion_rapida(quote_data: dict) -> dict | None:
             
             # RBAC and Branch fields
             "sucursal_id": quote_data.get("sucursal_id"),
-            "agente_id": quote_data.get("agente_id")
+            "agente_id": quote_data.get("agente_id"),
+            "created_at": datetime.utcnow().isoformat()
         }
         
         quote_id = quote_data.get("id")
