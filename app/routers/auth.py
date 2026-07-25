@@ -11,6 +11,16 @@ load_dotenv()
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+# ── Security Config ──────────────────────────────────────────────────────────
+# Cookies use Secure=True only in production (HTTPS).
+# In development (localhost), Secure must be False for cookies to work over HTTP.
+_IS_DEV = os.getenv("ENV", "development").lower() in ("development", "dev", "local")
+_COOKIE_SECURE = not _IS_DEV
+
+# Token durations
+_ACCESS_TOKEN_MINUTES = 15
+_REFRESH_TOKEN_DAYS = 7
+
 # Base de datos predefinida de usuarios
 USERS_DB = {
     "uriel": "giordano2026",
@@ -283,20 +293,20 @@ def api_login(payload: dict, response: Response):
                             "sucursal_nombre": sucursal_nombre,
                             "type": "access"
                         },
-                        expires_delta=timedelta(minutes=60)
+                        expires_delta=timedelta(minutes=_ACCESS_TOKEN_MINUTES)
                     )
                     refresh_token = create_token(
                         payload={"sub": user_id, "type": "refresh", "rol": rol},
-                        expires_delta=timedelta(days=7)
+                        expires_delta=timedelta(days=_REFRESH_TOKEN_DAYS)
                     )
                     cookie_name = "otg_admin_refresh" if rol == "ADMIN_GLOBAL" else "otg_agent_refresh"
                     response.set_cookie(
                         key=cookie_name,
                         value=refresh_token,
                         httponly=True,
-                        secure=True,
+                        secure=_COOKIE_SECURE,
                         samesite="lax",
-                        max_age=7 * 24 * 60 * 60,
+                        max_age=_REFRESH_TOKEN_DAYS * 24 * 60 * 60,
                         path="/api/auth"
                     )
                     return {
@@ -320,11 +330,11 @@ def api_login(payload: dict, response: Response):
                 "sucursal_id": None,
                 "type": "access"
             },
-            expires_delta=timedelta(minutes=60)
+            expires_delta=timedelta(minutes=_ACCESS_TOKEN_MINUTES)
         )
         refresh_token = create_token(
             payload={"sub": username, "type": "refresh", "rol": rol},
-            expires_delta=timedelta(days=7)
+            expires_delta=timedelta(days=_REFRESH_TOKEN_DAYS)
         )
         
         cookie_name = "otg_admin_refresh" if rol == "ADMIN_GLOBAL" else "otg_agent_refresh"
@@ -332,9 +342,9 @@ def api_login(payload: dict, response: Response):
             key=cookie_name,
             value=refresh_token,
             httponly=True,
-            secure=True,
+            secure=_COOKIE_SECURE,
             samesite="lax",
-            max_age=7 * 24 * 60 * 60,
+            max_age=_REFRESH_TOKEN_DAYS * 24 * 60 * 60,
             path="/api/auth"
         )
         return {
@@ -422,10 +432,17 @@ def api_refresh(
                 "sucursal_nombre": sucursal_nombre,
                 "type": "access"
             },
-            expires_delta=timedelta(minutes=60)
+            expires_delta=timedelta(minutes=_ACCESS_TOKEN_MINUTES)
         )
         print(f"[AUTH REFRESH] sub={username}, nombre={nombre}, rol={rol}")
-        return {"access_token": new_access_token, "username": nombre}
+        return {
+            "access_token": new_access_token,
+            "username": nombre,
+            "rol": rol,
+            "sucursal_id": sucursal_id,
+            "sucursal_nombre": sucursal_nombre,
+            "email": email,
+        }
     except Exception as e:
         cookie_to_delete = "otg_admin_refresh" if scope == "admin" else "otg_agent_refresh"
         response.delete_cookie(key=cookie_to_delete, path="/api/auth")
@@ -453,20 +470,20 @@ def api_login_guest(response: Response):
             "sucursal_id": None,
             "type": "access"
         },
-        expires_delta=timedelta(minutes=60)
+        expires_delta=timedelta(minutes=_ACCESS_TOKEN_MINUTES)
     )
     refresh_token = create_token(
         payload={"sub": "guest", "type": "refresh", "rol": "AGENTE_SUCURSAL"},
-        expires_delta=timedelta(days=7)
+        expires_delta=timedelta(days=_REFRESH_TOKEN_DAYS)
     )
     
     response.set_cookie(
         key="otg_agent_refresh",
         value=refresh_token,
         httponly=True,
-        secure=True,
+        secure=_COOKIE_SECURE,
         samesite="lax",
-        max_age=7 * 24 * 60 * 60,
+        max_age=_REFRESH_TOKEN_DAYS * 24 * 60 * 60,
         path="/api/auth"
     )
     return {"access_token": access_token, "username": "guest"}

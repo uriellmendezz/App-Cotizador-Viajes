@@ -3,6 +3,38 @@
     try { localStorage.removeItem(key); } catch (e) {}
 });
 
+// ──────────────────────────────────────────────────────────────────────────────
+// IN-MEMORY TOKEN STATE
+// Access Tokens are stored ONLY in memory (never localStorage/sessionStorage)
+// to mitigate XSS token theft. They are recovered via Silent Refresh on reload.
+// ──────────────────────────────────────────────────────────────────────────────
+let _agentAccessToken = null;
+let _adminAccessToken = null;
+
+// Refresh queue for concurrent 401 handling
+let _isRefreshing = false;
+let _refreshQueue = [];  // Array of { resolve, reject }
+let _proactiveRenewalTimer = null;
+
+function _processRefreshQueue(error, token) {
+    _refreshQueue.forEach(pending => {
+        if (error) {
+            pending.reject(error);
+        } else {
+            pending.resolve(token);
+        }
+    });
+    _refreshQueue = [];
+}
+
+/** Get the agent access token from memory. */
+function getAgentToken() { return _agentAccessToken; }
+window.getAgentToken = getAgentToken;
+
+/** Get the admin access token from memory. */
+function getAdminToken() { return _adminAccessToken; }
+window.getAdminToken = getAdminToken;
+
 // Helper: Check if path belongs to admin route
 function isAdminPath(path = window.location.pathname) {
     return path === '/admin' || path === '/admin-login';
@@ -21,10 +53,14 @@ function decodeTokenPayload(token) {
     if (!token || typeof token !== 'string') return null;
     try {
         const parts = token.split('.');
-        if (parts.length < 2) return null;
-        const base64Url = parts[1];
+        if (parts.length < 1) return null;
+        // Custom HMAC token format: payload_b64.signature_b64 (2 parts)
+        // The payload is in parts[0], NOT parts[1] (which is the signature)
+        const base64Url = parts[0];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        // Add padding if needed
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        const jsonPayload = decodeURIComponent(window.atob(padded).split('').map(function(c) {
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
         return JSON.parse(jsonPayload);
@@ -59,10 +95,12 @@ function resolveDisplayName(username, payload, fallback = null) {
 window.resolveDisplayName = resolveDisplayName;
 
 function setAgentSession(token, username) {
+    // Store token ONLY in memory (never localStorage)
+    _agentAccessToken = token || null;
     if (token) {
         const payload = decodeTokenPayload(token);
         const displayName = resolveDisplayName(username, payload, username || null);
-        localStorage.setItem('otg_agent_token', token);
+        // Store non-secret UI data in localStorage for display persistence
         if (displayName) {
             localStorage.setItem('otg_agent_user', displayName);
         } else {
@@ -74,27 +112,29 @@ function setAgentSession(token, username) {
         else localStorage.removeItem('otg_agent_sucursal_id');
         if (payload?.sucursal_nombre) localStorage.setItem('otg_agent_sucursal_nombre', payload.sucursal_nombre);
         else localStorage.removeItem('otg_agent_sucursal_nombre');
+        // Schedule proactive renewal before the token expires
+        _scheduleProactiveRenewal(payload, 'agent');
     } else {
-        localStorage.removeItem('otg_agent_token');
         localStorage.removeItem('otg_agent_user');
         localStorage.removeItem('otg_agent_role');
         localStorage.removeItem('otg_agent_sucursal_id');
         localStorage.removeItem('otg_agent_sucursal_nombre');
+        _clearProactiveRenewal();
     }
     updateAdminBtnVisibility();
 }
 window.setAgentSession = setAgentSession;
 
 function setAdminSession(token, username) {
+    // Store token ONLY in memory (never localStorage)
+    _adminAccessToken = token || null;
     if (token) {
         const payload = decodeTokenPayload(token);
         const displayName = resolveDisplayName(username, payload, 'Administrador');
-        localStorage.setItem('otg_admin_token', token);
         localStorage.setItem('otg_admin_user', displayName);
         if (payload?.rol) localStorage.setItem('otg_admin_role', payload.rol);
         else localStorage.removeItem('otg_admin_role');
     } else {
-        localStorage.removeItem('otg_admin_token');
         localStorage.removeItem('otg_admin_user');
         localStorage.removeItem('otg_admin_role');
     }
@@ -103,9 +143,16 @@ function setAdminSession(token, username) {
 window.setAdminSession = setAdminSession;
 
 function clearAllSessions() {
+    // Clear in-memory tokens
+    _agentAccessToken = null;
+    _adminAccessToken = null;
+    _clearProactiveRenewal();
+
     const keysToRemove = [
-        'otg_agent_token', 'otg_agent_user', 'otg_agent_role', 'otg_agent_sucursal_id', 'otg_agent_sucursal_nombre',
-        'otg_admin_token', 'otg_admin_user', 'otg_admin_role',
+        'otg_agent_user', 'otg_agent_role', 'otg_agent_sucursal_id', 'otg_agent_sucursal_nombre',
+        'otg_admin_user', 'otg_admin_role',
+        // Legacy keys
+        'otg_agent_token', 'otg_admin_token',
         'authToken', 'loggedInUser', 'userRole', 'userSucursalId', 'userSucursalNombre',
         'adminAuthToken', 'adminLoggedInUser'
     ];
@@ -149,8 +196,7 @@ window.setSession = setSession;
 function updateAdminBtnVisibility() {
     const adminBtn = document.getElementById('sidebar-btn-admin');
     if (adminBtn) {
-        const adminToken = localStorage.getItem('otg_admin_token');
-        if (adminToken) {
+        if (_adminAccessToken) {
             adminBtn.classList.remove('hidden');
         } else {
             adminBtn.classList.add('hidden');
@@ -161,9 +207,10 @@ function updateAdminBtnVisibility() {
 // Dynamic properties on window for seamless backward compatibility
 Object.defineProperty(window, 'authToken', {
     get: () => {
-        return isAdminPath() 
-            ? (localStorage.getItem('otg_admin_token') || null) 
-            : (localStorage.getItem('otg_agent_token') || null);
+        // Read from in-memory state, NOT localStorage
+        return isAdminPath()
+            ? (_adminAccessToken || null)
+            : (_agentAccessToken || null);
     },
     configurable: true
 });
@@ -246,14 +293,18 @@ function formatPriceES(val) {
 }
 window.formatPriceES = formatPriceES;
 
-// Authenticated Fetch Wrapper
+// ──────────────────────────────────────────────────────────────────────────────
+// AUTHENTICATED FETCH — with 401 Interceptor & Refresh Queue
+// Handles concurrent 401s: only one refresh request is fired; all pending
+// requests wait for the same result and then retry transparently.
+// ──────────────────────────────────────────────────────────────────────────────
 async function authenticatedFetch(url, options = {}) {
     if (!options.headers) {
         options.headers = {};
     }
 
     const isAdminCall = url.startsWith('/api/admin') || isAdminPath();
-    const token = isAdminCall ? localStorage.getItem('otg_admin_token') : localStorage.getItem('otg_agent_token');
+    const token = isAdminCall ? _adminAccessToken : _agentAccessToken;
 
     if (token) {
         options.headers['Authorization'] = `Bearer ${token}`;
@@ -263,9 +314,28 @@ async function authenticatedFetch(url, options = {}) {
 
     // Auto-refresh token if 401
     if (res.status === 401 && token) {
+        // If a refresh is already in progress, wait for it
+        if (_isRefreshing) {
+            try {
+                const newToken = await new Promise((resolve, reject) => {
+                    _refreshQueue.push({ resolve, reject });
+                });
+                options.headers['Authorization'] = `Bearer ${newToken}`;
+                return await fetch(url, options);
+            } catch (err) {
+                // Refresh failed — the logout was already triggered
+                return res;
+            }
+        }
+
+        // Start a new refresh
+        _isRefreshing = true;
         try {
             const scope = isAdminCall ? 'admin' : 'agent';
-            const refreshRes = await fetch(`/api/auth/refresh?scope=${scope}`, { method: 'POST' });
+            const refreshRes = await fetch(`/api/auth/refresh?scope=${scope}`, {
+                method: 'POST',
+                credentials: 'same-origin',  // Ensure cookies are sent
+            });
             if (refreshRes.ok) {
                 const data = await refreshRes.json();
                 if (isAdminCall) {
@@ -274,10 +344,15 @@ async function authenticatedFetch(url, options = {}) {
                     setAgentSession(data.access_token, data.username);
                 }
 
-                // Retry request
-                options.headers['Authorization'] = `Bearer ${data.access_token}`;
+                const newToken = data.access_token;
+                _processRefreshQueue(null, newToken);
+
+                // Retry the original request with the new token
+                options.headers['Authorization'] = `Bearer ${newToken}`;
                 res = await fetch(url, options);
             } else {
+                const error = new Error('Refresh failed');
+                _processRefreshQueue(error, null);
                 if (isAdminCall) {
                     logoutAdmin(false);
                 } else {
@@ -285,16 +360,65 @@ async function authenticatedFetch(url, options = {}) {
                 }
             }
         } catch (err) {
+            const error = new Error('Refresh network error');
+            _processRefreshQueue(error, null);
             if (isAdminCall) {
                 logoutAdmin(false);
             } else {
                 logoutAgent(false);
             }
+        } finally {
+            _isRefreshing = false;
         }
     }
     return res;
 }
 window.authenticatedFetch = authenticatedFetch;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PROACTIVE TOKEN RENEWAL
+// Schedules a silent refresh 2 minutes before the Access Token expires,
+// preventing 401 errors during active use.
+// ──────────────────────────────────────────────────────────────────────────────
+function _scheduleProactiveRenewal(payload, scope) {
+    _clearProactiveRenewal();
+    if (!payload || !payload.exp) return;
+
+    const expiresAtMs = payload.exp * 1000;
+    const renewAtMs = expiresAtMs - (2 * 60 * 1000);  // 2 minutes before expiry
+    const delayMs = renewAtMs - Date.now();
+
+    if (delayMs <= 0) return;  // Already past renewal time
+
+    _proactiveRenewalTimer = setTimeout(async () => {
+        try {
+            const res = await fetch(`/api/auth/refresh?scope=${scope}`, {
+                method: 'POST',
+                credentials: 'same-origin',
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (scope === 'admin') {
+                    setAdminSession(data.access_token, data.username);
+                } else {
+                    setAgentSession(data.access_token, data.username);
+                }
+                console.log(`[AUTH] Proactive ${scope} token renewal successful.`);
+            } else {
+                console.warn(`[AUTH] Proactive ${scope} token renewal failed (${res.status}).`);
+            }
+        } catch (err) {
+            console.warn(`[AUTH] Proactive ${scope} token renewal error:`, err);
+        }
+    }, delayMs);
+}
+
+function _clearProactiveRenewal() {
+    if (_proactiveRenewalTimer) {
+        clearTimeout(_proactiveRenewalTimer);
+        _proactiveRenewalTimer = null;
+    }
+}
 
 // Navigation History Stack
 let navStack = [];
@@ -471,20 +595,24 @@ async function router() {
     } catch (e) {}
 
     // Silently restore session via cookie once on startup for the current context
+    // Since tokens are in memory, after page reload they will be null.
+    // The cookie-based refresh recovers them.
     if (!isExplicitLogout) {
         if (isTargetAdmin) {
-            let adminToken = localStorage.getItem('otg_admin_token');
             let isExpired = false;
-            if (adminToken) {
-                const payload = decodeTokenPayload(adminToken);
+            if (_adminAccessToken) {
+                const payload = decodeTokenPayload(_adminAccessToken);
                 if (!payload || (payload.exp && payload.exp * 1000 < Date.now())) {
                     isExpired = true;
                 }
             }
-            if ((!adminToken || isExpired) && !isAdminSessionChecked) {
+            if ((!_adminAccessToken || isExpired) && !isAdminSessionChecked) {
                 isAdminSessionChecked = true;
                 try {
-                    const res = await fetch('/api/auth/refresh?scope=admin', { method: 'POST' });
+                    const res = await fetch('/api/auth/refresh?scope=admin', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                    });
                     if (res.ok) {
                         const data = await res.json();
                         setAdminSession(data.access_token, data.username);
@@ -496,18 +624,20 @@ async function router() {
                 }
             }
         } else {
-            let agentToken = localStorage.getItem('otg_agent_token');
             let isExpired = false;
-            if (agentToken) {
-                const payload = decodeTokenPayload(agentToken);
+            if (_agentAccessToken) {
+                const payload = decodeTokenPayload(_agentAccessToken);
                 if (!payload || (payload.exp && payload.exp * 1000 < Date.now())) {
                     isExpired = true;
                 }
             }
-            if ((!agentToken || isExpired) && !isAgentSessionChecked) {
+            if ((!_agentAccessToken || isExpired) && !isAgentSessionChecked) {
                 isAgentSessionChecked = true;
                 try {
-                    const res = await fetch('/api/auth/refresh?scope=agent', { method: 'POST' });
+                    const res = await fetch('/api/auth/refresh?scope=agent', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                    });
                     if (res.ok) {
                         const data = await res.json();
                         setAgentSession(data.access_token, data.username);
@@ -521,9 +651,9 @@ async function router() {
         }
     }
 
-    // Auth Guards using isolated tokens per scope
-    const agentToken = localStorage.getItem('otg_agent_token');
-    const adminToken = localStorage.getItem('otg_admin_token');
+    // Auth Guards using in-memory tokens
+    const agentToken = _agentAccessToken;
+    const adminToken = _adminAccessToken;
 
     if (isTargetAdmin) {
         if (path === '/admin-login') {
@@ -734,7 +864,7 @@ async function logoutAgent(notifyServer = true) {
 
     if (notifyServer) {
         try {
-            await fetch('/api/auth/logout?scope=agent', { method: 'POST', cache: 'no-store' });
+            await fetch('/api/auth/logout?scope=agent', { method: 'POST', cache: 'no-store', credentials: 'same-origin' });
         } catch (e) {
             console.warn("Logout endpoint error:", e);
         }
@@ -757,7 +887,7 @@ async function logoutAdmin(notifyServer = true) {
 
     if (notifyServer) {
         try {
-            await fetch('/api/auth/logout?scope=admin', { method: 'POST', cache: 'no-store' });
+            await fetch('/api/auth/logout?scope=admin', { method: 'POST', cache: 'no-store', credentials: 'same-origin' });
         } catch (e) {
             console.warn("Logout endpoint error:", e);
         }

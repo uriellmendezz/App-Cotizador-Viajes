@@ -3,8 +3,8 @@ let typewriterTimeout = null;
 let brandIconInterval = null;
 
 export function initLogin() {
-    // Check if agent session exists in localStorage
-    const activeToken = localStorage.getItem('otg_agent_token');
+    // Check if agent session exists in memory (not localStorage)
+    const activeToken = window.getAgentToken ? window.getAgentToken() : null;
     const activeUser = localStorage.getItem('otg_agent_user');
 
     const welcomeSection = document.getElementById('login-welcome-section');
