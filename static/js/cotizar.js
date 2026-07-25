@@ -691,17 +691,62 @@ async function loadConfig() {
         const res = await authenticatedFetch('/api/config');
         const data = await res.json();
         
+        // Configure Section 4 (Solicitar Alta de Agente) read-only mode for non-owners
+        const isOwner = data.is_owner || window.userRole === 'DUENO_FRANQUICIA' || window.userRole === 'ADMIN_SUCURSAL' || window.userRole === 'ADMIN_GLOBAL';
+        const noticeEl = document.getElementById('request-agent-readonly-notice');
+        const badgeEl = document.getElementById('request-agent-badge');
+        const formInputIds = ['new_agent_name', 'new_agent_email', 'new_agent_role', 'new_agent_notes'];
+        const submitBtn = document.getElementById('btn-request-agent-submit');
+
+        if (!isOwner) {
+            if (noticeEl) noticeEl.classList.remove('hidden');
+            if (badgeEl) {
+                badgeEl.innerText = 'Modo Lectura (Solo Dueños)';
+                badgeEl.className = 'px-3 py-1 bg-amber-100 text-amber-800 border border-amber-300 rounded-full text-[10px] font-bold uppercase tracking-wider';
+            }
+            formInputIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = true;
+                    el.readOnly = true;
+                    el.classList.add('bg-slate-100', 'cursor-not-allowed', 'opacity-75', 'select-none');
+                }
+            });
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            }
+        } else {
+            if (noticeEl) noticeEl.classList.add('hidden');
+            if (badgeEl) {
+                badgeEl.innerText = 'Exclusivo Franquicia';
+                badgeEl.className = 'px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200/80 rounded-full text-[10px] font-bold uppercase tracking-wider';
+            }
+            formInputIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = false;
+                    el.readOnly = false;
+                    el.classList.remove('bg-slate-100', 'cursor-not-allowed', 'opacity-75', 'select-none');
+                }
+            });
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            }
+        }
+
         const accessDeniedEl = document.getElementById('config-access-denied');
         const ownerPanelEl = document.getElementById('config-owner-panel');
-        
-        if (!data.is_owner) {
-            if (accessDeniedEl) accessDeniedEl.classList.remove('hidden');
-            if (ownerPanelEl) ownerPanelEl.classList.add('hidden');
-            return;
+        if (accessDeniedEl && ownerPanelEl) {
+            if (!data.is_owner) {
+                accessDeniedEl.classList.remove('hidden');
+                ownerPanelEl.classList.add('hidden');
+            } else {
+                accessDeniedEl.classList.add('hidden');
+                ownerPanelEl.classList.remove('hidden');
+            }
         }
-        
-        if (accessDeniedEl) accessDeniedEl.classList.add('hidden');
-        if (ownerPanelEl) ownerPanelEl.classList.remove('hidden');
         
         // Render Agent Colors List
         const listContainer = document.getElementById('agent-colors-list');
@@ -817,10 +862,16 @@ window.saveConfig = saveAgentColors;
 async function submitAgentRequest(e) {
     if (e) e.preventDefault();
     
-    const nombre = document.getElementById('new_agent_name').value.trim();
-    const email = document.getElementById('new_agent_email').value.trim();
-    const rol = document.getElementById('new_agent_role').value;
-    const notas = document.getElementById('new_agent_notes').value.trim();
+    const isOwner = window.agencyConfig?.is_owner || window.userRole === 'DUENO_FRANQUICIA' || window.userRole === 'ADMIN_SUCURSAL' || window.userRole === 'ADMIN_GLOBAL';
+    if (!isOwner) {
+        showAlert('warning', 'Modo Lectura: La solicitud de alta de nuevos agentes es exclusiva para dueños de franquicias.');
+        return;
+    }
+    
+    const nombre = document.getElementById('new_agent_name')?.value.trim() || '';
+    const email = document.getElementById('new_agent_email')?.value.trim() || '';
+    const rol = document.getElementById('new_agent_role')?.value || 'AGENTE_SUCURSAL';
+    const notas = document.getElementById('new_agent_notes')?.value.trim() || '';
     
     if (!nombre || !email) {
         showAlert('warning', 'Por favor complete todos los campos obligatorios del formulario.');
@@ -2647,11 +2698,14 @@ function updateTabButtonsUI() {
 }
 
 function getCleanAgentName(rawName) {
-    if (!rawName || rawName === '-') return 'Agente';
+    const activeUser = window.loggedInUser || localStorage.getItem('otg_agent_user');
+    if (!rawName || rawName === '-') {
+        return (activeUser && activeUser !== 'Agente') ? (activeUser.charAt(0).toUpperCase() + activeUser.slice(1).toLowerCase()) : 'Agente';
+    }
     let name = String(rawName).trim();
     if (name.includes('-') || name.length > 20) {
-        if (window.userId && (name === window.userId || name.toLowerCase() === window.userId.toLowerCase())) {
-            return window.loggedInUser ? (window.loggedInUser.charAt(0).toUpperCase() + window.loggedInUser.slice(1).toLowerCase()) : 'Uriel';
+        if (activeUser && activeUser !== 'Agente') {
+            return activeUser.charAt(0).toUpperCase() + activeUser.slice(1).toLowerCase();
         }
         return 'Agente';
     }

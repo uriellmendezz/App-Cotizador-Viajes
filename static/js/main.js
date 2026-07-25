@@ -78,18 +78,26 @@ function isUuidString(str) {
 window.isUuidString = isUuidString;
 
 function resolveDisplayName(username, payload, fallback = null) {
-    if (username && username !== 'guest' && username !== 'Invitado' && !isUuidString(username)) {
+    if (username && username !== 'guest' && username !== 'Invitado' && username !== 'Agente' && !isUuidString(username)) {
         return username;
     }
-    if (payload?.nombre && payload.nombre !== 'guest' && payload.nombre !== 'Invitado' && !isUuidString(payload.nombre)) {
+    if (payload?.nombre && payload.nombre !== 'guest' && payload.nombre !== 'Invitado' && payload.nombre !== 'Agente' && !isUuidString(payload.nombre)) {
         return payload.nombre;
     }
-    if (payload?.username && payload.username !== 'guest' && payload.username !== 'Invitado' && !isUuidString(payload.username)) {
+    if (payload?.username && payload.username !== 'guest' && payload.username !== 'Invitado' && payload.username !== 'Agente' && !isUuidString(payload.username)) {
         return payload.username;
     }
-    if (payload?.email) {
-        return payload.email.split('@')[0];
+    if (payload?.email && typeof payload.email === 'string' && payload.email.includes('@')) {
+        const parts = payload.email.split('@')[0];
+        if (parts) return parts.charAt(0).toUpperCase() + parts.slice(1).toLowerCase();
     }
+    try {
+        const stored = localStorage.getItem('otg_agent_user') || localStorage.getItem('otg_admin_user');
+        if (stored && stored !== 'guest' && stored !== 'Invitado' && stored !== 'Agente' && !isUuidString(stored)) {
+            return stored;
+        }
+    } catch (e) {}
+
     return fallback;
 }
 window.resolveDisplayName = resolveDisplayName;
@@ -99,19 +107,21 @@ function setAgentSession(token, username) {
     _agentAccessToken = token || null;
     if (token) {
         const payload = decodeTokenPayload(token);
-        const displayName = resolveDisplayName(username, payload, username || null);
-        // Store non-secret UI data in localStorage for display persistence
-        if (displayName) {
+        const displayName = resolveDisplayName(username, payload, null);
+        const existingStored = localStorage.getItem('otg_agent_user');
+
+        if (displayName && !isUuidString(displayName) && displayName !== 'Agente') {
             localStorage.setItem('otg_agent_user', displayName);
-        } else {
-            localStorage.removeItem('otg_agent_user');
+        } else if (existingStored && !isUuidString(existingStored) && existingStored !== 'guest' && existingStored !== 'Invitado' && existingStored !== 'Agente') {
+            // Preserve existing valid user name if incoming name from refresh is UUID/Agente/null
+        } else if (username && !isUuidString(username) && username !== 'Agente') {
+            localStorage.setItem('otg_agent_user', username);
         }
+
         if (payload?.rol) localStorage.setItem('otg_agent_role', payload.rol);
-        else localStorage.removeItem('otg_agent_role');
         if (payload?.sucursal_id) localStorage.setItem('otg_agent_sucursal_id', payload.sucursal_id);
-        else localStorage.removeItem('otg_agent_sucursal_id');
         if (payload?.sucursal_nombre) localStorage.setItem('otg_agent_sucursal_nombre', payload.sucursal_nombre);
-        else localStorage.removeItem('otg_agent_sucursal_nombre');
+
         // Schedule proactive renewal before the token expires
         _scheduleProactiveRenewal(payload, 'agent');
     } else {
@@ -131,9 +141,13 @@ function setAdminSession(token, username) {
     if (token) {
         const payload = decodeTokenPayload(token);
         const displayName = resolveDisplayName(username, payload, 'Administrador');
-        localStorage.setItem('otg_admin_user', displayName);
+        const existingStored = localStorage.getItem('otg_admin_user');
+        if (displayName && !isUuidString(displayName)) {
+            localStorage.setItem('otg_admin_user', displayName);
+        } else if (existingStored && !isUuidString(existingStored)) {
+            // Preserve existing admin user
+        }
         if (payload?.rol) localStorage.setItem('otg_admin_role', payload.rol);
-        else localStorage.removeItem('otg_admin_role');
     } else {
         localStorage.removeItem('otg_admin_user');
         localStorage.removeItem('otg_admin_role');
@@ -202,6 +216,17 @@ function updateAdminBtnVisibility() {
             adminBtn.classList.add('hidden');
         }
     }
+
+    const franchiseAdminBtn = document.getElementById('sidebar-btn-administrar');
+    if (franchiseAdminBtn) {
+        const role = window.userRole;
+        const isOwner = window.agencyConfig?.is_owner || false;
+        if (role === 'DUENO_FRANQUICIA' || role === 'ADMIN_SUCURSAL' || role === 'ADMIN_GLOBAL' || isOwner) {
+            franchiseAdminBtn.classList.remove('hidden');
+        } else {
+            franchiseAdminBtn.classList.add('hidden');
+        }
+    }
 }
 
 // Dynamic properties on window for seamless backward compatibility
@@ -221,10 +246,12 @@ Object.defineProperty(window, 'loggedInUser', {
             ? (localStorage.getItem('otg_admin_user') || null) 
             : (localStorage.getItem('otg_agent_user') || null);
         const token = window.authToken;
-        if (!token && !raw) return null;
-        const payload = decodeTokenPayload(token);
-        const name = resolveDisplayName(raw, payload, isAdminPath() ? 'Administrador' : null);
-        return (name && name !== 'guest' && name !== 'Invitado') ? name : null;
+        const payload = token ? decodeTokenPayload(token) : null;
+        let name = resolveDisplayName(raw, payload, null);
+        if (!name && raw && !isUuidString(raw) && raw !== 'guest' && raw !== 'Invitado' && raw !== 'Agente') {
+            name = raw;
+        }
+        return (name && name !== 'guest' && name !== 'Invitado' && name !== 'Agente') ? name : null;
     },
     configurable: true
 });
@@ -432,8 +459,8 @@ const routeNames = {
     '/hacer-cotizacion': 'Nueva Cotización',
     '/cotizacion-completa': 'Generar Cotización',
     '/editar': 'Archivos',
-    '/config': 'Configuración',
     '/ver-cotizacion': 'Ver Cotización',
+    '/administrar': 'Administración de Franquicia',
     '/admin': 'Administración',
 };
 
@@ -501,8 +528,8 @@ const routes = {
     '/hacer-cotizacion': { html: '/static/views/opciones_cotizacion.html', js: '/static/js/inicio.js', init: 'initOpciones' },
     '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
-    '/config': { html: '/static/views/configuracion.html', js: '/static/js/cotizar.js', init: 'initConfig' },
     '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
+    '/administrar': { html: '/static/views/administrar.html', js: '/static/js/administrar.js', init: 'initAdministrar' },
     '/admin': { html: '/static/views/admin.html', js: '/static/js/admin.js', init: 'initAdmin' },
     '/admin-login': { html: '/static/views/admin_login.html', js: '/static/js/admin_login.js', init: 'initAdminLogin' }
 };
@@ -641,11 +668,11 @@ async function router() {
                     if (res.ok) {
                         const data = await res.json();
                         setAgentSession(data.access_token, data.username);
-                    } else {
+                    } else if (res.status === 401 || res.status === 403) {
                         setAgentSession(null, null);
                     }
                 } catch (err) {
-                    setAgentSession(null, null);
+                    console.warn('[AUTH] Error de red en refresco inicial. Preservando sesión local:', err);
                 }
             }
         }
@@ -706,6 +733,16 @@ async function router() {
                 history.pushState(null, null, '/editar?tab=rapidos');
                 path = '/editar';
                 normalizedPath = '/editar';
+            } else if (path === '/administrar') {
+                const role = payload?.rol || window.userRole;
+                const isOwner = window.agencyConfig?.is_owner || false;
+                const canAccessAdmin = role === 'DUENO_FRANQUICIA' || role === 'ADMIN_SUCURSAL' || role === 'ADMIN_GLOBAL' || isOwner;
+                if (!canAccessAdmin) {
+                    showAlert('warning', 'Acceso denegado (403): El panel de administración de franquicia requiere privilegios de Dueño o Administrador.');
+                    history.pushState(null, null, '/inicio');
+                    path = '/inicio';
+                    normalizedPath = '/inicio';
+                }
             }
         }
     }
@@ -846,7 +883,6 @@ function updateNavActiveState(path) {
     else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
     else if (path === '/cotizacion-completa') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
-    else if (path === '/config') btnId = 'sidebar-btn-config';
     else if (path === '/admin') btnId = 'sidebar-btn-admin';
 
     const activeBtn = document.getElementById(btnId);

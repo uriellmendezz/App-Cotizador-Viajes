@@ -155,6 +155,79 @@ def get_current_active_agent(authorization: str = Header(None)) -> dict:
     """Alias para la dependencia get_current_agent para compatibilidad."""
     return get_current_agent(authorization=authorization)
 
+def get_current_user_token(authorization: str = Header(None)) -> dict:
+    """Valida cualquier token de acceso (agente, dueño de franquicia o admin global)."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="No autorizado. Token de sesión faltante.")
+    token = authorization.split(" ")[1]
+    try:
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            raise ValueError("Token no apto para acceso")
+        return {
+            "id": payload.get("sub"),
+            "nombre": payload.get("nombre"),
+            "email": payload.get("email"),
+            "rol": payload.get("rol", "AGENTE_SUCURSAL"),
+            "sucursal_id": payload.get("sucursal_id"),
+            "franchise_id": payload.get("sucursal_id")
+        }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Sesión expirada o inválida: {str(e)}")
+
+def get_current_franchise_owner(authorization: str = Header(None)) -> dict:
+    """
+    Dependencia de FastAPI para validar permisos de Dueño de Franquicia o Administrador.
+    Deniega el acceso con 403 Forbidden a agentes comunes sin rol privilegiado.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="No autorizado. Token de sesión faltante.")
+    token = authorization.split(" ")[1]
+    try:
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            raise ValueError("Token no apto para acceso")
+            
+        rol = payload.get("rol", "AGENTE_SUCURSAL")
+        sub = payload.get("sub")
+        sucursal_id = payload.get("sucursal_id")
+        
+        is_owner = rol in ("DUENO_FRANQUICIA", "ADMIN_SUCURSAL", "ADMIN_GLOBAL")
+        
+        if not is_owner and sucursal_id and sub and sub != "guest":
+            try:
+                from app.database import get_supabase_client
+                client = get_supabase_client()
+                if client:
+                    suc_res = client.table("sucursales").select("owner_id").eq("id", sucursal_id).execute()
+                    if suc_res and hasattr(suc_res, "data") and suc_res.data:
+                        owner_id = suc_res.data[0].get("owner_id")
+                        if owner_id and str(owner_id) == str(sub):
+                            is_owner = True
+            except Exception as e:
+                print(f"Error checking owner status: {e}")
+
+        if not is_owner:
+            raise HTTPException(
+                status_code=403, 
+                detail="Acceso denegado. Se requieren permisos de Dueño de Franquicia o Administrador de Sucursal."
+            )
+            
+        return {
+            "id": sub,
+            "nombre": payload.get("nombre", sub),
+            "email": payload.get("email"),
+            "rol": rol,
+            "sucursal_id": sucursal_id,
+            "franchise_id": sucursal_id
+        }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Sesión expirada o inválida: {str(e)}")
+
 def get_current_admin(authorization: str = Header(None)) -> dict:
     """
     Dependencia de FastAPI para validar token de administración (ADMIN_GLOBAL).
@@ -296,7 +369,15 @@ def api_login(payload: dict, response: Response):
                         expires_delta=timedelta(minutes=_ACCESS_TOKEN_MINUTES)
                     )
                     refresh_token = create_token(
-                        payload={"sub": user_id, "type": "refresh", "rol": rol},
+                        payload={
+                            "sub": user_id, 
+                            "type": "refresh", 
+                            "rol": rol,
+                            "nombre": display_name,
+                            "email": profile.get("email"),
+                            "sucursal_id": str(profile.get("sucursal_id")) if profile.get("sucursal_id") else None,
+                            "sucursal_nombre": sucursal_nombre
+                        },
                         expires_delta=timedelta(days=_REFRESH_TOKEN_DAYS)
                     )
                     cookie_name = "otg_admin_refresh" if rol == "ADMIN_GLOBAL" else "otg_agent_refresh"
@@ -321,10 +402,11 @@ def api_login(payload: dict, response: Response):
     # Fallback local (USERS_DB)
     if username in USERS_DB and USERS_DB[username] == password:
         rol = "ADMIN_GLOBAL" if username in ("admin", "uriel") else "AGENTE_SUCURSAL"
+        display_name = username.capitalize()
         access_token = create_token(
             payload={
                 "sub": username,
-                "nombre": username.capitalize(),
+                "nombre": display_name,
                 "email": f"{username}@onetrip.com",
                 "rol": rol,
                 "sucursal_id": None,
@@ -333,7 +415,13 @@ def api_login(payload: dict, response: Response):
             expires_delta=timedelta(minutes=_ACCESS_TOKEN_MINUTES)
         )
         refresh_token = create_token(
-            payload={"sub": username, "type": "refresh", "rol": rol},
+            payload={
+                "sub": username, 
+                "type": "refresh", 
+                "rol": rol,
+                "nombre": display_name,
+                "email": f"{username}@onetrip.com"
+            },
             expires_delta=timedelta(days=_REFRESH_TOKEN_DAYS)
         )
         
@@ -349,7 +437,7 @@ def api_login(payload: dict, response: Response):
         )
         return {
             "access_token": access_token,
-            "username": username.capitalize(),
+            "username": display_name,
             "rol": rol,
             "sucursal_id": None
         }
@@ -378,43 +466,56 @@ def api_refresh(
             raise ValueError("Token no válido para refresco")
             
         username = payload.get("sub")
-        is_uuid = len(username) > 20 or "-" in username
+        is_uuid = len(str(username)) > 20 or "-" in str(username)
         
-        # Si es UUID, buscar en Supabase, sino fallback
-        from app.database import get_supabase_client
-        supabase = get_supabase_client()
+        token_nombre = payload.get("nombre")
+        token_email = payload.get("email")
+        token_sucursal_id = payload.get("sucursal_id")
+        token_sucursal_nombre = payload.get("sucursal_nombre")
         
-        nombre = None if is_uuid else username.capitalize()
-        email = f"{username}@onetrip.com" if not is_uuid else None
-        rol = "ADMIN_GLOBAL" if username in ("admin", "uriel") else "AGENTE_SUCURSAL"
-        sucursal_id = None
-        sucursal_nombre = None
+        nombre = token_nombre if (token_nombre and not (len(str(token_nombre)) > 20 or "-" in str(token_nombre))) else (None if is_uuid else str(username).capitalize())
+        email = token_email or (f"{username}@onetrip.com" if not is_uuid else None)
+        rol = payload.get("rol") or ("ADMIN_GLOBAL" if username in ("admin", "uriel") else "AGENTE_SUCURSAL")
+        sucursal_id = token_sucursal_id
+        sucursal_nombre = token_sucursal_nombre
         
-        if supabase and is_uuid:
+        # Use get_supabase_admin_client to bypass RLS when looking up agent profile
+        try:
+            from app.routers.admin import get_supabase_admin_client
+            admin_supabase = get_supabase_admin_client()
+        except Exception:
+            admin_supabase = None
+            
+        if admin_supabase and is_uuid:
             try:
-                profile_res = supabase.table("perfiles").select("*, sucursales!perfiles_sucursal_id_fkey(nombre)").eq("id", username).execute()
-                if profile_res.data:
+                profile_res = admin_supabase.table("perfiles").select("*, sucursales!perfiles_sucursal_id_fkey(nombre)").eq("id", username).execute()
+                if profile_res and hasattr(profile_res, "data") and profile_res.data:
                     profile = profile_res.data[0]
                     fetched_name = profile.get("nombre") or profile.get("username")
-                    if fetched_name:
+                    if fetched_name and not (len(str(fetched_name)) > 20 or "-" in str(fetched_name)):
                         nombre = fetched_name
                     elif profile.get("email"):
-                        nombre = profile.get("email").split("@")[0].capitalize()
+                        email = profile.get("email")
+                        fetched_email_name = email.split("@")[0].capitalize()
+                        if not nombre or len(str(nombre)) > 20 or "-" in str(nombre):
+                            nombre = fetched_email_name
                     email = profile.get("email") or email
                     rol = profile.get("rol") or rol
-                    sucursal_id = str(profile.get("sucursal_id")) if profile.get("sucursal_id") else None
+                    sucursal_id = str(profile.get("sucursal_id")) if profile.get("sucursal_id") else sucursal_id
                     suc_data = profile.get("sucursales")
                     if isinstance(suc_data, dict):
-                        sucursal_nombre = suc_data.get("nombre")
+                        sucursal_nombre = suc_data.get("nombre") or sucursal_nombre
             except Exception as e:
                 print(f"Error refrescando perfil desde base de datos: {e}")
         
-        # If nombre is still None after DB lookup, derive from email or keep sub
-        if not nombre:
-            if email:
-                nombre = email.split("@")[0].capitalize()
+        # If nombre is still missing or a UUID, derive from email or token_nombre
+        if not nombre or (len(str(nombre)) > 20 or "-" in str(nombre)):
+            if email and "@" in str(email):
+                nombre = str(email).split("@")[0].capitalize()
+            elif token_nombre and not (len(str(token_nombre)) > 20 or "-" in str(token_nombre)):
+                nombre = token_nombre
             else:
-                nombre = username  # Keep sub (UUID) — frontend handles display
+                nombre = "Agente" if username != "guest" else "Invitado"
                 
         # Verificar coincidencia de scope con el rol obtenido
         if scope == "admin" and rol != "ADMIN_GLOBAL":
@@ -438,6 +539,7 @@ def api_refresh(
         return {
             "access_token": new_access_token,
             "username": nombre,
+            "nombre": nombre,
             "rol": rol,
             "sucursal_id": sucursal_id,
             "sucursal_nombre": sucursal_nombre,
@@ -473,7 +575,13 @@ def api_login_guest(response: Response):
         expires_delta=timedelta(minutes=_ACCESS_TOKEN_MINUTES)
     )
     refresh_token = create_token(
-        payload={"sub": "guest", "type": "refresh", "rol": "AGENTE_SUCURSAL"},
+        payload={
+            "sub": "guest", 
+            "type": "refresh", 
+            "rol": "AGENTE_SUCURSAL",
+            "nombre": "Invitado",
+            "email": "guest@onetrip.com"
+        },
         expires_delta=timedelta(days=_REFRESH_TOKEN_DAYS)
     )
     

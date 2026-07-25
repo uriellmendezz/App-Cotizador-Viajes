@@ -257,18 +257,25 @@ def get_config(current_agent: dict = Depends(get_current_active_agent)):
                 owner_id = sucursal.get("owner_id")
                 if owner_id and str(owner_id) == str(agent_id):
                     is_owner = True
-                elif rol == "ADMIN_GLOBAL":
+                elif rol in ("DUENO_FRANQUICIA", "ADMIN_SUCURSAL", "ADMIN_GLOBAL"):
                     is_owner = True
-                    
-                if is_owner:
-                    agents_res = client.table("perfiles").select("id, nombre, username, tag_color").eq("sucursal_id", sucursal_id).execute()
-                    if agents_res and hasattr(agents_res, 'data'):
-                        agentes_list = agents_res.data
-        elif rol == "ADMIN_GLOBAL":
-            is_owner = True
-            agents_res = client.table("perfiles").select("id, nombre, username, tag_color").execute()
-            if agents_res and hasattr(agents_res, 'data'):
+
+            agents_res = client.table("perfiles").select("id, nombre, username, tag_color, color_tag").or_(f"sucursal_id.eq.{sucursal_id},franchise_id.eq.{sucursal_id}").execute()
+            if agents_res and hasattr(agents_res, 'data') and agents_res.data:
                 agentes_list = agents_res.data
+                for a in agentes_list:
+                    c = a.get("color_tag") or a.get("tag_color") or "#3b82f6"
+                    a["tag_color"] = c
+                    a["color_tag"] = c
+        elif rol in ("DUENO_FRANQUICIA", "ADMIN_SUCURSAL", "ADMIN_GLOBAL"):
+            is_owner = True
+            agents_res = client.table("perfiles").select("id, nombre, username, tag_color, color_tag").execute()
+            if agents_res and hasattr(agents_res, 'data') and agents_res.data:
+                agentes_list = agents_res.data
+                for a in agentes_list:
+                    c = a.get("color_tag") or a.get("tag_color") or "#3b82f6"
+                    a["tag_color"] = c
+                    a["color_tag"] = c
     except Exception as e:
         print(f"Error fetching config: {e}")
         
