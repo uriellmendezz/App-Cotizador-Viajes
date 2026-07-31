@@ -2,6 +2,61 @@ let isQuickFeeLocked = true;
 let currentQuickQuoteId = null;
 let isRestoringState = false;
 let isQuickReadOnlyMode = false;
+let isQuickRedondeoActive = false;
+
+function toggleQuickQuoteRedondeo(forceState) {
+    if (typeof forceState === 'boolean') {
+        isQuickRedondeoActive = forceState;
+    } else {
+        isQuickRedondeoActive = !isQuickRedondeoActive;
+    }
+
+    const toggleBtn = document.getElementById('rapido-redondeo-toggle');
+    const knob = document.getElementById('rapido-redondeo-knob');
+    const row = document.getElementById('rapido-redondeo-row');
+
+    if (toggleBtn) {
+        toggleBtn.setAttribute('aria-checked', isQuickRedondeoActive ? 'true' : 'false');
+        if (isQuickRedondeoActive) {
+            toggleBtn.classList.remove('bg-slate-200');
+            toggleBtn.classList.add('bg-brand-primary');
+        } else {
+            toggleBtn.classList.remove('bg-brand-primary');
+            toggleBtn.classList.add('bg-slate-200');
+        }
+    }
+
+    if (knob) {
+        if (isQuickRedondeoActive) {
+            knob.classList.remove('translate-x-0', 'text-slate-400');
+            knob.classList.add('translate-x-5', 'text-brand-primary');
+        } else {
+            knob.classList.remove('translate-x-5', 'text-brand-primary');
+            knob.classList.add('translate-x-0', 'text-slate-400');
+        }
+    }
+
+    if (row) {
+        if (isQuickRedondeoActive) {
+            row.classList.remove('hidden');
+            // Force reflow for CSS transition
+            void row.offsetWidth;
+            row.classList.remove('opacity-0', '-translate-y-2');
+            row.classList.add('opacity-100', 'translate-y-0');
+        } else {
+            row.classList.remove('opacity-100', 'translate-y-0');
+            row.classList.add('opacity-0', '-translate-y-2');
+            setTimeout(() => {
+                if (!isQuickRedondeoActive && row) {
+                    row.classList.add('hidden');
+                }
+            }, 300);
+        }
+    }
+
+    calculateQuickQuote();
+}
+window.toggleQuickQuoteRedondeo = toggleQuickQuoteRedondeo;
 
 // Ensure window.savedQuickQuoteState exists
 if (typeof window.savedQuickQuoteState === 'undefined') {
@@ -24,6 +79,7 @@ function saveQuickQuoteFormState() {
     window.savedQuickQuoteState = {
         currentQuickQuoteId,
         isQuickFeeLocked,
+        isQuickRedondeoActive,
         passengerName: passengerInput.value,
         paxCount: document.getElementById('rapido-pax-count')?.value || 2,
         destino: document.getElementById('rapido-destino')?.value || '',
@@ -81,6 +137,7 @@ function restoreQuickQuoteFormState() {
 
     isRestoringState = false;
     updateQuickCurrencyLabels();
+    toggleQuickQuoteRedondeo(window.savedQuickQuoteState.isQuickRedondeoActive || false);
     calculateQuickQuote();
 }
 
@@ -316,6 +373,7 @@ export function initCotizacionRapida() {
                     const retPickerInput = document.getElementById('rapido-fecha-regreso');
                     if (retPickerInput && retPickerInput._flatpickr) retPickerInput._flatpickr.clear();
                     loadDefaultQuickQuoteRows();
+                    toggleQuickQuoteRedondeo(false);
                     calculateQuickQuote();
                     saveQuickQuoteFormState();
                 }
@@ -693,12 +751,23 @@ function calculateQuickQuote() {
     });
 
     const totalFinal = totalAereo + totalTerrestreNeto + totalAdminFee;
+    const perPersonRaw = paxCount > 0 ? (totalFinal / paxCount) : totalFinal;
 
     const elTotalFinal = document.getElementById('rapido-total-final');
     if (elTotalFinal) elTotalFinal.innerText = `${currency} ${window.formatPriceES(totalFinal)}`;
 
     const elTotalPax = document.getElementById('rapido-total-pax');
-    if (elTotalPax) elTotalPax.innerText = `${currency} ${window.formatPriceES(totalFinal / paxCount)}`;
+    if (elTotalPax) elTotalPax.innerText = `${currency} ${window.formatPriceES(perPersonRaw)}`;
+
+    // Rounding calculations
+    const roundedPerPerson = perPersonRaw > 0 ? (Math.ceil(perPersonRaw / 10) * 10) : 0;
+    const roundedTotal = roundedPerPerson * paxCount;
+
+    const elTotalRedondeado = document.getElementById('rapido-total-redondeado');
+    if (elTotalRedondeado) elTotalRedondeado.innerText = `${currency} ${window.formatPriceES(roundedTotal)}`;
+
+    const elPaxRedondeado = document.getElementById('rapido-pax-redondeado');
+    if (elPaxRedondeado) elPaxRedondeado.innerText = `${currency} ${window.formatPriceES(roundedPerPerson)}`;
 
     saveQuickQuoteFormState();
 }
@@ -768,7 +837,8 @@ async function saveQuickQuote(andRedirect = false) {
             destino: destino,
             fecha_salida: fechaSalida,
             fecha_regreso: fechaRegreso,
-            moneda: document.getElementById('rapido-moneda')?.value || 'USD'
+            moneda: document.getElementById('rapido-moneda')?.value || 'USD',
+            redondear: isQuickRedondeoActive
         }
     ];
 
@@ -838,10 +908,12 @@ async function saveQuickQuote(andRedirect = false) {
                 vuelos,
                 hoteles,        // alojamientos reales
                 traslados,      // traslados separados
-                trasladosTotal, // suma total de traslados
+                trasladosTotal,
                 destino,
                 fechaSalida,
                 fechaRegreso,
+                moneda: document.getElementById('rapido-moneda')?.value || 'USD',
+                redondear: isQuickRedondeoActive,
                 ivaSum: 0,
                 totalFinal
             };
@@ -1089,6 +1161,8 @@ async function loadQuickBudgetIntoForm(quoteId) {
                     if (monedaSelect) {
                         monedaSelect.value = currency;
                     }
+                    const savedRedondeo = typeof h.redondear !== 'undefined' ? h.redondear : false;
+                    toggleQuickQuoteRedondeo(savedRedondeo);
                     return;
                 }
                 const tipo = h.nombre.toLowerCase().includes('traslado') ? 'traslado' : 'hotel';

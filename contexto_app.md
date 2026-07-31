@@ -126,12 +126,13 @@ Dado que el backend procesa el costo del hotel calculando el total acumulado y r
 
 ### D. Ayuda y Reglas del Formulario
 - **Logos de Ayuda (Tooltip)**: Los campos de "Validez Cotización", "Origen" y "Habitación" poseen un icono de ayuda interactivo que muestra una explicación en hover.
-- **Normalización de Habitación**: Si el agente coloca en la celda de alojamiento opciones como "doble" o "simple" sin la palabra "Habitación", el sistema automáticamente antepone "Habitación " (ej. "Habitación Doble").
+- **Selector de Habitación**: El campo de Habitación incluye un menú desplegable con opciones predefinidas ("Estándar", "Suite", "Vista Mar", "Superior", "Deluxe"), las cuales anteponen automáticamente la palabra "Habitación" (ej. "Habitación Suite"). Al seleccionar "Personalizado", se habilita un campo de texto para ingresar descripciones a medida (ej. "Apartamento Doble", "Cabaña 2 Dormitorios") sin forzar la palabra "Habitación".
 - **Dropdown de Régimen**: El campo Régimen posee opciones preestablecidas como "All Inclusive", "Desayuno incluido", "Solo alojamiento", "Media Pension" y "Desayuno y Cena incluidos".
 - **Formateo de Nombre del Hotel**: Agrega la palabra "Hotel " al principio si el nombre ingresado no contiene la palabra "hotel" explícitamente y no cuenta con palabras clave que indiquen otro tipo de alojamiento (como *posada*, *departamento*, *depto*, *hostel*, *cabaña*, *villa*, *resort*, etc.).
 
 ### E. Módulo de Presupuesto Rápido
 - **Carga estilo Hoja de Cálculo**: Permite realizar cotizaciones rápidas basadas exclusivamente en montos numéricos ingresados de forma interactiva (Vuelos, Terrestres e Impuestos).
+- **Toggle de Redondeo**: Ubicado al lado de la opción "Moneda", permite activar o desactivar el redondeo de los montos totales al múltiplo de 10 más cercano (`Math.ceil(pax / 10) * 10`). Al activarse, aparece de forma animada y fluida (transición suave) la fila final **TOTAL REDONDEADO** mostrando los importes total y por persona.
 - **Vuelos Dinámicos**: Permite agregar tramos de vuelo ilimitados con inputs para costo base neto y fee, calculando la suma de forma automática en tiempo real.
 - **Terrestres Dinámicos**: Permite agregar alojamientos y servicios terrestres ilimitados con inputs para costo neto.
 - **Cálculo de Comisión Automática**: Suma el 5% de gastos administrativos sobre el total de servicios terrestres netos de forma inalterable y obligatoria.
