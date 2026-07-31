@@ -4,6 +4,26 @@ let isRestoringState = false;
 let isQuickReadOnlyMode = false;
 let isQuickRedondeoActive = false;
 
+function ensureQuickRedondeoRowExists() {
+    const tbody = document.getElementById('quick-budget-body');
+    if (!tbody) return null;
+
+    let redondeoRow = tbody.querySelector('tr.quick-row .quick-row-tipo[value="redondeo"]')?.closest('tr');
+    if (!redondeoRow) {
+        const adminRow = tbody.querySelector('tr.quick-row .quick-row-tipo[value="admin"]')?.closest('tr');
+        addQuickBudgetRow({ tipo: 'redondeo', isDefault: true, monto: 0 });
+        redondeoRow = tbody.querySelector('tr.quick-row .quick-row-tipo[value="redondeo"]')?.closest('tr');
+        if (adminRow && redondeoRow && adminRow.nextSibling !== redondeoRow) {
+            adminRow.parentNode.insertBefore(redondeoRow, adminRow.nextSibling);
+        }
+        if (!isQuickRedondeoActive && redondeoRow) {
+            redondeoRow.classList.add('hidden', 'opacity-0', '-translate-y-2');
+        }
+    }
+    return redondeoRow;
+}
+window.ensureQuickRedondeoRowExists = ensureQuickRedondeoRowExists;
+
 function toggleQuickQuoteRedondeo(forceState) {
     if (typeof forceState === 'boolean') {
         isQuickRedondeoActive = forceState;
@@ -13,7 +33,7 @@ function toggleQuickQuoteRedondeo(forceState) {
 
     const toggleBtn = document.getElementById('rapido-redondeo-toggle');
     const knob = document.getElementById('rapido-redondeo-knob');
-    const row = document.getElementById('rapido-redondeo-row');
+    const tfootRow = document.getElementById('rapido-redondeo-row');
 
     if (toggleBtn) {
         toggleBtn.setAttribute('aria-checked', isQuickRedondeoActive ? 'true' : 'false');
@@ -36,19 +56,38 @@ function toggleQuickQuoteRedondeo(forceState) {
         }
     }
 
-    if (row) {
+    // Toggle footer row
+    if (tfootRow) {
         if (isQuickRedondeoActive) {
-            row.classList.remove('hidden');
-            // Force reflow for CSS transition
-            void row.offsetWidth;
-            row.classList.remove('opacity-0', '-translate-y-2');
-            row.classList.add('opacity-100', 'translate-y-0');
+            tfootRow.classList.remove('hidden');
+            void tfootRow.offsetWidth;
+            tfootRow.classList.remove('opacity-0', '-translate-y-2');
+            tfootRow.classList.add('opacity-100', 'translate-y-0');
         } else {
-            row.classList.remove('opacity-100', 'translate-y-0');
-            row.classList.add('opacity-0', '-translate-y-2');
+            tfootRow.classList.remove('opacity-100', 'translate-y-0');
+            tfootRow.classList.add('opacity-0', '-translate-y-2');
             setTimeout(() => {
-                if (!isQuickRedondeoActive && row) {
-                    row.classList.add('hidden');
+                if (!isQuickRedondeoActive && tfootRow) {
+                    tfootRow.classList.add('hidden');
+                }
+            }, 300);
+        }
+    }
+
+    // Toggle body row (below Gastos Administrativos)
+    const bodyRedondeoRow = ensureQuickRedondeoRowExists();
+    if (bodyRedondeoRow) {
+        if (isQuickRedondeoActive) {
+            bodyRedondeoRow.classList.remove('hidden');
+            void bodyRedondeoRow.offsetWidth;
+            bodyRedondeoRow.classList.remove('opacity-0', '-translate-y-2');
+            bodyRedondeoRow.classList.add('opacity-100', 'translate-y-0');
+        } else {
+            bodyRedondeoRow.classList.remove('opacity-100', 'translate-y-0');
+            bodyRedondeoRow.classList.add('opacity-0', '-translate-y-2');
+            setTimeout(() => {
+                if (!isQuickRedondeoActive && bodyRedondeoRow) {
+                    bodyRedondeoRow.classList.add('hidden');
                 }
             }, 300);
         }
@@ -57,6 +96,78 @@ function toggleQuickQuoteRedondeo(forceState) {
     calculateQuickQuote();
 }
 window.toggleQuickQuoteRedondeo = toggleQuickQuoteRedondeo;
+
+function parseFormattedNumber(inputStr) {
+    if (typeof inputStr !== 'string') inputStr = String(inputStr || '');
+    let str = inputStr.trim();
+    if (!str) return 0;
+
+    // Remove space separators (e.g. "1 250,50")
+    str = str.replace(/\s+/g, '');
+    // Keep only digits, dots, commas, minus
+    str = str.replace(/[^\d.,-]/g, '');
+
+    if (!str) return 0;
+
+    const hasDot = str.includes('.');
+    const hasComma = str.includes(',');
+
+    if (hasDot && hasComma) {
+        const lastDot = str.lastIndexOf('.');
+        const lastComma = str.lastIndexOf(',');
+        if (lastDot < lastComma) {
+            // "1.250,50" -> dot is thousands, comma is decimal
+            str = str.replace(/\./g, '').replace(',', '.');
+        } else {
+            // "1,250.50" -> comma is thousands, dot is decimal
+            str = str.replace(/,/g, '');
+        }
+    } else if (hasComma && !hasDot) {
+        // "1250,50" -> comma as decimal separator
+        str = str.replace(',', '.');
+    } else if (hasDot && !hasComma) {
+        // Could be "1.500" (thousands dot) or "1250.50" (decimal dot)
+        const parts = str.split('.');
+        if (parts.length > 2) {
+            // Multiple dots e.g. "1.500.000" -> thousands separators
+            str = parts.join('');
+        } else if (parts.length === 2) {
+            const integerPart = parts[0];
+            const decimalPart = parts[1];
+            // If decimalPart has exactly 3 digits (e.g. "1.500" or "25.000") and integerPart length is 1..3
+            if (decimalPart.length === 3 && integerPart.length >= 1 && integerPart.length <= 3) {
+                str = integerPart + decimalPart;
+            }
+        }
+    }
+
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? 0 : parsed;
+}
+window.parseFormattedNumber = parseFormattedNumber;
+
+function handleAmountPaste(event) {
+    const clipboardData = event.clipboardData || window.clipboardData;
+    if (!clipboardData) return;
+    const pastedData = clipboardData.getData('Text');
+    if (!pastedData) return;
+
+    if (/[.,$\sUSDARS]/i.test(pastedData)) {
+        event.preventDefault();
+        const parsedVal = parseFormattedNumber(pastedData);
+        const inputEl = event.target;
+        inputEl.value = parsedVal > 0 ? formatPriceES(parsedVal) : (parsedVal === 0 ? '0,00' : '');
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+}
+window.handleAmountPaste = handleAmountPaste;
+
+document.addEventListener('paste', (event) => {
+    if (event.target && event.target.classList && event.target.classList.contains('quick-row-monto')) {
+        handleAmountPaste(event);
+    }
+});
 
 // Ensure window.savedQuickQuoteState exists
 if (typeof window.savedQuickQuoteState === 'undefined') {
@@ -72,7 +183,8 @@ function saveQuickQuoteFormState() {
     document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
         const label = tr.querySelector('.quick-row-label')?.value || '';
-        const monto = tr.querySelector('.quick-row-monto')?.value || '';
+        const montoRaw = tr.querySelector('.quick-row-monto')?.value || '';
+        const monto = parseFormattedNumber(montoRaw);
         rows.push({ tipo, label, monto });
     });
 
@@ -180,6 +292,10 @@ const conceptTypes = {
         label: 'Gastos Administrativos (5%)',
         icon: `<svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>`
     },
+    'redondeo': {
+        label: 'Redondeo',
+        icon: `<svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>`
+    },
     'iva': {
         label: 'Gastos + IVA',
         icon: `<svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l2 2 4-4m5-6a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`
@@ -192,7 +308,8 @@ const typeOrder = {
     'hotel': 3,
     'traslado': 4,
     'admin': 5,
-    'iva': 6
+    'redondeo': 6,
+    'iva': 7
 };
 
 function updateResetButtonVisibility() {
@@ -460,6 +577,7 @@ function loadDefaultQuickQuoteRows() {
     addQuickBudgetRow({ tipo: 'hotel', isDefault: true, label: 'Hotel' });
     addQuickBudgetRow({ tipo: 'traslado', isDefault: true });
     addQuickBudgetRow({ tipo: 'admin', isDefault: true });
+    addQuickBudgetRow({ tipo: 'redondeo', isDefault: true });
 
     isQuickFeeLocked = true;
     updateSaveButtonState();
@@ -475,12 +593,18 @@ function addQuickBudgetRow(data = null) {
 
     const selectedTipo = data ? data.tipo : 'hotel';
     const labelVal = data && data.label ? data.label : conceptTypes[selectedTipo].label;
-    const montoVal = (data && data.monto !== undefined) ? data.monto : '';
+    const rawMonto = (data && data.monto !== undefined) ? data.monto : '';
+    const montoVal = rawMonto !== '' ? formatPriceES(parseFormattedNumber(rawMonto)) : '';
     const isDefault = data && data.isDefault;
-    const isUndeletable = (selectedTipo === 'fee-aereo' || selectedTipo === 'admin');
+    const isUndeletable = (selectedTipo === 'fee-aereo' || selectedTipo === 'admin' || selectedTipo === 'redondeo');
     const isLabelReadOnly = isUndeletable ? 'readonly' : '';
     const labelTitle = isUndeletable ? '' : 'title="Haz clic para renombrar este concepto"';
     const cursorClass = isUndeletable ? 'cursor-default pointer-events-none' : 'cursor-text';
+
+    if (selectedTipo === 'redondeo') {
+        const isHidden = !isQuickRedondeoActive;
+        tr.className = `hover:bg-emerald-50/40 transition-all duration-300 ease-in-out quick-row border-b border-slate-100 bg-emerald-50/30 ${isHidden ? 'hidden opacity-0 -translate-y-2' : 'opacity-100 translate-y-0'}`;
+    }
 
     let helpIconHtml = '';
     if (selectedTipo === 'fee-aereo') {
@@ -503,6 +627,18 @@ function addQuickBudgetRow(data = null) {
                 </svg>
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
                     Se calcula automáticamente como el 5% sobre el total terrestre.
+                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                </div>
+            </div>
+        `;
+    } else if (selectedTipo === 'redondeo') {
+        helpIconHtml = `
+            <div class="relative group inline-block flex-shrink-0 ml-1">
+                <svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-600 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
+                    Diferencia del redondeo al múltiplo de 10 superior por persona.
                     <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
                 </div>
             </div>
@@ -539,7 +675,7 @@ function addQuickBudgetRow(data = null) {
                 </span>
                 <div class="relative flex items-center justify-end w-full">
                     <span class="absolute left-2.5 text-[10px] font-extrabold text-slate-400 pointer-events-none quick-currency-label">${currency}</span>
-                    <input type="number" step="0.01" min="0" class="quick-row-monto border border-slate-200 rounded-xl pl-9 pr-2.5 py-1.5 text-right w-full text-sm font-semibold focus:outline-none focus:border-brand-primary" placeholder="0.00" value="${montoVal}">
+                    <input type="text" inputmode="decimal" class="quick-row-monto border border-slate-200 rounded-xl pl-9 pr-2.5 py-1.5 text-right w-full text-sm font-semibold focus:outline-none focus:border-brand-primary" placeholder="0,00" value="${montoVal}" autocomplete="off">
                 </div>
             </div>
         </td>
@@ -559,9 +695,21 @@ function addQuickBudgetRow(data = null) {
     // Bind dynamic row elements events
     const montoInput = tr.querySelector('.quick-row-monto');
     if (montoInput) {
+        montoInput.addEventListener('paste', handleAmountPaste);
         montoInput.addEventListener('input', () => {
             calculateQuickQuote();
             saveQuickQuoteFormState();
+        });
+        montoInput.addEventListener('blur', () => {
+            const val = montoInput.value.trim();
+            if (val !== '') {
+                const parsed = parseFormattedNumber(val);
+                montoInput.value = formatPriceES(parsed);
+            }
+            calculateQuickQuote();
+        });
+        montoInput.addEventListener('focus', () => {
+            montoInput.select();
         });
     }
 
@@ -684,7 +832,7 @@ function getQuickVuelosSum() {
     document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
         if (tipo === 'vuelo') {
-            sum += parseFloat(tr.querySelector('.quick-row-monto')?.value) || 0;
+            sum += parseFormattedNumber(tr.querySelector('.quick-row-monto')?.value);
         }
     });
     return sum;
@@ -695,7 +843,7 @@ function getQuickHotelsAndTrasladosSum() {
     document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
         if (tipo === 'hotel' || tipo === 'traslado') {
-            sum += parseFloat(tr.querySelector('.quick-row-monto')?.value) || 0;
+            sum += parseFormattedNumber(tr.querySelector('.quick-row-monto')?.value);
         }
     });
     return sum;
@@ -720,9 +868,10 @@ function calculateQuickQuote() {
         const montoInput = tr.querySelector('.quick-row-monto');
 
         if (tipo === 'fee-aereo' && isQuickFeeLocked && montoInput) {
-            montoInput.value = (flightsSum * 0.10).toFixed(2);
+            const feeVal = flightsSum * 0.10;
+            montoInput.value = feeVal > 0 ? formatPriceES(feeVal) : '0,00';
         } else if (tipo === 'admin' && montoInput) {
-            montoInput.value = adminVal.toFixed(2);
+            montoInput.value = adminVal > 0 ? formatPriceES(adminVal) : '0,00';
         }
     });
 
@@ -732,7 +881,7 @@ function calculateQuickQuote() {
 
     document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
-        const monto = parseFloat(tr.querySelector('.quick-row-monto')?.value) || 0;
+        const monto = parseFormattedNumber(tr.querySelector('.quick-row-monto')?.value);
 
         if (tipo === 'vuelo') {
             totalAereo += monto;
@@ -743,25 +892,46 @@ function calculateQuickQuote() {
         } else if (tipo === 'admin') {
             totalAdminFee += monto;
         }
+    });
 
+    const totalFinal = totalAereo + totalTerrestreNeto + totalAdminFee;
+    const perPersonRaw = paxCount > 0 ? (totalFinal / paxCount) : totalFinal;
+
+    // Rounding calculations (Always round up to nearest 10 per person)
+    const roundedPerPerson = perPersonRaw > 0 ? (Math.ceil(perPersonRaw / 10) * 10) : 0;
+    const roundedTotal = roundedPerPerson * paxCount;
+    const redondeoDiffTotal = isQuickRedondeoActive ? Math.max(0, roundedTotal - totalFinal) : 0;
+    const redondeoDiffPax = isQuickRedondeoActive ? Math.max(0, roundedPerPerson - perPersonRaw) : 0;
+
+    // Update body redondeo row input & pax cell
+    const bodyRedondeoRow = document.querySelector('#quick-budget-body tr.quick-row .quick-row-tipo[value="redondeo"]')?.closest('tr');
+    if (bodyRedondeoRow) {
+        const rMontoInput = bodyRedondeoRow.querySelector('.quick-row-monto');
+        if (rMontoInput) {
+            rMontoInput.value = redondeoDiffTotal > 0 ? formatPriceES(redondeoDiffTotal) : '0,00';
+        }
+        const rPaxCell = bodyRedondeoRow.querySelector('.quick-row-pax');
+        if (rPaxCell) {
+            rPaxCell.innerText = `${currency} ${window.formatPriceES(redondeoDiffPax)}`;
+        }
+    }
+
+    // Update per-row per-person cells for all other rows
+    document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
+        const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
+        if (tipo === 'redondeo') return; // Handled above
+        const monto = parseFormattedNumber(tr.querySelector('.quick-row-monto')?.value);
         const paxCell = tr.querySelector('.quick-row-pax');
         if (paxCell) {
             paxCell.innerText = `${currency} ${window.formatPriceES(monto / paxCount)}`;
         }
     });
 
-    const totalFinal = totalAereo + totalTerrestreNeto + totalAdminFee;
-    const perPersonRaw = paxCount > 0 ? (totalFinal / paxCount) : totalFinal;
-
     const elTotalFinal = document.getElementById('rapido-total-final');
     if (elTotalFinal) elTotalFinal.innerText = `${currency} ${window.formatPriceES(totalFinal)}`;
 
     const elTotalPax = document.getElementById('rapido-total-pax');
     if (elTotalPax) elTotalPax.innerText = `${currency} ${window.formatPriceES(perPersonRaw)}`;
-
-    // Rounding calculations
-    const roundedPerPerson = perPersonRaw > 0 ? (Math.ceil(perPersonRaw / 10) * 10) : 0;
-    const roundedTotal = roundedPerPerson * paxCount;
 
     const elTotalRedondeado = document.getElementById('rapido-total-redondeado');
     if (elTotalRedondeado) elTotalRedondeado.innerText = `${currency} ${window.formatPriceES(roundedTotal)}`;
@@ -784,7 +954,7 @@ async function saveQuickQuote(andRedirect = false) {
     const rows = Array.from(document.querySelectorAll('#quick-budget-body tr.quick-row'));
     const hasServiceWithCost = rows.some(tr => {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
-        const monto = parseFloat(tr.querySelector('.quick-row-monto')?.value) || 0;
+        const monto = parseFormattedNumber(tr.querySelector('.quick-row-monto')?.value);
         return (tipo === 'vuelo' || tipo === 'hotel' || tipo === 'traslado') && monto > 0;
     });
 
@@ -802,7 +972,7 @@ async function saveQuickQuote(andRedirect = false) {
     document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
         const label = tr.querySelector('.quick-row-label')?.value || '';
-        const monto = parseFloat(tr.querySelector('.quick-row-monto')?.value) || 0;
+        const monto = parseFormattedNumber(tr.querySelector('.quick-row-monto')?.value);
 
         if (tipo === 'vuelo') {
             totalAereo += monto;
@@ -1343,7 +1513,7 @@ export function enableQuickFormEditing(enabled) {
                 montoInput.classList.add('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
                 montoInput.classList.remove('bg-white');
             } else {
-                if (tipo === 'admin') {
+                if (tipo === 'admin' || tipo === 'redondeo') {
                     montoInput.readOnly = true;
                     montoInput.classList.add('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
                     montoInput.classList.remove('bg-white');
