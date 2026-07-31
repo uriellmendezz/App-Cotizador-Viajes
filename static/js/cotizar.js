@@ -20,7 +20,7 @@ function saveDetailedQuoteFormState() {
         const nombre = card.querySelector('.hotel-nombre-val')?.value || '';
         const estrellas = card.querySelector('.hotel-estrellas-val')?.value || '';
         const regimen = card.querySelector('.hotel-regimen-val')?.value || '';
-        const habitacion = card.querySelector('.hotel-habitacion-val')?.value || '';
+        const habitacion = getHabitacionValueFromCard(card);
         const costo = card.querySelector('.hotel-costo-val')?.value || '';
         const descripcion = card.querySelector('.hotel-descripcion-val')?.value || '';
 
@@ -248,21 +248,60 @@ function formatHabitacionValue(value) {
     let trimmed = value.trim();
     if (trimmed === "") return "";
 
-    // Capitalize using the new helper
+    if (trimmed.startsWith("Habitacion ")) {
+        trimmed = "Habitación " + trimmed.substring(11);
+    } else if (trimmed === "Habitacion") {
+        trimmed = "Habitación";
+    }
+
     trimmed = formatCapitalization(trimmed);
 
-    const normalized = trimmed.toLowerCase();
-    if (normalized.includes("habitacion") || normalized.includes("habitación")) {
-        if (trimmed.startsWith("Habitacion ")) {
-            trimmed = "Habitación " + trimmed.substring(11);
-        } else if (trimmed === "Habitacion") {
-            trimmed = "Habitación";
-        }
-        return trimmed;
+    const standardOptions = ["Estándar", "Suite", "Vista Mar", "Superior", "Deluxe"];
+    const matchedStd = standardOptions.find(opt => opt.toLowerCase() === trimmed.toLowerCase());
+    if (matchedStd) {
+        return "Habitación " + matchedStd;
     }
-    return "Habitación " + trimmed;
+
+    return trimmed;
 }
 window.formatHabitacionValue = formatHabitacionValue;
+
+function toggleHabitacionCustom(selectEl) {
+    if (!selectEl) return;
+    const container = selectEl.closest('.flex-col');
+    const customInput = container ? container.querySelector('.hotel-habitacion-custom') : null;
+    if (customInput) {
+        if (selectEl.value === 'Personalizado') {
+            customInput.classList.remove('hidden');
+            customInput.focus();
+        } else {
+            customInput.classList.add('hidden');
+        }
+    }
+    if (typeof updateRealTimeSummary === 'function') {
+        updateRealTimeSummary();
+    }
+}
+window.toggleHabitacionCustom = toggleHabitacionCustom;
+
+function getHabitacionValueFromCard(card) {
+    if (!card) return "";
+    const selectEl = card.querySelector('.hotel-habitacion-select');
+    const customEl = card.querySelector('.hotel-habitacion-custom');
+
+    if (selectEl) {
+        const selVal = selectEl.value;
+        if (selVal === 'Personalizado') {
+            const customVal = customEl ? customEl.value.trim() : '';
+            return customVal ? formatCapitalization(customVal) : '';
+        } else {
+            return "Habitación " + selVal;
+        }
+    }
+    const legacyVal = card.querySelector('.hotel-habitacion-val')?.value || '';
+    return formatHabitacionValue(legacyVal);
+}
+window.getHabitacionValueFromCard = getHabitacionValueFromCard;
 
 function formatHabitacionInput(inputEl) {
     if (!inputEl) return;
@@ -957,10 +996,35 @@ function addHotelCard(data = null) {
         regimenOptionsHtml += `<option value="${regimenVal}" selected>${regimenVal}</option>`;
     }
 
-    let habitacionVal = data ? (data.hotel_habitacion || data.habitacion || '') : '';
-    if (habitacionVal) {
-        habitacionVal = formatHabitacionValue(habitacionVal);
+    let rawHabitacion = data ? (data.hotel_habitacion || data.habitacion || '') : '';
+    const standardHabitaciones = ["Estándar", "Suite", "Vista Mar", "Superior", "Deluxe"];
+    let selectedHabitacionOption = "Estándar";
+    let customHabitacionVal = "";
+
+    if (rawHabitacion) {
+        let cleanHab = rawHabitacion.trim();
+        if (cleanHab.toLowerCase().startsWith("habitación ")) {
+            cleanHab = cleanHab.substring(11).trim();
+        } else if (cleanHab.toLowerCase().startsWith("habitacion ")) {
+            cleanHab = cleanHab.substring(11).trim();
+        }
+
+        const matchedStd = standardHabitaciones.find(opt => opt.toLowerCase() === cleanHab.toLowerCase() || opt.toLowerCase() === rawHabitacion.toLowerCase().trim());
+        if (matchedStd) {
+            selectedHabitacionOption = matchedStd;
+            customHabitacionVal = "";
+        } else {
+            selectedHabitacionOption = "Personalizado";
+            customHabitacionVal = rawHabitacion;
+        }
     }
+
+    let habitacionOptionsHtml = "";
+    standardHabitaciones.forEach(opt => {
+        const isSel = selectedHabitacionOption === opt;
+        habitacionOptionsHtml += `<option value="${opt}" ${isSel ? 'selected' : ''}>Habitación ${opt}</option>`;
+    });
+    habitacionOptionsHtml += `<option value="Personalizado" ${selectedHabitacionOption === 'Personalizado' ? 'selected' : ''}>Personalizado / Otro</option>`;
 
     let costVal = '';
     if (data) {
@@ -1027,12 +1091,17 @@ function addHotelCard(data = null) {
                             <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] leading-normal font-semibold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 z-50 text-center normal-case tracking-normal">
-                            Tipo de habitación cotizada (ej. Estándar, Vista al Mar, Suite).
+                            Selecciona una opción predefinida o elige Personalizado para escribir otro tipo de alojamiento.
                             <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
                         </div>
                     </div>
                 </label>
-                <input type="text" class="hotel-habitacion-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Estándar Vista Mar" value="${habitacionVal}" onblur="formatHabitacionInput(this)">
+                <div class="flex flex-col gap-2">
+                    <select class="hotel-habitacion-select border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" onchange="toggleHabitacionCustom(this)">
+                        ${habitacionOptionsHtml}
+                    </select>
+                    <input type="text" class="hotel-habitacion-custom border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white ${selectedHabitacionOption === 'Personalizado' ? '' : 'hidden'}" placeholder="Ej. Apartamento Doble" value="${customHabitacionVal}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
+                </div>
             </div>
             <div class="flex flex-col gap-1">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Costo</label>
@@ -1804,7 +1873,7 @@ function _buildPayload() {
             nombre: card.querySelector('.hotel-nombre-val').value,
             estrellas: card.querySelector('.hotel-estrellas-val').value,
             regimen: card.querySelector('.hotel-regimen-val').value,
-            habitacion: formatHabitacionValue(card.querySelector('.hotel-habitacion-val').value),
+            habitacion: getHabitacionValueFromCard(card),
             costo: parseFloat(card.querySelector('.hotel-costo-val').value),
             descripcion: card.querySelector('.hotel-descripcion-val').value,
             imagen1: card.querySelector('.hotel-imagen-val-1').value,
