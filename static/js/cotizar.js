@@ -1412,31 +1412,13 @@ function checkIfFormHasData() {
     return false;
 }
 
-// Real-time Cost Calculation and Sidebar Updates
-function updateRealTimeSummary() {
-    const currency = document.getElementById('moneda_seleccionada')?.value || 'USD';
-    const cantPax = parseInt(document.getElementById('cantidad_pasajeros').value) || 1;
-    const flightsCost = parseFloat(document.getElementById('monto_vuelos').value) || 0;
-    const flightsFee = parseFloat(document.getElementById('fee_aereo_monto').value) || 0;
-    const transfersCost = parseFloat(document.getElementById('monto_traslados').value) || 0;
+// Helper to render summary table HTML into any container element
+function renderSummaryTableHTML(config, container) {
+    const { currency, cantPax, flightsCost, flightsFee, transfersCost, aplicarRedondeo, hotelList } = config;
 
-    // Toggle "Limpiar Formulario" button visibility with smooth transitions
-    const clearBtn = document.getElementById('btn-clear-form');
-    if (clearBtn) {
-        if (checkIfFormHasData()) {
-            clearBtn.classList.remove('opacity-0', 'max-h-0', 'pointer-events-none', 'mt-0');
-            clearBtn.classList.add('opacity-100', 'max-h-[100px]', 'pointer-events-auto', 'mt-2');
-        } else {
-            clearBtn.classList.remove('opacity-100', 'max-h-[100px]', 'pointer-events-auto', 'mt-2');
-            clearBtn.classList.add('opacity-0', 'max-h-0', 'pointer-events-none', 'mt-0');
-        }
-    }
-
-    const container = document.getElementById('realtime-breakdown-container');
     if (!container) return;
 
-    const hotelCards = document.querySelectorAll('.hotel-option-card');
-    if (hotelCards.length === 0) {
+    if (!hotelList || hotelList.length === 0) {
         container.innerHTML = `
             <div class="text-center py-8 text-slate-400 text-xs font-semibold">
                 No hay hoteles agregados aún.
@@ -1447,7 +1429,6 @@ function updateRealTimeSummary() {
 
     const aereosTotal = flightsCost + flightsFee;
 
-    // We will build a single comparative table
     let columnsHtml = '';
     let hotelNamesHtml = '';
     let flightsHtml = '';
@@ -1459,35 +1440,19 @@ function updateRealTimeSummary() {
     let totalsHtml = '';
     let perPersonHtml = '';
 
-    const allHotelCards = Array.from(document.querySelectorAll('.hotel-option-card'));
-
-    // Find which hotel is marked as recommended via radio button
-    let recommendedIdx = 0;
-    allHotelCards.forEach((card, idx) => {
-        const radio = card.querySelector('.hotel-recommended-radio');
-        if (radio && radio.checked) recommendedIdx = idx;
-    });
-
-    // Reorder: recommended first
-    const orderedCards = [
-        allHotelCards[recommendedIdx],
-        ...allHotelCards.filter((_, idx) => idx !== recommendedIdx)
-    ];
-
-    orderedCards.forEach((card, idx) => {
-        const hotelName = card.querySelector('.hotel-nombre-val').value.trim() || `Opción ${idx + 1}`;
-        const hotelCost = parseFloat(card.querySelector('.hotel-costo-val').value) || 0;
+    hotelList.forEach((h, idx) => {
+        const hotelName = h.hotelName;
+        const hotelCost = h.hotelCost;
 
         const adminFee = (hotelCost + transfersCost) * 0.05;
         const total = aereosTotal + hotelCost + transfersCost + adminFee;
         const perPerson = total / cantPax;
 
-        const aplicarRedondeo = document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true;
         const roundedPerPerson = aplicarRedondeo ? (Math.ceil(perPerson / 10) * 10) : perPerson;
         const roundedTotal = aplicarRedondeo ? (roundedPerPerson * cantPax) : total;
         const totalRoundingAdded = roundedTotal - total;
 
-        const isRecomendado = idx === 0;  // first in ordered list is always the recommended
+        const isRecomendado = h.isRecomendado !== undefined ? h.isRecomendado : (idx === 0);
         const columnHeader = isRecomendado ? 'Recomendado' : `Opción ${idx + 1}`;
 
         columnsHtml += `
@@ -1607,6 +1572,136 @@ function updateRealTimeSummary() {
             </table>
         </div>
     `;
+}
+
+function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdown-container') {
+    const container = document.getElementById(containerId);
+    if (!container || !quote) return;
+
+    let currency = quote.moneda || 'USD';
+    const hotelesRaw = quote.hoteles || [];
+    const metaItem = hotelesRaw.find(h => h.nombre === "METADATA_COTIZACION" || h.nombre === "METADATA_PRESUPUESTO_RAPIDO");
+    if (metaItem && metaItem.moneda) {
+        currency = metaItem.moneda;
+    }
+
+    const cantPax = parseInt(quote.cantidad_pasajeros || quote.cant_pax) || 1;
+    const flightsCost = parseFloat(quote.monto_vuelos) || 0;
+    const flightsFee = parseFloat(quote.fee_aereo !== undefined ? quote.fee_aereo : (quote.fee_aereo_monto || 0)) || 0;
+    const transfersCost = parseFloat(quote.monto_traslados) || 0;
+
+    let aplicarRedondeo = true;
+    if (typeof quote.redondear !== 'undefined') {
+        aplicarRedondeo = quote.redondear;
+    } else if (hotelesRaw.length > 0 && typeof hotelesRaw[0].redondear !== 'undefined') {
+        aplicarRedondeo = hotelesRaw[0].redondear;
+    }
+
+    const realHotels = hotelesRaw.filter(h => h.nombre !== "METADATA_COTIZACION" && h.nombre !== "METADATA_PRESUPUESTO_RAPIDO");
+
+    if (realHotels.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-slate-400 text-xs font-semibold">
+                No hay hoteles en esta cotización.
+            </div>
+        `;
+        return;
+    }
+
+    let recommendedIdx = realHotels.findIndex(h => h.recomendado || h.hotel_recomendado);
+    if (recommendedIdx === -1) recommendedIdx = 0;
+
+    const orderedHotels = [
+        realHotels[recommendedIdx],
+        ...realHotels.filter((_, idx) => idx !== recommendedIdx)
+    ];
+
+    const hotelList = orderedHotels.map((h, idx) => {
+        const hotelName = h.nombre || h.hotel_nombre || `Opción ${idx + 1}`;
+        const hotelCost = parseFloat(h.costo_neto !== undefined ? h.costo_neto : (h.costo_original !== undefined ? h.costo_original : h.costo)) || 0;
+        return {
+            hotelName,
+            hotelCost,
+            isRecomendado: idx === 0
+        };
+    });
+
+    renderSummaryTableHTML({
+        currency,
+        cantPax,
+        flightsCost,
+        flightsFee,
+        transfersCost,
+        aplicarRedondeo,
+        hotelList
+    }, container);
+}
+window.renderSummaryFromQuoteObject = renderSummaryFromQuoteObject;
+
+// Real-time Cost Calculation and Sidebar Updates
+function updateRealTimeSummary() {
+    const currency = document.getElementById('moneda_seleccionada')?.value || 'USD';
+    const cantPax = parseInt(document.getElementById('cantidad_pasajeros')?.value) || 1;
+    const flightsCost = parseFloat(document.getElementById('monto_vuelos')?.value) || 0;
+    const flightsFee = parseFloat(document.getElementById('fee_aereo_monto')?.value) || 0;
+    const transfersCost = parseFloat(document.getElementById('monto_traslados')?.value) || 0;
+
+    // Toggle "Limpiar Formulario" button visibility with smooth transitions
+    const clearBtn = document.getElementById('btn-clear-form');
+    if (clearBtn) {
+        if (checkIfFormHasData()) {
+            clearBtn.classList.remove('opacity-0', 'max-h-0', 'pointer-events-none', 'mt-0');
+            clearBtn.classList.add('opacity-100', 'max-h-[100px]', 'pointer-events-auto', 'mt-2');
+        } else {
+            clearBtn.classList.remove('opacity-100', 'max-h-[100px]', 'pointer-events-auto', 'mt-2');
+            clearBtn.classList.add('opacity-0', 'max-h-0', 'pointer-events-none', 'mt-0');
+        }
+    }
+
+    const container = document.getElementById('realtime-breakdown-container');
+    if (!container) return;
+
+    const allHotelCards = Array.from(document.querySelectorAll('.hotel-option-card'));
+    if (allHotelCards.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-slate-400 text-xs font-semibold">
+                No hay hoteles agregados aún.
+            </div>
+        `;
+        return;
+    }
+
+    // Find which hotel is marked as recommended via radio button
+    let recommendedIdx = 0;
+    allHotelCards.forEach((card, idx) => {
+        const radio = card.querySelector('.hotel-recommended-radio');
+        if (radio && radio.checked) recommendedIdx = idx;
+    });
+
+    // Reorder: recommended first
+    const orderedCards = [
+        allHotelCards[recommendedIdx],
+        ...allHotelCards.filter((_, idx) => idx !== recommendedIdx)
+    ];
+
+    const hotelList = orderedCards.map((card, idx) => ({
+        hotelName: card.querySelector('.hotel-nombre-val')?.value.trim() || `Opción ${idx + 1}`,
+        hotelCost: parseFloat(card.querySelector('.hotel-costo-val')?.value) || 0,
+        isRecomendado: idx === 0
+    }));
+
+    const aplicarRedondeo = document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true;
+
+    renderSummaryTableHTML({
+        currency,
+        cantPax,
+        flightsCost,
+        flightsFee,
+        transfersCost,
+        aplicarRedondeo,
+        hotelList
+    }, container);
+
     saveDetailedQuoteFormState();
 }
 window.updateRealTimeSummary = updateRealTimeSummary;
@@ -3867,6 +3962,9 @@ export async function initVerCotizacion() {
 
         document.getElementById('ver-created-at').textContent = formatDate(quote.created_at);
         document.getElementById('ver-updated-at').textContent = formatDate(quote.updated_at || quote.created_at);
+
+        // Render summary table for full quote preview
+        renderSummaryFromQuoteObject(quote, 'ver-realtime-breakdown-container');
 
         // Control the visibility of Edit and Delete buttons based on current user ownership / admin role
         const currentUser = (window.loggedInUser || '').toLowerCase();
