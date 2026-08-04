@@ -3934,34 +3934,68 @@ export async function initVerCotizacion() {
             iframe.src = pdfUrl + '#navpanes=0&zoom=75';
         }
 
-        // Populate right column details
-        document.getElementById('ver-pax-name').textContent = quote.nombre_pax || 'Sin Nombre';
-        document.getElementById('ver-destino').textContent = quote.destino || 'Sin Destino';
+        // Populate passenger header block
+        const paxNameEl = document.getElementById('ver-pax-name');
+        if (paxNameEl) {
+            paxNameEl.textContent = quote.nombre_pax || 'Sin Nombre';
+        }
 
-        const formatAgent = (name) => {
-            if (!name) return '-';
-            return name.charAt(0).toUpperCase() + name.slice(1);
-        };
-        document.getElementById('ver-agente').textContent = formatAgent(quote.agente_nombre);
+        // Populate Creator Tag badge (using getAgentBadge helper, identical to Cotizaciones Guardadas, scaled for header)
+        const agentBadgeContainerEl = document.getElementById('ver-agente-badge-container');
+        if (agentBadgeContainerEl) {
+            let badgeHtml = getAgentBadge(quote.agente_nombre || quote.agente_id);
+            badgeHtml = badgeHtml.replace('text-[10px]', 'text-sm sm:text-base lg:text-lg font-bold px-3 py-1');
+            agentBadgeContainerEl.innerHTML = badgeHtml;
+        } else {
+            const agentTagEl = document.getElementById('ver-agente-tag');
+            if (agentTagEl) {
+                const rawAgent = (quote.agente_nombre || 'agente').trim();
+                const tagHandle = rawAgent.startsWith('@') ? rawAgent : `@${rawAgent.toLowerCase().replace(/\s+/g, '')}`;
+                agentTagEl.textContent = tagHandle;
+            }
+        }
 
-        const formatDate = (dateStr) => {
+        const formatCreationDate = (dateStr) => {
             if (!dateStr) return '-';
             try {
-                const date = new Date(dateStr);
-                return date.toLocaleString('es-AR', {
-                    day: '2-digit',
-                    month: '2-digit',
+                const dateObj = new Date(dateStr.includes(' ') && !dateStr.includes('T') ? dateStr.replace(' ', 'T') : dateStr);
+                if (isNaN(dateObj.getTime())) return dateStr;
+
+                const formatter = new Intl.DateTimeFormat('es-AR', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
                     year: 'numeric',
                     hour: '2-digit',
-                    minute: '2-digit'
+                    minute: '2-digit',
+                    hour12: false
                 });
+
+                const parts = formatter.formatToParts(dateObj);
+                let weekday = '', day = '', month = '', year = '', hour = '', minute = '';
+                for (const part of parts) {
+                    if (part.type === 'weekday') weekday = part.value;
+                    if (part.type === 'day') day = part.value;
+                    if (part.type === 'month') month = part.value;
+                    if (part.type === 'year') year = part.value;
+                    if (part.type === 'hour') hour = part.value;
+                    if (part.type === 'minute') minute = part.value;
+                }
+
+                if (weekday) {
+                    weekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+                }
+
+                return `${weekday}, ${day} de ${month} de ${year}, ${hour}:${minute}`;
             } catch (e) {
                 return dateStr;
             }
         };
 
-        document.getElementById('ver-created-at').textContent = formatDate(quote.created_at);
-        document.getElementById('ver-updated-at').textContent = formatDate(quote.updated_at || quote.created_at);
+        const createdAtEl = document.getElementById('ver-created-at');
+        if (createdAtEl) {
+            createdAtEl.textContent = formatCreationDate(quote.created_at);
+        }
 
         // Render summary table for full quote preview
         renderSummaryFromQuoteObject(quote, 'ver-realtime-breakdown-container');
