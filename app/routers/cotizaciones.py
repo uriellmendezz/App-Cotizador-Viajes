@@ -547,7 +547,7 @@ def api_cotizar(quote: dict, current_user: dict = Depends(get_current_active_age
     baggage_parts = []
     for item in equipaje:
         if item == 'mano':
-            baggage_parts.append("equipaje de mano")
+            baggage_parts.append("mochila")
         elif item == 'carry':
             baggage_parts.append("carry-on (10kg)")
         elif item == 'valija':
@@ -687,7 +687,7 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
     baggage_parts = []
     for item in equipaje:
         if item == 'mano':
-            baggage_parts.append("equipaje de mano")
+            baggage_parts.append("mochila")
         elif item == 'carry':
             baggage_parts.append("carry-on (10kg)")
         elif item == 'valija':

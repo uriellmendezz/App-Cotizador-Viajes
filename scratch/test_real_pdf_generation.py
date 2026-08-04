@@ -22,7 +22,7 @@ def main():
         "fecha_vuelo_vuelta": "22/12/2026",
         "noches_alojamiento": "7 noches",
         "base_habitacion": "Doble",
-        "detalle_vuelo_completo": "Vuelos desde Córdoba a Cancún. Incluye equipaje de mano y valija (23kg).",
+        "detalle_vuelo_completo": "Vuelos desde Córdoba a Cancún. Incluye mochila y valija (23kg).",
         "hoteles": [
             {
                 "nombre": "Grand Oasis Cancun",
