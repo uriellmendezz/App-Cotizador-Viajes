@@ -19,9 +19,16 @@ jobs:
       - name: Instalar cliente de PostgreSQL 17 (pg_dump y psql)
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget lsb-release gnupg
-          echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb-release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo apt-get install -y wget gnupg lsb-release
+
+          # Importar la clave GPG del repositorio oficial de PostgreSQL
+          sudo mkdir -p /etc/apt/keyrings
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg
+
+          # Agregar el repositorio de PostgreSQL especificando 'noble'
+          echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+
+          # Actualizar repositorios e instalar postgresql-client-17
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
 
