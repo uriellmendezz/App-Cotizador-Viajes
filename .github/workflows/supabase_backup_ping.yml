@@ -16,10 +16,14 @@ jobs:
         run: |
           echo "BACKUP_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-      - name: Instalar cliente de PostgreSQL (pg_dump y psql)
+      - name: Instalar cliente de PostgreSQL 17 (pg_dump y psql)
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y wget lsb-release gnupg
+          echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb-release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
 
       - name: 1. Auto-Ping (Prevenir pausa por inactividad)
         env:
