@@ -25,17 +25,31 @@ jobs:
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          # Sanitizar DB_URL removiendo retornos de carro (\r) y saltos de línea (\n)
+          CLEAN_DB_URL=$(echo "${DB_URL}" | tr -d '\r\n' | xargs)
+          if [ -z "$CLEAN_DB_URL" ]; then
+            echo "❌ Error: La variable de entorno SUPABASE_DB_URL no está configurada en los Secrets de GitHub."
+            exit 1
+          fi
           echo "🔌 Conectando a Supabase para auto-ping..."
-          psql "$DB_URL" -c "SELECT 1 AS keep_alive;"
+          if ! psql "$CLEAN_DB_URL" -c "SELECT 1 AS keep_alive;"; then
+            echo "❌ Error: No se pudo conectar a la base de datos. Verifica el secret SUPABASE_DB_URL en Settings → Secrets."
+            exit 1
+          fi
           echo "✅ Ping ejecutado correctamente."
 
       - name: 2. Copia de seguridad (pg_dump)
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          # Sanitizar DB_URL removiendo retornos de carro (\r) y saltos de línea (\n)
+          CLEAN_DB_URL=$(echo "${DB_URL}" | tr -d '\r\n' | xargs)
           FILENAME="backup-supabase-${{ env.BACKUP_DATE }}.sql.gz"
           echo "📦 Generando backup de la base de datos..."
-          pg_dump "$DB_URL" --clean --if-exists | gzip > "$FILENAME"
+          if ! pg_dump "$CLEAN_DB_URL" --clean --if-exists | gzip > "$FILENAME"; then
+            echo "❌ pg_dump falló. Revisa la cadena de conexión SUPABASE_DB_URL y los permisos."
+            exit 1
+          fi
           echo "✅ Backup generado con éxito: $FILENAME"
           ls -lh "$FILENAME"
 
