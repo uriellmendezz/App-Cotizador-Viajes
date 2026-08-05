@@ -36,32 +36,42 @@ jobs:
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          set -e
           # Sanitizar DB_URL removiendo retornos de carro (\r) y saltos de línea (\n)
           CLEAN_DB_URL=$(echo "${DB_URL}" | tr -d '\r\n' | xargs)
           if [ -z "$CLEAN_DB_URL" ]; then
             echo "❌ Error: La variable de entorno SUPABASE_DB_URL no está configurada en los Secrets de GitHub."
             exit 1
           fi
-          echo "🔌 Conectando a Supabase para auto-ping..."
-          if ! psql "$CLEAN_DB_URL" -c "SELECT 1 AS keep_alive;"; then
+          echo "🔌 Conectando a Supabase para auto-ping con PostgreSQL 17..."
+          if ! /usr/lib/postgresql/17/bin/psql "$CLEAN_DB_URL" -c "SELECT 1 AS keep_alive;"; then
             echo "❌ Error: No se pudo conectar a la base de datos. Verifica el secret SUPABASE_DB_URL en Settings → Secrets."
             exit 1
           fi
           echo "✅ Ping ejecutado correctamente."
 
-      - name: 2. Copia de seguridad (pg_dump)
+      - name: 2. Copia de seguridad (pg_dump 17)
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          set -e
+          set -o pipefail
           # Sanitizar DB_URL removiendo retornos de carro (\r) y saltos de línea (\n)
           CLEAN_DB_URL=$(echo "${DB_URL}" | tr -d '\r\n' | xargs)
           FILENAME="backup-supabase-${{ env.BACKUP_DATE }}.sql.gz"
-          echo "📦 Generando backup de la base de datos..."
-          if ! pg_dump "$CLEAN_DB_URL" --clean --if-exists | gzip > "$FILENAME"; then
-            echo "❌ pg_dump falló. Revisa la cadena de conexión SUPABASE_DB_URL y los permisos."
+          echo "📦 Generando backup de la base de datos con pg_dump v17..."
+          
+          /usr/lib/postgresql/17/bin/pg_dump "$CLEAN_DB_URL" --clean --if-exists | gzip > "$FILENAME"
+          
+          # Validar que el archivo de backup se haya generado y no esté vacío/corrupto (< 100 bytes)
+          SIZE=$(stat -c%s "$FILENAME" 2>/dev/null || echo 0)
+          if [ "$SIZE" -lt 100 ]; then
+            echo "❌ Error: pg_dump generó un archivo corrupto o vacío ($SIZE bytes)."
+            rm -f "$FILENAME"
             exit 1
           fi
-          echo "✅ Backup generado con éxito: $FILENAME"
+
+          echo "✅ Backup generado con éxito: $FILENAME ($SIZE bytes)"
           ls -lh "$FILENAME"
 
       - name: 3. Guardar Backup como Artifact en GitHub
