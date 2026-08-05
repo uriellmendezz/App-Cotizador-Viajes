@@ -92,14 +92,6 @@
             margin-bottom: 20px;
         }
 
-        .header-bar {
-            height: 3px;
-            background-color: #ff545d;
-            border-radius: 2px;
-            margin-top: 4px;
-            margin-bottom: 12px;
-        }
-
         .header-banner {
             width: 100%;
         }
@@ -114,7 +106,7 @@
             font-size: 6pt;
             color: #94a3b8;
             font-weight: 500;
-            margin: 0;
+            margin: 0 0 6px 0;
             text-align: left;
             line-height: 1;
         }
@@ -532,12 +524,7 @@
             margin: 0;
         }
 
-        .footer-bar {
-            height: 3px;
-            background-color: #ff545d;
-            border-radius: 2px;
-            margin-top: 8px;
-        }
+
 
         /* ══════════════════════════════════════════════════════════════════
            SINGLE HOTEL LAYOUT DENSITY OVERRIDES
@@ -551,7 +538,7 @@
         }
 
         body.single-hotel-layout .title-section {
-            margin: 25px 0 35px 0;
+            margin: 20px 0 30px 0;
         }
 
         body.single-hotel-layout .destination-title {
@@ -559,20 +546,20 @@
         }
 
         body.single-hotel-layout .section-heading {
-            margin-top: 24px;
-            margin-bottom: 10px;
+            margin-top: 32px;
+            margin-bottom: 12px;
         }
 
-        body.single-hotel-layout>.section-heading {
-            margin-top: 14px;
+        body.single-hotel-layout > .section-heading {
+            margin-top: 20px;
         }
 
         body.single-hotel-layout .services-list {
-            margin-bottom: 6px;
+            margin-bottom: 16px;
         }
 
         body.single-hotel-layout .flights-section {
-            margin-bottom: 14px;
+            margin-bottom: 24px;
         }
 
         body.single-hotel-layout .flights-row.flights-stacked .flight-img-container img {
@@ -582,8 +569,7 @@
         }
 
         body.single-hotel-layout .hotels-section {
-            margin-top: 45px !important;
-            /* Desplaza holgadamente la sección de alojamiento hacia abajo */
+            margin-top: 35px !important;
         }
 
         body.single-hotel-layout .hotel-card {
@@ -605,28 +591,28 @@
 
         body.two-hotels-layout .title-section,
         body.three-hotels-layout .title-section {
-            margin: 15px 0 20px 0;
+            margin: 12px 0 16px 0;
         }
 
         body.two-hotels-layout .section-heading,
         body.three-hotels-layout .section-heading {
-            margin-top: 20px;
-            margin-bottom: 8px;
+            margin-top: 28px;
+            margin-bottom: 10px;
         }
 
-        body.two-hotels-layout>.section-heading,
-        body.three-hotels-layout>.section-heading {
-            margin-top: 12px;
+        body.two-hotels-layout > .section-heading,
+        body.three-hotels-layout > .section-heading {
+            margin-top: 16px;
         }
 
         body.two-hotels-layout .services-list,
         body.three-hotels-layout .services-list {
-            margin-bottom: 8px;
+            margin-bottom: 14px;
         }
 
         body.two-hotels-layout .flights-section,
         body.three-hotels-layout .flights-section {
-            margin-bottom: 12px;
+            margin-bottom: 20px;
         }
 
         body.two-hotels-layout .hotel-card,
@@ -642,7 +628,6 @@
     <!-- ═══════════════ 1. CABECERA ═══════════════ -->
     <div class="header">
         <div class="header-date">{{ fecha_generacion }}</div>
-        <div class="header-bar"></div>
         <div class="header-banner">
             {% if banner_path %}
             <img src="{{ banner_path }}" alt="One Trip">
@@ -654,7 +639,7 @@
     <div class="title-section">
         <h1 class="destination-title">{{ destino }}</h1>
         <div class="proposal-subtitle">
-            Propuesta para {{ nombre_pax }} con salida el {{ fecha_salida }}
+            Propuesta para {{ nombre_pax }} con salida el {{ format_long_date(fecha_salida) if format_long_date is defined else fecha_salida }}
         </div>
     </div>
 
@@ -683,7 +668,11 @@
                 {{ svg_traslados }}
             </td>
             <td class="svc-text">
+                {% if tipo_traslado == 'auto' %}
+                Alquiler de vehículo particular.
+                {% else %}
                 Traslados IN-OUT (Aeropuerto → Hotel → Aeropuerto).
+                {% endif %}
             </td>
         </tr>
         {% endif %}
@@ -817,7 +806,6 @@
             RESPONSABLE POR LAS POLÍTICAS DE REPROGRAMACIONES O CANCELACIONES DE CADA LÍNEA AÉREA U OTROS PROVEEDORES DE
             SERVICIOS TURÍSTICOS ANTE CASOS EVENTUALES.
         </p>
-        <div class="footer-bar"></div>
     </div>
 
 </body>

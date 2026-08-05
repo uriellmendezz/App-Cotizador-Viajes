@@ -71,6 +71,57 @@ def format_price(val: float) -> str:
     return f"{formatted_integer},{decimal_part}"
 
 
+def format_long_date(date_val) -> str:
+    """
+    Formats a date string (e.g. '04/08/2026', '2026-08-04', '4/8/2026')
+    into Spanish long date format: '4 de agosto del 2026'.
+    """
+    if not date_val:
+        return ""
+
+    date_str = str(date_val).strip()
+    if not date_str:
+        return ""
+
+    if "T" in date_str:
+        date_str = date_str.split("T")[0].strip()
+
+    months = [
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    ]
+
+    dt = None
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%y", "%d-%m-%y"):
+        try:
+            dt = datetime.strptime(date_str, fmt)
+            break
+        except ValueError:
+            pass
+
+    if not dt:
+        parts = date_str.replace("-", "/").split("/")
+        if len(parts) == 3:
+            try:
+                if len(parts[0]) == 4:
+                    year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+                else:
+                    day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+
+                if year < 100:
+                    year += 2000
+                if 1 <= month <= 12 and 1 <= day <= 31:
+                    dt = datetime(year, month, day)
+            except ValueError:
+                pass
+
+    if dt:
+        month_name = months[dt.month - 1]
+        return f"{dt.day} de {month_name} del {dt.year}"
+
+    return date_str
+
+
 def _path_to_file_uri(path: Path) -> str:
     """Convert a local filesystem path to a file:// URI for WeasyPrint."""
     abs_path = path.resolve()
@@ -299,6 +350,27 @@ def generate_pdf(data: dict) -> bytes:
     else:
         destino_font_size = "40pt"
 
+    # ── Calculate trip duration in days for vehicle rental ─────────────────
+    cantidad_dias_viaje = 7
+    ida_str = data.get("fecha_vuelo_ida")
+    vuelta_str = data.get("fecha_vuelo_vuelta")
+    if ida_str and vuelta_str:
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%y"):
+            try:
+                dt_ida = datetime.strptime(str(ida_str).strip(), fmt)
+                dt_vuelta = datetime.strptime(str(vuelta_str).strip(), fmt)
+                dias = abs((dt_vuelta - dt_ida).days)
+                if dias > 0:
+                    cantidad_dias_viaje = dias
+                    break
+            except ValueError:
+                pass
+    if cantidad_dias_viaje == 7 and data.get("noches_alojamiento"):
+        import re
+        match = re.search(r'\d+', str(data.get("noches_alojamiento")))
+        if match:
+            cantidad_dias_viaje = int(match.group())
+
     # ── Build template context ─────────────────────────────────────────────
     fecha_generacion = datetime.now().strftime("%d/%m/%Y")
 
@@ -314,12 +386,15 @@ def generate_pdf(data: dict) -> bytes:
         "destino": destino,
         "destino_font_size": destino_font_size,
         "nombre_pax": data.get("nombre_pax", "Pasajero"),
-        "fecha_salida": data.get("fecha_salida", ""),
+        "fecha_salida": format_long_date(data.get("fecha_salida", "")),
+        "format_long_date": format_long_date,
         "validez_cotizacion": data.get("validez_cotizacion", ""),
         # Services summary
         "origen": data.get("origen", "Córdoba"),
         "cantidad_pasajeros": data.get("cantidad_pasajeros", 1),
         "noches_alojamiento": data.get("noches_alojamiento", "7 noches"),
+        "tipo_traslado": data.get("tipo_traslado", "tradicional"),
+        "cantidad_dias_viaje": cantidad_dias_viaje,
         # SVGs for dynamic inlining and styling
         "svg_vuelos": svg_vuelos,
         "svg_dormitorios": svg_dormitorios,

@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from app.pdf_generator import format_long_date
+
 # ── Dynamic Path Resolution ──────────────────────────────────────────────────
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CREDENTIALS_FILE = os.path.join(BASE_DIR, "config", "service_account.json")
@@ -517,8 +519,9 @@ def create_presentation_from_template(template_id: str, folder_id: str, quote_da
     replacements["<<TITULO_VIAJE>>"] = destination.upper()
     replacements["<<TITULO VIAJE>>"] = destination.upper()
     
-    replacements["<<PROPUESTA>>"] = f"Propuesta para {passenger_name} con salida el {quote_data.get('fecha_salida')}."
-    replacements["<<PROPUESTA PARA>>"] = f"Propuesta para {passenger_name} con salida el {quote_data.get('fecha_salida')}."
+    fecha_salida_fmt = format_long_date(quote_data.get('fecha_salida', ''))
+    replacements["<<PROPUESTA>>"] = f"Propuesta para {passenger_name} con salida el {fecha_salida_fmt}."
+    replacements["<<PROPUESTA PARA>>"] = f"Propuesta para {passenger_name} con salida el {fecha_salida_fmt}."
     replacements["<<DETALLE_AEREO>>"] = f"{quote_data.get('noches_alojamiento', '7 noches')} en {destination} para {cant_pax} pasajeros"
     replacements["<<DETALLE AEREO>>"] = f"{quote_data.get('noches_alojamiento', '7 noches')} en {destination} para {cant_pax} pasajeros"
     replacements["<<DETALLE_HOTEL>>"] = f"Estadía en {destination} por {quote_data.get('noches_alojamiento', '7 noches')}."
@@ -800,7 +803,8 @@ def create_presentation_from_template(template_id: str, folder_id: str, quote_da
                 else:
                     dest_font_size = 40
                 set_shape_text(requests, "g3f1aacc1efc_0_339", destination.upper(), font_size=dest_font_size, bold=True, alignment="CENTER", weight=900)
-                set_shape_text(requests, "g3f1aacc1efc_0_340", f"Propuesta para {passenger_name} con salida el {quote_data.get('fecha_salida')}.", font_size=11, bold=True, alignment="CENTER")
+                fecha_salida_fmt = format_long_date(quote_data.get('fecha_salida', ''))
+                set_shape_text(requests, "g3f1aacc1efc_0_340", f"Propuesta para {passenger_name} con salida el {fecha_salida_fmt}.", font_size=11, bold=True, alignment="CENTER")
                 set_shape_text(requests, "g3f1aacc1efc_0_334", quote_data.get("fecha_vuelo_ida", ""), font_size=7, bold=True)
                 set_shape_text(requests, "g3f1aacc1efc_0_336", quote_data.get("fecha_vuelo_vuelta", ""), font_size=7, bold=True)
                 set_shape_text(requests, "g3f1aacc1efc_0_370", today_str, font_size=7)
