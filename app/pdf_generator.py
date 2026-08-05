@@ -386,7 +386,7 @@ def generate_pdf(data: dict) -> bytes:
         "destino": destino,
         "destino_font_size": destino_font_size,
         "nombre_pax": data.get("nombre_pax", "Pasajero"),
-        "fecha_salida": format_long_date(data.get("fecha_salida", "")),
+        "fecha_salida": data.get("fecha_salida", ""),
         "format_long_date": format_long_date,
         "validez_cotizacion": data.get("validez_cotizacion", ""),
         # Services summary

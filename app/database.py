@@ -135,7 +135,7 @@ def get_cotizaciones(sucursal_id: str = None) -> list:
         return []
     try:
         query = client.table("cotizaciones").select(
-            "id, nombre_pax, destino, cantidad_pasajeros, fecha_salida, origen, agente_nombre, costo_total, precio_persona, created_at, base_habitacion, sucursal_id"
+            "id, nombre_pax, destino, cantidad_pasajeros, fecha_salida, origen, agente_nombre, costo_total, precio_persona, created_at, base_habitacion, sucursal_id, tipo_traslado"
         )
         if sucursal_id:
             query = query.eq("sucursal_id", sucursal_id)

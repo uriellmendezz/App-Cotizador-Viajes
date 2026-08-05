@@ -89,7 +89,8 @@
            ══════════════════════════════════════════════════════════════════ */
         .header {
             width: 100%;
-            margin-bottom: 20px;
+            margin-top: -18px;
+            margin-bottom: 24px;
         }
 
         .header-banner {
@@ -116,7 +117,7 @@
            ══════════════════════════════════════════════════════════════════ */
         .title-section {
             text-align: center;
-            margin: 20px 0 40px 0;
+            margin: 25px 0 45px 0;
         }
 
         .destination-title {
@@ -129,12 +130,14 @@
             margin: 0;
         }
 
-        .proposal-subtitle {
+        .proposal-inline-subtitle {
             font-size: 9.5pt;
             font-weight: 500;
             color: #64748b;
-            margin-top: 6px;
+            text-transform: none;
             letter-spacing: 0.02em;
+            margin-left: 4px;
+            display: inline;
         }
 
         /* ══════════════════════════════════════════════════════════════════
@@ -534,15 +537,11 @@
         }
 
         body.single-hotel-layout .header {
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
 
         body.single-hotel-layout .title-section {
-            margin: 20px 0 30px 0;
-        }
-
-        body.single-hotel-layout .destination-title {
-            font-size: 35pt;
+            margin: 24px 0 38px 0;
         }
 
         body.single-hotel-layout .section-heading {
@@ -550,8 +549,8 @@
             margin-bottom: 12px;
         }
 
-        body.single-hotel-layout > .section-heading {
-            margin-top: 20px;
+        body.single-hotel-layout>.section-heading {
+            margin-top: 30px;
         }
 
         body.single-hotel-layout .services-list {
@@ -586,12 +585,12 @@
 
         body.two-hotels-layout .header,
         body.three-hotels-layout .header {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
 
         body.two-hotels-layout .title-section,
         body.three-hotels-layout .title-section {
-            margin: 12px 0 16px 0;
+            margin: 16px 0 26px 0;
         }
 
         body.two-hotels-layout .section-heading,
@@ -600,9 +599,9 @@
             margin-bottom: 10px;
         }
 
-        body.two-hotels-layout > .section-heading,
-        body.three-hotels-layout > .section-heading {
-            margin-top: 16px;
+        body.two-hotels-layout>.section-heading,
+        body.three-hotels-layout>.section-heading {
+            margin-top: 24px;
         }
 
         body.two-hotels-layout .services-list,
@@ -638,13 +637,13 @@
     <!-- ═══════════════ 2. TÍTULO PRINCIPAL ═══════════════ -->
     <div class="title-section">
         <h1 class="destination-title">{{ destino }}</h1>
-        <div class="proposal-subtitle">
-            Propuesta para {{ nombre_pax }} con salida el {{ format_long_date(fecha_salida) if format_long_date is defined else fecha_salida }}
-        </div>
     </div>
 
     <!-- ═══════════════ 3. SERVICIOS INCLUIDOS ═══════════════ -->
-    <div class="section-heading">Servicios incluidos</div>
+    <div class="section-heading">
+        Servicios incluidos <span class="proposal-inline-subtitle">• Propuesta para {{ nombre_pax }} con salida el {{
+            fecha_salida }}</span>
+    </div>
     <table class="services-list">
         <tr>
             <td class="svc-icon">
@@ -684,8 +683,9 @@
         <div class="flights-row {% if hoteles|length == 1 %}flights-stacked{% endif %}">
             <div class="flight-col">
                 <div class="flight-label">
-                    <span class="flight-icon">{{ svg_avion_despegando.replace('<svg', '<svg fill="#334155"')|safe }}</span>
-                    <span>SALIDA - {{ fecha_vuelo_ida }}</span>
+                    <span class="flight-icon">{{ svg_avion_despegando.replace('<svg', '<svg fill="#334155"' )|safe
+                            }}</span>
+                            <span>SALIDA - {{ fecha_vuelo_ida }}</span>
                 </div>
                 <div class="flight-img-container">
                     {% if img_vuelo_ida %}
@@ -695,8 +695,9 @@
             </div>
             <div class="flight-col">
                 <div class="flight-label">
-                    <span class="flight-icon">{{ svg_avion_aterrizando.replace('<svg', '<svg fill="#334155"')|safe }}</span>
-                    <span>REGRESO - {{ fecha_vuelo_vuelta }}</span>
+                    <span class="flight-icon">{{ svg_avion_aterrizando.replace('<svg', '<svg fill="#334155"' )|safe
+                            }}</span>
+                            <span>REGRESO - {{ fecha_vuelo_vuelta }}</span>
                 </div>
                 <div class="flight-img-container">
                     {% if img_vuelo_vuelta %}
@@ -749,17 +750,20 @@
                     <!-- Service Badges -->
                     <div class="hotel-services">
                         <span class="hotel-svc-badge">
-                            <span class="badge-icon">{{ svg_noches.replace('<svg', '<svg fill="#475569"')|safe }}</span>
-                            {{ noches_alojamiento }}
-                        </span>
-                        <span class="hotel-svc-badge">
-                            <span class="badge-icon">{{ svg_dormitorios.replace('<svg', '<svg fill="#475569"')|safe }}</span>
-                            {{ hotel.habitacion }}
-                        </span>
-                        <span class="hotel-svc-badge">
-                            <span class="badge-icon">{{ svg_regimen.replace('<svg', '<svg fill="#475569"')|safe }}</span>
-                            {{ hotel.regimen }}
-                        </span>
+                            <span class="badge-icon">{{ svg_noches.replace('<svg', '<svg fill="#475569"' )|safe
+                                    }}</span>
+                                    {{ noches_alojamiento }}
+                            </span>
+                            <span class="hotel-svc-badge">
+                                <span class="badge-icon">{{ svg_dormitorios.replace('<svg', '<svg fill="#475569"' )|safe
+                                        }}</span>
+                                        {{ hotel.habitacion }}
+                                </span>
+                                <span class="hotel-svc-badge">
+                                    <span class="badge-icon">{{ svg_regimen.replace('<svg', '<svg fill="#475569"' )|safe
+                                            }}</span>
+                                            {{ hotel.regimen }}
+                                    </span>
                     </div>
 
                     <!-- Description -->
@@ -771,7 +775,8 @@
                 <!-- Pricing -->
                 <div class="hotel-pricing">
                     <div class="hotel-price-pp">
-                        <span class="currency">{{ moneda|default('USD') }}</span> {{ format_price(hotel.precio_persona) }}
+                        <span class="currency">{{ moneda|default('USD') }}</span> {{ format_price(hotel.precio_persona)
+                        }}
                     </div>
                     <div class="hotel-price-base">
                         {% if base_habitacion|lower == 'single' %}
@@ -781,7 +786,8 @@
                         {% endif %}
                     </div>
                     {% if base_habitacion|lower != 'single' %}
-                    <div class="hotel-price-total">Total: {{ moneda|default('USD') }} {{ format_price(hotel.costo) }}</div>
+                    <div class="hotel-price-total">Total: {{ moneda|default('USD') }} {{ format_price(hotel.costo) }}
+                    </div>
                     {% endif %}
                 </div>
             </div>
