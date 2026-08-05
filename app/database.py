@@ -83,6 +83,7 @@ def save_cotizacion(quote_data: dict) -> dict | None:
             "monto_vuelos": float(quote_data.get("monto_vuelos", 0.0)),
             "fee_aereo": float(quote_data.get("fee_aereo", 0.0)),
             "monto_traslados": float(quote_data.get("monto_traslados", 0.0)),
+            "tipo_traslado": quote_data.get("tipo_traslado", "tradicional"),
             "gastos_iva": float(quote_data.get("gastos_iva", 0.0)),
             
             "costo_total": float(quote_data.get("costo_total", 0.0)),
@@ -134,7 +135,7 @@ def get_cotizaciones(sucursal_id: str = None) -> list:
         return []
     try:
         query = client.table("cotizaciones").select(
-            "id, nombre_pax, destino, cantidad_pasajeros, fecha_salida, origen, agente_nombre, costo_total, precio_persona, created_at, base_habitacion, sucursal_id"
+            "id, nombre_pax, destino, cantidad_pasajeros, fecha_salida, origen, agente_nombre, costo_total, precio_persona, created_at, base_habitacion, sucursal_id, tipo_traslado"
         )
         if sucursal_id:
             query = query.eq("sucursal_id", sucursal_id)

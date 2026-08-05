@@ -1398,3 +1398,82 @@ function changeFavicon(type) {
     }
 }
 window.changeFavicon = changeFavicon;
+
+// ── Global Amount Paste Sanitizer (LATAM / Spanish thousand & decimal dots/commas) ──
+function parseFormattedAmount(str) {
+    if (str === null || str === undefined) return '';
+    let raw = String(str).trim();
+    if (!raw) return '';
+
+    raw = raw.replace(/[^0-9.,-]/g, '');
+    if (!raw) return '';
+
+    const firstDot = raw.indexOf('.');
+    const lastDot = raw.lastIndexOf('.');
+    const firstComma = raw.indexOf(',');
+    const lastComma = raw.lastIndexOf(',');
+
+    if (firstDot !== -1 && firstComma !== -1) {
+        if (firstDot < firstComma) {
+            // Spanish/LATAM format: 1.234,56 or 1.234.567,89 -> dots are thousands, comma is decimal
+            raw = raw.replace(/\./g, '').replace(',', '.');
+        } else {
+            // US format: 1,234.56 -> commas are thousands, dot is decimal
+            raw = raw.replace(/,/g, '');
+        }
+    } else if (firstComma !== -1) {
+        if (firstComma !== lastComma) {
+            raw = raw.replace(/,/g, '');
+        } else {
+            // Single comma: 1234,56 -> comma is decimal
+            raw = raw.replace(',', '.');
+        }
+    } else if (firstDot !== -1) {
+        if (firstDot !== lastDot) {
+            // Multiple dots: 1.234.567 -> dots are thousands
+            raw = raw.replace(/\./g, '');
+        } else {
+            // Single dot: 1.500 (thousands) vs 1234.56 (decimal)
+            const parts = raw.split('.');
+            if (parts[1] && parts[1].length === 3) {
+                raw = raw.replace('.', '');
+            }
+        }
+    }
+
+    const val = parseFloat(raw);
+    return isNaN(val) ? '' : val;
+}
+window.parseFormattedAmount = parseFormattedAmount;
+
+document.addEventListener('paste', function(e) {
+    const target = e.target;
+    if (!target || target.tagName !== 'INPUT') return;
+
+    // Identify amount / cost input fields
+    const isAmountInput =
+        target.id === 'monto_vuelos' ||
+        target.id === 'fee_aereo_monto' ||
+        target.id === 'monto_traslados' ||
+        target.classList.contains('hotel-costo-val') ||
+        target.classList.contains('quick-row-monto') ||
+        target.classList.contains('amount-input') ||
+        (target.type === 'number' && target.step === '0.01') ||
+        (target.placeholder && target.placeholder.includes('0.00'));
+
+    if (!isAmountInput) return;
+
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData) return;
+
+    const pastedText = clipboardData.getData('text');
+    if (!pastedText) return;
+
+    const parsedVal = parseFormattedAmount(pastedText);
+    if (parsedVal !== '' && !isNaN(parsedVal)) {
+        e.preventDefault();
+        target.value = parsedVal;
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+});

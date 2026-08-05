@@ -60,6 +60,7 @@ function saveDetailedQuoteFormState() {
         monto_vuelos: document.getElementById('monto_vuelos')?.value || '',
         fee_aereo_monto: document.getElementById('fee_aereo_monto')?.value || '',
         monto_traslados: document.getElementById('monto_traslados')?.value || '',
+        tipo_traslado: document.getElementById('tipo_traslado')?.value || 'tradicional',
         fee_aereo_tipo: document.getElementById('fee_aereo_tipo')?.value || '',
         selectedBaggage: selectedBaggage,
         hotels: hotels,
@@ -152,6 +153,7 @@ function restoreDetailedQuoteFormState() {
         document.getElementById('monto_vuelos').value = state.monto_vuelos || '';
         document.getElementById('fee_aereo_monto').value = state.fee_aereo_monto || '';
         document.getElementById('monto_traslados').value = state.monto_traslados || '';
+        updateTransferTypeUI(state.tipo_traslado || 'tradicional');
 
         const feeTypeEl = document.getElementById('fee_aereo_tipo');
         if (feeTypeEl) feeTypeEl.value = state.fee_aereo_tipo || 'auto';
@@ -1936,6 +1938,7 @@ function _buildPayload() {
         monto_vuelos: parseFloat(document.getElementById('monto_vuelos').value),
         fee_aereo: parseFloat(document.getElementById('fee_aereo_monto').value),
         monto_traslados: parseFloat(document.getElementById('monto_traslados').value),
+        tipo_traslado: document.getElementById('tipo_traslado')?.value || 'tradicional',
         gastos_iva: 0.0,
         equipaje: selectedBaggage,
         redondear: aplicarRedondeo,
@@ -2111,6 +2114,7 @@ function loadImportedQuoteIntoForm(idx) {
     // Pricing
     document.getElementById('monto_vuelos').value = q.monto_vuelos;
     document.getElementById('monto_traslados').value = q.monto_traslados;
+    updateTransferTypeUI(q.tipo_traslado || 'tradicional');
 
     // Determine fee
     document.getElementById('fee_aereo_tipo').value = 'fixed';
@@ -2287,6 +2291,7 @@ function resetForm() {
     document.getElementById('monto_vuelos').value = '';
     document.getElementById('fee_aereo_monto').value = '';
     document.getElementById('monto_traslados').value = '';
+    updateTransferTypeUI('tradicional');
 
     // Clear and reset hotels
     const container = document.getElementById('hotels-container');
@@ -2410,6 +2415,85 @@ function setBaggageSelection(arr) {
     document.getElementById('equipaje_seleccionado').value = JSON.stringify(selectedBaggage);
 }
 window.setBaggageSelection = setBaggageSelection;
+
+let currentTransferType = 'tradicional';
+
+function updateTransferTypeUI(type) {
+    const btnTradicional = document.getElementById('btn-traslado-tradicional');
+    const btnAuto = document.getElementById('btn-traslado-auto');
+    const hiddenInput = document.getElementById('tipo_traslado');
+    const labelMonto = document.getElementById('label_monto_traslados');
+
+    currentTransferType = (type === 'auto') ? 'auto' : 'tradicional';
+    if (hiddenInput) hiddenInput.value = currentTransferType;
+
+    const setBtnActive = (btn, isActive) => {
+        if (!btn) return;
+        const span = btn.querySelector('.transfer-title');
+        const iconContainer = btn.querySelector('.icon-container');
+        const checkDot = btn.querySelector('.check-dot');
+        const img = btn.querySelector('img');
+        const svg = btn.querySelector('svg');
+
+        if (isActive) {
+            btn.classList.remove('border-slate-200/80', 'bg-white/40', 'hover:bg-white/60');
+            btn.classList.add('border-emerald-500/30', 'bg-emerald-500/5', 'hover:bg-emerald-500/10', 'active');
+            if (span) {
+                span.classList.remove('text-slate-600');
+                span.classList.add('text-emerald-700');
+            }
+            if (iconContainer) {
+                iconContainer.classList.remove('bg-slate-100/80', 'text-slate-400');
+                iconContainer.classList.add('bg-emerald-500/10', 'text-emerald-600');
+            }
+            if (checkDot) checkDot.classList.remove('hidden');
+            if (img) {
+                img.style.filter = 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(130deg) brightness(95%) contrast(92%)';
+                img.classList.remove('opacity-60');
+                img.classList.add('opacity-100');
+            }
+            if (svg) {
+                svg.classList.remove('text-slate-500', 'opacity-60');
+                svg.classList.add('text-emerald-600', 'opacity-100');
+            }
+        } else {
+            btn.classList.remove('border-emerald-500/30', 'bg-emerald-500/5', 'hover:bg-emerald-500/10', 'active');
+            btn.classList.add('border-slate-200/80', 'bg-white/40', 'hover:bg-white/60');
+            if (span) {
+                span.classList.remove('text-emerald-700');
+                span.classList.add('text-slate-600');
+            }
+            if (iconContainer) {
+                iconContainer.classList.remove('bg-emerald-500/10', 'text-emerald-600');
+                iconContainer.classList.add('bg-slate-100/80', 'text-slate-400');
+            }
+            if (checkDot) checkDot.classList.add('hidden');
+            if (img) {
+                img.style.filter = '';
+                img.classList.remove('opacity-100');
+                img.classList.add('opacity-60');
+            }
+            if (svg) {
+                svg.classList.remove('text-emerald-600', 'opacity-100');
+                svg.classList.add('text-slate-500', 'opacity-60');
+            }
+        }
+    };
+
+    setBtnActive(btnTradicional, currentTransferType === 'tradicional');
+    setBtnActive(btnAuto, currentTransferType === 'auto');
+
+    if (labelMonto) {
+        labelMonto.textContent = (currentTransferType === 'auto') ? 'Monto Alquiler de Vehículo' : 'Monto Traslados In/Out';
+    }
+}
+window.updateTransferTypeUI = updateTransferTypeUI;
+
+function selectTransferType(type) {
+    updateTransferTypeUI(type);
+    updateRealTimeSummary();
+}
+window.selectTransferType = selectTransferType;
 
 function setupSidebarResizer() {
     const resizer = document.getElementById('layout-resizer');
@@ -2545,6 +2629,7 @@ async function handlePDFEditImport(inputEl) {
         document.getElementById('monto_vuelos').value = data.monto_vuelos || '';
         document.getElementById('fee_aereo_monto').value = data.fee_aereo || '';
         document.getElementById('monto_traslados').value = data.monto_traslados || '';
+        updateTransferTypeUI(data.tipo_traslado || 'tradicional');
 
         if (data.fee_aereo) {
             document.getElementById('fee_aereo_tipo').value = 'fixed';
@@ -3406,6 +3491,7 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
         document.getElementById('monto_vuelos').value = q.monto_vuelos || '';
         document.getElementById('fee_aereo_monto').value = q.fee_aereo || '';
         document.getElementById('monto_traslados').value = q.monto_traslados || '';
+        updateTransferTypeUI(q.tipo_traslado || 'tradicional');
 
         if (q.fee_aereo) {
             document.getElementById('fee_aereo_tipo').value = 'fixed';
