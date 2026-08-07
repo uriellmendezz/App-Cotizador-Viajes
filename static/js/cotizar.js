@@ -8,6 +8,8 @@ let currentQuoteId = null;
 let currentPdfUrl = null;
 let allSavedQuotes = [];
 let isRestoringStateDetailed = false;
+let savedQuotesCurrentPage = 1;
+const savedQuotesPerPage = 10;
 
 function saveDetailedQuoteFormState() {
     if (isRestoringStateDetailed) return;
@@ -731,7 +733,7 @@ async function loadConfig() {
     try {
         const res = await authenticatedFetch('/api/config');
         const data = await res.json();
-        
+
         // Configure Section 4 (Solicitar Alta de Agente) read-only mode for non-owners
         const isOwner = data.is_owner || window.userRole === 'DUENO_FRANQUICIA' || window.userRole === 'ADMIN_SUCURSAL' || window.userRole === 'ADMIN_GLOBAL';
         const noticeEl = document.getElementById('request-agent-readonly-notice');
@@ -788,7 +790,7 @@ async function loadConfig() {
                 ownerPanelEl.classList.remove('hidden');
             }
         }
-        
+
         // Render Agent Colors List
         const listContainer = document.getElementById('agent-colors-list');
         if (listContainer) {
@@ -799,7 +801,7 @@ async function loadConfig() {
                     const name = agente.nombre || agente.username || 'Agente';
                     const cleanName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
                     const username = agente.username || '-';
-                    
+
                     const div = document.createElement('div');
                     div.className = "flex flex-col gap-3 p-4 bg-slate-50 border border-slate-200/60 rounded-2xl shadow-sm hover:border-slate-350 transition-colors duration-200";
                     div.innerHTML = `
@@ -828,7 +830,7 @@ async function loadConfig() {
                 `;
             }
         }
-        
+
     } catch (err) {
         console.error("Error loading brand configuration:", err);
     }
@@ -850,7 +852,7 @@ window.updateTagColorPreview = updateTagColorPreview;
 // Save Agent Tag Colors
 async function saveAgentColors(e) {
     if (e) e.preventDefault();
-    
+
     const pickers = document.querySelectorAll('#agent-colors-list input[type="color"]');
     const colores_agentes = {};
     pickers.forEach(picker => {
@@ -859,7 +861,7 @@ async function saveAgentColors(e) {
             colores_agentes[agentId] = picker.value;
         }
     });
-    
+
     window.showLoader("Guardando colores de etiquetas...");
     try {
         const res = await authenticatedFetch('/api/config', {
@@ -870,7 +872,7 @@ async function saveAgentColors(e) {
         const result = await res.json();
         if (res.ok && result.status === 'success') {
             showAlert('success', 'Colores de etiquetas actualizados de forma exitosa.');
-            
+
             // Re-map local colors in memory to reflect changes instantly on badges
             if (!window.agentColors) window.agentColors = {};
             pickers.forEach(picker => {
@@ -881,11 +883,11 @@ async function saveAgentColors(e) {
                 const cleanName = header ? header.innerText.trim().toLowerCase() : '';
                 const usernameSpan = parent ? parent.querySelector('span') : null;
                 const cleanUsername = usernameSpan ? usernameSpan.innerText.replace('@', '').trim().toLowerCase() : '';
-                
+
                 if (cleanName) window.agentColors[cleanName] = color;
                 if (cleanUsername) window.agentColors[cleanUsername] = color;
             });
-            
+
             loadConfig();
         } else {
             throw new Error(result.detail || 'Error al guardar los cambios');
@@ -902,23 +904,23 @@ window.saveConfig = saveAgentColors;
 // Submit New Agent Addition Request
 async function submitAgentRequest(e) {
     if (e) e.preventDefault();
-    
+
     const isOwner = window.agencyConfig?.is_owner || window.userRole === 'DUENO_FRANQUICIA' || window.userRole === 'ADMIN_SUCURSAL' || window.userRole === 'ADMIN_GLOBAL';
     if (!isOwner) {
         showAlert('warning', 'Modo Lectura: La solicitud de alta de nuevos agentes es exclusiva para dueños de franquicias.');
         return;
     }
-    
+
     const nombre = document.getElementById('new_agent_name')?.value.trim() || '';
     const email = document.getElementById('new_agent_email')?.value.trim() || '';
     const rol = document.getElementById('new_agent_role')?.value || 'AGENTE_SUCURSAL';
     const notas = document.getElementById('new_agent_notes')?.value.trim() || '';
-    
+
     if (!nombre || !email) {
         showAlert('warning', 'Por favor complete todos los campos obligatorios del formulario.');
         return;
     }
-    
+
     const submitBtn = document.getElementById('btn-request-agent-submit');
     let originalBtnHtml = '';
     if (submitBtn) {
@@ -932,7 +934,7 @@ async function submitAgentRequest(e) {
             Enviando solicitud...
         `;
     }
-    
+
     window.showLoader("Enviando solicitud de alta...");
     try {
         const res = await authenticatedFetch('/api/config/solicitar-agente', {
@@ -943,7 +945,7 @@ async function submitAgentRequest(e) {
         const result = await res.json();
         if (res.ok && result.status === 'success') {
             showAlert('success', '✔ Solicitud de alta enviada correctamente al Administrador Global.');
-            
+
             // Clear form
             document.getElementById('new_agent_name').value = '';
             document.getElementById('new_agent_email').value = '';
@@ -1117,7 +1119,7 @@ function addHotelCard(data = null) {
         <div class="flex flex-col gap-1 w-full">
             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Descripción</label>
             <div class="relative flex flex-col w-full">
-                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[85px] pr-[190px] resize-y w-full" required placeholder="Ej. Frente al mar..." style="line-height: 1.3;" oninput="updateHotelDescCharCounter(this); saveDetailedQuoteFormState();" onkeyup="updateHotelDescCharCounter(this)" onpaste="setTimeout(() => updateHotelDescCharCounter(this), 10);">${data ? (data.hotel_descripcion || data.descripcion || '') : ''}</textarea>
+                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 pb-8 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[85px] resize-y w-full" required placeholder="Ej. Frente al mar..." style="line-height: 1.3;" oninput="handleHotelDescInput(this); updateHotelDescCharCounter(this); saveDetailedQuoteFormState();" onkeyup="updateHotelDescCharCounter(this)" onpaste="setTimeout(() => updateHotelDescCharCounter(this), 10);">${data ? (data.hotel_descripcion || data.descripcion || '') : ''}</textarea>
                 
                 <!-- Custom Error Tooltip -->
                 <div class="hotel-desc-error-tooltip hidden absolute -top-8 right-0 bg-rose-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-md shadow-lg pointer-events-none z-20 transition-all flex items-center gap-1">
@@ -1128,12 +1130,18 @@ function addHotelCard(data = null) {
                     <div class="absolute top-full right-4 border-4 border-transparent border-t-rose-600"></div>
                 </div>
 
-                <!-- Bottom Right Controls: Counter & IA Button -->
+                <!-- Bottom Right Controls: IA Button, Undo & Counter -->
                 <div class="absolute bottom-1.5 right-1.5 flex items-center gap-2 z-10 pointer-events-none">
-                    <span class="hotel-desc-counter text-[10px] font-semibold text-slate-400 select-none transition-colors">0/200</span>
                     <button type="button" class="btn-ia-optimize pointer-events-auto text-[9px] px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg hover:shadow-sm active:scale-95 transition-all cursor-pointer" onclick="optimizeDescription(this)">
                         Mejorar con IA
                     </button>
+                    <button type="button" class="btn-ia-undo pointer-events-auto text-[9px] p-1.5 bg-slate-100 text-slate-700 font-bold rounded-lg transition-all opacity-40 cursor-not-allowed flex items-center justify-center" disabled onclick="undoAiDescription(this)" title="Deshacer cambio de IA (Ctrl+Z)">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <path d="M3 3v5h5"/>
+                        </svg>
+                    </button>
+                    <span class="hotel-desc-counter text-[10px] font-semibold text-slate-400 select-none transition-colors">0/200</span>
                 </div>
             </div>
         </div>
@@ -1160,6 +1168,7 @@ function addHotelCard(data = null) {
     // Initialize character counter for hotel description
     card.querySelectorAll('.hotel-descripcion-val').forEach(ta => {
         updateHotelDescCharCounter(ta);
+        updateUndoButtonState(ta);
     });
 
     // Add Drag and Drop listeners to all new dropzones
@@ -2174,8 +2183,13 @@ async function optimizeDescription(btn) {
         }
 
         const data = await res.json();
+
+        // Preserve state immediately prior to AI execution
+        textarea.dataset.previousDescriptionText = textarea.value;
         textarea.value = data.descripcion_optimizada || '';
+
         updateHotelDescCharCounter(textarea);
+        updateUndoButtonState(textarea);
         saveDetailedQuoteFormState();
     } catch (err) {
         alert("Error al optimizar la descripción: " + err.message);
@@ -2187,15 +2201,88 @@ async function optimizeDescription(btn) {
 }
 window.optimizeDescription = optimizeDescription;
 
+function updateUndoButtonState(textarea) {
+    if (!textarea) return;
+    const wrapper = textarea.closest('.relative') || textarea.parentElement;
+    const undoBtn = wrapper ? wrapper.querySelector('.btn-ia-undo') : null;
+    if (!undoBtn) return;
+
+    const hasPreviousState = textarea.dataset.previousDescriptionText !== undefined && textarea.dataset.previousDescriptionText !== null;
+    if (hasPreviousState) {
+        undoBtn.disabled = false;
+        undoBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+        undoBtn.classList.add('opacity-100', 'cursor-pointer', 'hover:bg-slate-200');
+    } else {
+        undoBtn.disabled = true;
+        undoBtn.classList.add('opacity-40', 'cursor-not-allowed');
+        undoBtn.classList.remove('opacity-100', 'cursor-pointer', 'hover:bg-slate-200');
+    }
+}
+window.updateUndoButtonState = updateUndoButtonState;
+
+function handleHotelDescInput(textarea) {
+    if (!textarea) return;
+    if (textarea.dataset.previousDescriptionText !== undefined) {
+        delete textarea.dataset.previousDescriptionText;
+        updateUndoButtonState(textarea);
+    }
+}
+window.handleHotelDescInput = handleHotelDescInput;
+
+function undoAiDescription(btnOrTextarea) {
+    let textarea = null;
+    if (btnOrTextarea.classList.contains && btnOrTextarea.classList.contains('hotel-descripcion-val')) {
+        textarea = btnOrTextarea;
+    } else if (btnOrTextarea.closest) {
+        const wrapper = btnOrTextarea.closest('.relative') || btnOrTextarea.parentElement;
+        textarea = wrapper ? wrapper.querySelector('.hotel-descripcion-val') : null;
+    }
+
+    if (!textarea) return;
+
+    const prevText = textarea.dataset.previousDescriptionText;
+    if (prevText !== undefined && prevText !== null) {
+        textarea.value = prevText;
+        delete textarea.dataset.previousDescriptionText;
+        updateHotelDescCharCounter(textarea);
+        updateUndoButtonState(textarea);
+        if (typeof saveDetailedQuoteFormState === 'function') {
+            saveDetailedQuoteFormState();
+        }
+    }
+}
+window.undoAiDescription = undoAiDescription;
+
+function setupAiUndoKeyboardShortcut() {
+    if (window._aiUndoKeyboardShortcutListener) {
+        document.removeEventListener('keydown', window._aiUndoKeyboardShortcutListener);
+    }
+
+    window._aiUndoKeyboardShortcutListener = function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey && !e.altKey) {
+            const activeEl = document.activeElement;
+            if (activeEl && activeEl.classList.contains('hotel-descripcion-val')) {
+                if (activeEl.dataset.previousDescriptionText !== undefined && activeEl.dataset.previousDescriptionText !== null) {
+                    e.preventDefault();
+                    undoAiDescription(activeEl);
+                }
+            }
+        }
+    };
+
+    document.addEventListener('keydown', window._aiUndoKeyboardShortcutListener);
+}
+window.setupAiUndoKeyboardShortcut = setupAiUndoKeyboardShortcut;
+
 function updateHotelDescCharCounter(textarea) {
     if (!textarea) return;
     const wrapper = textarea.closest('.relative') || textarea.parentElement;
     const counter = wrapper ? wrapper.querySelector('.hotel-desc-counter') : null;
     const errorTooltip = wrapper ? wrapper.querySelector('.hotel-desc-error-tooltip') : null;
-    
+
     const max = 200;
     const len = textarea.value ? textarea.value.length : 0;
-    
+
     if (counter) {
         counter.textContent = `${len}/${max}`;
         if (len > max) {
@@ -3006,6 +3093,26 @@ function filterByAgent(agentName) {
 }
 window.filterByAgent = filterByAgent;
 
+function getOperatorBadge(operatorName) {
+    if (!operatorName || operatorName === '-' || operatorName.trim() === '') {
+        return '<span class="text-slate-400 font-semibold">-</span>';
+    }
+
+    const clean = operatorName.trim();
+    const lower = clean.toLowerCase();
+
+    if (lower === 'delfos') {
+        return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border border-orange-200 bg-orange-50 text-orange-600 shadow-sm select-none" title="Operador: Delfos">Delfos</span>`;
+    }
+
+    if (lower === 'ola') {
+        return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600 shadow-sm select-none" title="Operador: Ola">Ola</span>`;
+    }
+
+    return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border border-slate-200 bg-slate-50 text-slate-600 shadow-sm select-none" title="Operador: ${clean}">${clean}</span>`;
+}
+window.getOperatorBadge = getOperatorBadge;
+
 function renderAgentFilters() {
     const container = document.getElementById('agent-filters-container');
     if (!container) return;
@@ -3065,6 +3172,7 @@ function switchSavedQuotesTab(tabName) {
 
     setTimeout(() => {
         savedQuotesActiveTab = tabName;
+        savedQuotesCurrentPage = 1;
 
         // Clear search bar
         const searchInput = document.getElementById('quote-search-input');
@@ -3109,7 +3217,13 @@ function renderActiveTabTable(customFilteredList = null) {
         `;
 
         const list = customFilteredList || allSavedQuotes;
-        if (list.length === 0) {
+        const totalItems = list.length;
+        const totalPages = Math.ceil(totalItems / savedQuotesPerPage) || 1;
+
+        if (savedQuotesCurrentPage > totalPages) savedQuotesCurrentPage = totalPages;
+        if (savedQuotesCurrentPage < 1) savedQuotesCurrentPage = 1;
+
+        if (totalItems === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="7" class="p-8 text-center text-slate-400 font-semibold">
@@ -3117,10 +3231,14 @@ function renderActiveTabTable(customFilteredList = null) {
                     </td>
                 </tr>
             `;
+            renderSavedQuotesPagination(0, 1, 1);
             return;
         }
 
-        const displayList = list.slice(0, 10);
+        const startIdx = (savedQuotesCurrentPage - 1) * savedQuotesPerPage;
+        const endIdx = Math.min(startIdx + savedQuotesPerPage, totalItems);
+        const displayList = list.slice(startIdx, endIdx);
+
         displayList.forEach(q => {
             const tr = document.createElement('tr');
             tr.className = 'border-b border-slate-100 hover:bg-rose-50/40 transition-colors duration-150 cursor-pointer';
@@ -3141,9 +3259,9 @@ function renderActiveTabTable(customFilteredList = null) {
             const quoteOwnerId = (q.agente_id || '').toLowerCase();
 
             const isOwner = (currentUser && quoteOwnerName && currentUser === quoteOwnerName) ||
-                            (currentUserId && quoteOwnerId && currentUserId === quoteOwnerId) ||
-                            (currentUserId && quoteOwnerName && currentUserId === quoteOwnerName) ||
-                            (currentUser && quoteOwnerId && currentUser === quoteOwnerId);
+                (currentUserId && quoteOwnerId && currentUserId === quoteOwnerId) ||
+                (currentUserId && quoteOwnerName && currentUserId === quoteOwnerName) ||
+                (currentUser && quoteOwnerId && currentUser === quoteOwnerId);
 
             const deleteButtonHtml = isOwner ? `
                 <button type="button" 
@@ -3179,12 +3297,15 @@ function renderActiveTabTable(customFilteredList = null) {
             tbody.appendChild(tr);
         });
 
+        renderSavedQuotesPagination(totalItems, savedQuotesCurrentPage, totalPages);
+
     } else {
         // Quick Budgets headers (no text for delete column header)
         thead.innerHTML = `
             <tr class="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                 <th class="p-3 hidden sm:table-cell">Fecha Creado</th>
                 <th class="p-3">Pasajero</th>
+                <th class="p-3 hidden md:table-cell">Operador</th>
                 <th class="p-3 hidden md:table-cell">Agente</th>
                 <th class="p-3 text-right">Costo Total</th>
                 <th class="w-12 p-3"></th>
@@ -3192,18 +3313,28 @@ function renderActiveTabTable(customFilteredList = null) {
         `;
 
         const list = customFilteredList || allSavedQuickQuotes;
-        if (list.length === 0) {
+        const totalItems = list.length;
+        const totalPages = Math.ceil(totalItems / savedQuotesPerPage) || 1;
+
+        if (savedQuotesCurrentPage > totalPages) savedQuotesCurrentPage = totalPages;
+        if (savedQuotesCurrentPage < 1) savedQuotesCurrentPage = 1;
+
+        if (totalItems === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" class="p-8 text-center text-slate-400 font-semibold">
+                    <td colspan="6" class="p-8 text-center text-slate-400 font-semibold">
                         No se encontraron presupuestos rápidos.
                     </td>
                 </tr>
             `;
+            renderSavedQuotesPagination(0, 1, 1);
             return;
         }
 
-        const displayList = list.slice(0, 10);
+        const startIdx = (savedQuotesCurrentPage - 1) * savedQuotesPerPage;
+        const endIdx = Math.min(startIdx + savedQuotesPerPage, totalItems);
+        const displayList = list.slice(startIdx, endIdx);
+
         displayList.forEach(q => {
             const tr = document.createElement('tr');
             tr.className = 'border-b border-slate-100 hover:bg-rose-50/40 transition-colors duration-150 cursor-pointer';
@@ -3218,9 +3349,9 @@ function renderActiveTabTable(customFilteredList = null) {
             const quoteOwnerId = (q.agente_id || '').toLowerCase();
 
             const isOwner = (currentUser && quoteOwnerName && currentUser === quoteOwnerName) ||
-                            (currentUserId && quoteOwnerId && currentUserId === quoteOwnerId) ||
-                            (currentUserId && quoteOwnerName && currentUserId === quoteOwnerName) ||
-                            (currentUser && quoteOwnerId && currentUser === quoteOwnerId);
+                (currentUserId && quoteOwnerId && currentUserId === quoteOwnerId) ||
+                (currentUserId && quoteOwnerName && currentUserId === quoteOwnerName) ||
+                (currentUser && quoteOwnerId && currentUser === quoteOwnerId);
 
             const deleteButtonHtml = isOwner ? `
                 <button type="button" 
@@ -3234,17 +3365,30 @@ function renderActiveTabTable(customFilteredList = null) {
             ` : `<span class="text-slate-300 select-none">-</span>`;
 
             let currency = 'USD';
+            const operatorsSet = new Set();
+            if (q.operador) operatorsSet.add(q.operador);
+            if (q.vuelos) {
+                q.vuelos.forEach(v => { if (v.operador) operatorsSet.add(v.operador); });
+            }
             if (q.hoteles) {
-                const meta = q.hoteles.find(h => h.nombre === "METADATA_PRESUPUESTO_RAPIDO");
-                if (meta && meta.moneda) {
-                    currency = meta.moneda;
-                }
+                q.hoteles.forEach(h => {
+                    if (h.nombre === "METADATA_PRESUPUESTO_RAPIDO") {
+                        if (h.moneda) currency = h.moneda;
+                        if (h.operador) operatorsSet.add(h.operador);
+                    } else if (h.operador) {
+                        operatorsSet.add(h.operador);
+                    }
+                });
             }
             const agentBadgeHtml = getAgentBadge(q.agente_nombre || q.agente_id);
+            const operatorBadgeHtml = operatorsSet.size > 0
+                ? Array.from(operatorsSet).map(op => getOperatorBadge(op)).join(' ')
+                : '<span class="text-slate-400 font-semibold">-</span>';
 
             tr.innerHTML = `
                 <td class="p-3 font-semibold text-slate-500 hidden sm:table-cell">${fechaCreadoFormatted}</td>
                 <td class="p-3 font-semibold text-slate-800">${q.pasajero_nombre || 'Sin Nombre'}</td>
+                <td class="p-3 hidden md:table-cell">${operatorBadgeHtml}</td>
                 <td class="p-3 hidden md:table-cell">${agentBadgeHtml}</td>
                 <td class="p-3 text-right font-semibold text-brand-primary">${currency} ${formatPriceES(totalUSD)}</td>
                 <td class="p-3 flex justify-center">
@@ -3253,12 +3397,118 @@ function renderActiveTabTable(customFilteredList = null) {
             `;
             tbody.appendChild(tr);
         });
+
+        renderSavedQuotesPagination(totalItems, savedQuotesCurrentPage, totalPages);
     }
 }
 window.renderActiveTabTable = renderActiveTabTable;
 
-function filterSavedQuotes() {
-    const query = document.getElementById('quote-search-input').value.toLowerCase().trim();
+function renderSavedQuotesPagination(totalItems, currentPage, totalPages) {
+    const container = document.getElementById('db-quotes-pagination-container');
+    if (!container) return;
+
+    if (totalItems === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const startItem = (currentPage - 1) * savedQuotesPerPage + 1;
+    const endItem = Math.min(currentPage * savedQuotesPerPage, totalItems);
+    const itemLabel = savedQuotesActiveTab === 'detalladas' ? 'cotizaciones' : 'presupuestos';
+
+    let pagesHtml = '';
+    const maxVisibleButtons = 5;
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
+
+    if (endPage - startPage + 1 < maxVisibleButtons) {
+        startPage = Math.max(1, endPage - maxVisibleButtons + 1);
+    }
+
+    if (startPage > 1) {
+        pagesHtml += `<button type="button" onclick="goToSavedQuotesPage(1)" class="px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer">1</button>`;
+        if (startPage > 2) {
+            pagesHtml += `<span class="px-1 text-xs text-slate-400 select-none">...</span>`;
+        }
+    }
+
+    for (let p = startPage; p <= endPage; p++) {
+        if (p === currentPage) {
+            pagesHtml += `<button type="button" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-900 text-white shadow-sm transition-colors select-none">${p}</button>`;
+        } else {
+            pagesHtml += `<button type="button" onclick="goToSavedQuotesPage(${p})" class="px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">${p}</button>`;
+        }
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            pagesHtml += `<span class="px-1 text-xs text-slate-400 select-none">...</span>`;
+        }
+        pagesHtml += `<button type="button" onclick="goToSavedQuotesPage(${totalPages})" class="px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer">${totalPages}</button>`;
+    }
+
+    const prevDisabled = currentPage <= 1;
+    const nextDisabled = currentPage >= totalPages;
+
+    container.innerHTML = `
+        <div class="text-xs font-medium text-slate-500">
+            Mostrando <span class="font-bold text-slate-700">${startItem}–${endItem}</span> de <span class="font-bold text-slate-700">${totalItems}</span> ${itemLabel}
+        </div>
+        
+        <div class="flex items-center gap-1.5 ml-auto">
+            <button type="button" 
+                    onclick="goToSavedQuotesPage(${currentPage - 1})"
+                    ${prevDisabled ? 'disabled' : ''}
+                    class="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Anterior
+            </button>
+
+            <div class="flex items-center gap-1 px-1">
+                ${pagesHtml}
+            </div>
+
+            <button type="button" 
+                    onclick="goToSavedQuotesPage(${currentPage + 1})"
+                    ${nextDisabled ? 'disabled' : ''}
+                    class="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1">
+                Siguiente
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+        </div>
+    `;
+}
+window.renderSavedQuotesPagination = renderSavedQuotesPagination;
+
+function goToSavedQuotesPage(page) {
+    if (page === savedQuotesCurrentPage) return;
+
+    const wrapper = document.getElementById('db-quotes-table-wrapper');
+    if (wrapper) {
+        wrapper.classList.add('tab-transition-hidden');
+    }
+
+    setTimeout(() => {
+        savedQuotesCurrentPage = page;
+        filterSavedQuotes(false);
+
+        if (wrapper) {
+            wrapper.offsetHeight; // Force reflow
+            wrapper.classList.remove('tab-transition-hidden');
+        }
+    }, 180);
+}
+window.goToSavedQuotesPage = goToSavedQuotesPage;
+
+function filterSavedQuotes(resetPage = true) {
+    if (resetPage) {
+        savedQuotesCurrentPage = 1;
+    }
+    const query = document.getElementById('quote-search-input')?.value.toLowerCase().trim() || '';
 
     if (savedQuotesActiveTab === 'detalladas') {
         if (!query) {
@@ -3282,7 +3532,12 @@ function filterSavedQuotes() {
             const name = (q.pasajero_nombre || '').toLowerCase();
             const cleanAgent = getCleanAgentName(q.agente_nombre || q.agente_id).toLowerCase();
             const rawAgent = (q.agente_id || '').toLowerCase();
-            return name.includes(query) || cleanAgent.includes(query) || rawAgent.includes(query);
+            const ops = [];
+            if (q.operador) ops.push(q.operador.toLowerCase());
+            if (q.vuelos) q.vuelos.forEach(v => { if (v.operador) ops.push(v.operador.toLowerCase()); });
+            if (q.hoteles) q.hoteles.forEach(h => { if (h.operador) ops.push(h.operador.toLowerCase()); });
+            const opsStr = ops.join(' ');
+            return name.includes(query) || cleanAgent.includes(query) || rawAgent.includes(query) || opsStr.includes(query);
         });
         renderActiveTabTable(filtered);
     }
@@ -3827,6 +4082,7 @@ export function initCotizar() {
     setupDragAndDrop();
     setupSidebarResizer();
     toggleFeeType();
+    setupAiUndoKeyboardShortcut();
 
     // Prevent Enter key from submitting form unless focused on a textarea or submit button
     const quoteForm = document.getElementById("quote-form");
@@ -4162,7 +4418,7 @@ async function duplicateQuoteFromView() {
         window.hideLoader();
         window.changeFavicon('success');
         showAlert('success', '✔ Cotización duplicada con éxito como "' + (cloned.nombre_pax || cloned.pasajero_nombre) + '".');
-        
+
         window.pendingEditQuoteId = cloned.id;
         window.pendingEditQuoteEditable = true;
         navigateTo('/cotizacion-completa');
@@ -4202,7 +4458,7 @@ function deleteQuoteFromView() {
                 window.hideLoader();
                 window.changeFavicon('success');
                 showAlert('success', '✔ Cotización eliminada con éxito.');
-                
+
                 if (window.navStack && window.navStack.length > 0) {
                     navigateBack();
                 } else {

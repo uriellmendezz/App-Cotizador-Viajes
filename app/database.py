@@ -269,7 +269,7 @@ def get_cotizaciones_rapidas(sucursal_id: str = None) -> list:
         return []
     try:
         query = client.table("cotizaciones").select(
-            "id, nombre_pax, cantidad_pasajeros, costo_total, agente_nombre, agente_id, base_habitacion, created_at, sucursal_id"
+            "id, nombre_pax, cantidad_pasajeros, costo_total, agente_nombre, agente_id, base_habitacion, created_at, sucursal_id, hoteles, equipaje"
         ).eq("base_habitacion", "PRESUPUESTO_RAPIDO")
         
         if sucursal_id:
@@ -286,6 +286,8 @@ def get_cotizaciones_rapidas(sucursal_id: str = None) -> list:
                     "pasajero_nombre": row["nombre_pax"],
                     "cantidad_pasajeros": row["cantidad_pasajeros"],
                     "total_cotizacion": row["costo_total"],
+                    "vuelos": row.get("equipaje") or [],
+                    "hoteles": row.get("hoteles") or [],
                     "agente_nombre": row.get("agente_nombre"),
                     "agente_id": row.get("agente_id") or row.get("agente_nombre"),
                     "sucursal_id": row.get("sucursal_id"),
