@@ -48,11 +48,11 @@ function toggleQuickQuoteRedondeo(forceState) {
 
     if (knob) {
         if (isQuickRedondeoActive) {
-            knob.classList.remove('translate-x-0', 'text-slate-400');
-            knob.classList.add('translate-x-5', 'text-brand-primary');
+            knob.classList.remove('translate-x-0', 'text-slate-400', 'text-slate-500');
+            knob.classList.add('translate-x-4', 'text-brand-primary');
         } else {
-            knob.classList.remove('translate-x-5', 'text-brand-primary');
-            knob.classList.add('translate-x-0', 'text-slate-400');
+            knob.classList.remove('translate-x-4', 'text-brand-primary');
+            knob.classList.add('translate-x-0', 'text-slate-500');
         }
     }
 
@@ -218,8 +218,8 @@ function restoreQuickQuoteFormState() {
     const passengerInput = document.getElementById('rapido-pasajero');
     if (passengerInput) passengerInput.value = window.savedQuickQuoteState.passengerName;
 
-    const paxCountInput = document.getElementById('rapido-pax-count');
-    if (paxCountInput) paxCountInput.value = window.savedQuickQuoteState.paxCount;
+    const savedPax = window.savedQuickQuoteState.paxCount || 2;
+    updatePaxStepperUI(savedPax);
 
     const destInput = document.getElementById('rapido-destino');
     if (destInput) destInput.value = window.savedQuickQuoteState.destino;
@@ -233,6 +233,9 @@ function restoreQuickQuoteFormState() {
     if (retPickerInput && retPickerInput._flatpickr && window.savedQuickQuoteState.fechaRegreso) {
         retPickerInput._flatpickr.setDate(window.savedQuickQuoteState.fechaRegreso);
     }
+
+    const savedCurrency = window.savedQuickQuoteState.moneda || 'USD';
+    setQuickCurrency(savedCurrency);
 
     window.savedQuickQuoteState.rows.forEach(r => {
         addQuickBudgetRow({
@@ -620,6 +623,64 @@ function updateRowOperatorUI(tr, operadorVal = '') {
 }
 window.updateRowOperatorUI = updateRowOperatorUI;
 
+function updatePaxStepperUI(val) {
+    const input = document.getElementById('rapido-pax-count');
+    const display = document.getElementById('quick-pax-display');
+    const btnDec = document.getElementById('btn-pax-dec');
+    const btnInc = document.getElementById('btn-pax-inc');
+
+    const pax = Math.max(1, Math.min(50, parseInt(val, 10) || 1));
+
+    if (input) input.value = pax;
+    if (display) display.innerText = pax;
+
+    if (btnDec) btnDec.disabled = (pax <= 1);
+    if (btnInc) btnInc.disabled = (pax >= 50);
+
+    if (!isRestoringState) {
+        calculateQuickQuote();
+        saveQuickQuoteFormState();
+    }
+}
+window.updatePaxStepperUI = updatePaxStepperUI;
+
+function incrementQuickPax() {
+    const input = document.getElementById('rapido-pax-count');
+    const current = parseInt(input?.value || '2', 10);
+    updatePaxStepperUI(current + 1);
+}
+window.incrementQuickPax = incrementQuickPax;
+
+function decrementQuickPax() {
+    const input = document.getElementById('rapido-pax-count');
+    const current = parseInt(input?.value || '2', 10);
+    updatePaxStepperUI(current - 1);
+}
+window.decrementQuickPax = decrementQuickPax;
+
+function setQuickCurrency(curr) {
+    const select = document.getElementById('rapido-moneda');
+    if (select) select.value = curr;
+
+    const btnUsd = document.getElementById('btn-currency-usd');
+    const btnArs = document.getElementById('btn-currency-ars');
+
+    if (curr === 'ARS') {
+        if (btnArs) btnArs.className = 'px-2 py-0.5 rounded-md text-xs font-black transition-all bg-white text-brand-primary shadow-2xs select-none';
+        if (btnUsd) btnUsd.className = 'px-2 py-0.5 rounded-md text-xs font-bold transition-all text-slate-500 hover:text-slate-800 select-none';
+    } else {
+        if (btnUsd) btnUsd.className = 'px-2 py-0.5 rounded-md text-xs font-black transition-all bg-white text-brand-primary shadow-2xs select-none';
+        if (btnArs) btnArs.className = 'px-2 py-0.5 rounded-md text-xs font-bold transition-all text-slate-500 hover:text-slate-800 select-none';
+    }
+
+    updateQuickCurrencyLabels();
+    if (!isRestoringState) {
+        calculateQuickQuote();
+        saveQuickQuoteFormState();
+    }
+}
+window.setQuickCurrency = setQuickCurrency;
+
 function toggleOperatorMenu(el) {
     if (window.event) window.event.stopPropagation();
     const container = el.closest('.relative');
@@ -664,8 +725,8 @@ function loadDefaultQuickQuoteRows() {
     const passengerInput = document.getElementById('rapido-pasajero');
     if (passengerInput) passengerInput.value = '';
 
-    const paxCountInput = document.getElementById('rapido-pax-count');
-    if (paxCountInput) paxCountInput.value = 2;
+    updatePaxStepperUI(2);
+    setQuickCurrency('USD');
 
     const destInput = document.getElementById('rapido-destino');
     if (destInput) destInput.value = '';
@@ -1443,10 +1504,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
                         retPickerInput._flatpickr.setDate(h.fecha_regreso);
                     }
                     const currency = h.moneda || 'USD';
-                    const monedaSelect = document.getElementById('rapido-moneda');
-                    if (monedaSelect) {
-                        monedaSelect.value = currency;
-                    }
+                    setQuickCurrency(currency);
                     const savedRedondeo = typeof h.redondear !== 'undefined' ? h.redondear : false;
                     toggleQuickQuoteRedondeo(savedRedondeo);
                     return;
@@ -1456,6 +1514,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
             });
         }
         updateQuickCurrencyLabels();
+        updatePaxStepperUI(q.cantidad_pasajeros || 2);
 
         // Add Admin row
         addQuickBudgetRow({ tipo: 'admin' });
