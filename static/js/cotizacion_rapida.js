@@ -48,11 +48,11 @@ function toggleQuickQuoteRedondeo(forceState) {
 
     if (knob) {
         if (isQuickRedondeoActive) {
-            knob.classList.remove('translate-x-0', 'text-slate-400');
-            knob.classList.add('translate-x-5', 'text-brand-primary');
+            knob.classList.remove('translate-x-0', 'text-slate-400', 'text-slate-500');
+            knob.classList.add('translate-x-4', 'text-brand-primary');
         } else {
-            knob.classList.remove('translate-x-5', 'text-brand-primary');
-            knob.classList.add('translate-x-0', 'text-slate-400');
+            knob.classList.remove('translate-x-4', 'text-brand-primary');
+            knob.classList.add('translate-x-0', 'text-slate-500');
         }
     }
 
@@ -183,9 +183,10 @@ function saveQuickQuoteFormState() {
     document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
         const label = tr.querySelector('.quick-row-label')?.value || '';
+        const operador = tr.querySelector('.quick-row-operador')?.value || '';
         const montoRaw = tr.querySelector('.quick-row-monto')?.value || '';
         const monto = parseFormattedNumber(montoRaw);
-        rows.push({ tipo, label, monto });
+        rows.push({ tipo, label, monto, operador });
     });
 
     window.savedQuickQuoteState = {
@@ -217,8 +218,8 @@ function restoreQuickQuoteFormState() {
     const passengerInput = document.getElementById('rapido-pasajero');
     if (passengerInput) passengerInput.value = window.savedQuickQuoteState.passengerName;
 
-    const paxCountInput = document.getElementById('rapido-pax-count');
-    if (paxCountInput) paxCountInput.value = window.savedQuickQuoteState.paxCount;
+    const savedPax = window.savedQuickQuoteState.paxCount || 2;
+    updatePaxStepperUI(savedPax);
 
     const destInput = document.getElementById('rapido-destino');
     if (destInput) destInput.value = window.savedQuickQuoteState.destino;
@@ -233,16 +234,15 @@ function restoreQuickQuoteFormState() {
         retPickerInput._flatpickr.setDate(window.savedQuickQuoteState.fechaRegreso);
     }
 
-    const monedaInput = document.getElementById('rapido-moneda');
-    if (monedaInput && window.savedQuickQuoteState.moneda) {
-        monedaInput.value = window.savedQuickQuoteState.moneda;
-    }
+    const savedCurrency = window.savedQuickQuoteState.moneda || 'USD';
+    setQuickCurrency(savedCurrency);
 
     window.savedQuickQuoteState.rows.forEach(r => {
         addQuickBudgetRow({
             tipo: r.tipo,
             label: r.label,
             monto: r.monto,
+            operador: r.operador,
             isDefault: (r.tipo === 'fee-aereo' || r.tipo === 'admin')
         });
     });
@@ -549,6 +549,171 @@ function getNextLabelForType(tipo) {
     }
 }
 
+function updateRowOperatorUI(tr, operadorVal = '') {
+    const wrapper = tr.querySelector('.quick-row-operator-wrapper');
+    const inputHidden = tr.querySelector('.quick-row-operador');
+    if (inputHidden) inputHidden.value = operadorVal || '';
+
+    if (!wrapper) return;
+
+    const op = (operadorVal || '').trim();
+    const lower = op.toLowerCase();
+
+    if (lower === 'delfos') {
+        wrapper.innerHTML = `
+            <div class="relative inline-flex items-center justify-center my-auto">
+                <span onclick="toggleOperatorMenu(this)" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-orange-200 bg-orange-50 text-orange-600 shadow-sm cursor-pointer hover:brightness-95 transition-all select-none" title="Operador: Delfos (Clic para cambiar)">
+                    Delfos
+                    <button type="button" onclick="event.stopPropagation(); setRowOperator(this, '')" class="hover:text-orange-900 rounded-full p-0.5 transition-colors" title="Quitar operador">
+                        <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </span>
+                <div class="operator-popover-menu hidden absolute left-0 top-full mt-1 w-32 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1 flex flex-col gap-1">
+                    <button type="button" onclick="event.stopPropagation(); setRowOperator(this, 'Delfos')" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-orange-50 transition-colors flex items-center justify-between">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border border-orange-200 bg-orange-50 text-orange-600">Delfos</span>
+                    </button>
+                    <button type="button" onclick="event.stopPropagation(); setRowOperator(this, 'Ola')" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-between">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600">Ola</span>
+                    </button>
+                    <button type="button" onclick="event.stopPropagation(); setRowOperator(this, '')" class="w-full text-left px-2 py-1 text-[10px] font-semibold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors border-t border-slate-100 mt-0.5">
+                        Quitar operador
+                    </button>
+                </div>
+            </div>
+        `;
+    } else if (lower === 'ola') {
+        wrapper.innerHTML = `
+            <div class="relative inline-flex items-center justify-center my-auto">
+                <span onclick="toggleOperatorMenu(this)" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600 shadow-sm cursor-pointer hover:brightness-95 transition-all select-none" title="Operador: Ola (Clic para cambiar)">
+                    Ola
+                    <button type="button" onclick="event.stopPropagation(); setRowOperator(this, '')" class="hover:text-rose-900 rounded-full p-0.5 transition-colors" title="Quitar operador">
+                        <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </span>
+                <div class="operator-popover-menu hidden absolute left-0 top-full mt-1 w-32 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1 flex flex-col gap-1">
+                    <button type="button" onclick="event.stopPropagation(); setRowOperator(this, 'Delfos')" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-orange-50 transition-colors flex items-center justify-between">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border border-orange-200 bg-orange-50 text-orange-600">Delfos</span>
+                    </button>
+                    <button type="button" onclick="event.stopPropagation(); setRowOperator(this, 'Ola')" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-between">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600">Ola</span>
+                    </button>
+                    <button type="button" onclick="event.stopPropagation(); setRowOperator(this, '')" class="w-full text-left px-2 py-1 text-[10px] font-semibold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors border-t border-slate-100 mt-0.5">
+                        Quitar operador
+                    </button>
+                </div>
+            </div>
+        `;
+    } else {
+        wrapper.innerHTML = `
+            <div class="relative inline-flex items-center justify-center my-auto">
+                <button type="button" onclick="toggleOperatorMenu(this)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-all border border-slate-200/80 select-none my-auto whitespace-nowrap" title="Agregar operador">
+                    Agregar operador
+                </button>
+                <div class="operator-popover-menu hidden absolute left-0 top-full mt-1 w-32 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1 flex flex-col gap-1">
+                    <button type="button" onclick="event.stopPropagation(); setRowOperator(this, 'Delfos')" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-orange-50 transition-colors flex items-center justify-between">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border border-orange-200 bg-orange-50 text-orange-600">Delfos</span>
+                    </button>
+                    <button type="button" onclick="event.stopPropagation(); setRowOperator(this, 'Ola')" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-between">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-600">Ola</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+}
+window.updateRowOperatorUI = updateRowOperatorUI;
+
+function updatePaxStepperUI(val) {
+    const input = document.getElementById('rapido-pax-count');
+    const display = document.getElementById('quick-pax-display');
+    const btnDec = document.getElementById('btn-pax-dec');
+    const btnInc = document.getElementById('btn-pax-inc');
+
+    const pax = Math.max(1, Math.min(50, parseInt(val, 10) || 1));
+
+    if (input) input.value = pax;
+    if (display) display.innerText = pax;
+
+    if (btnDec) btnDec.disabled = (pax <= 1);
+    if (btnInc) btnInc.disabled = (pax >= 50);
+
+    if (!isRestoringState) {
+        calculateQuickQuote();
+        saveQuickQuoteFormState();
+    }
+}
+window.updatePaxStepperUI = updatePaxStepperUI;
+
+function incrementQuickPax() {
+    const input = document.getElementById('rapido-pax-count');
+    const current = parseInt(input?.value || '2', 10);
+    updatePaxStepperUI(current + 1);
+}
+window.incrementQuickPax = incrementQuickPax;
+
+function decrementQuickPax() {
+    const input = document.getElementById('rapido-pax-count');
+    const current = parseInt(input?.value || '2', 10);
+    updatePaxStepperUI(current - 1);
+}
+window.decrementQuickPax = decrementQuickPax;
+
+function setQuickCurrency(curr) {
+    const select = document.getElementById('rapido-moneda');
+    if (select) select.value = curr;
+
+    const btnUsd = document.getElementById('btn-currency-usd');
+    const btnArs = document.getElementById('btn-currency-ars');
+
+    if (curr === 'ARS') {
+        if (btnArs) btnArs.className = 'px-2 py-0.5 rounded-md text-xs font-black transition-all bg-white text-brand-primary shadow-2xs select-none';
+        if (btnUsd) btnUsd.className = 'px-2 py-0.5 rounded-md text-xs font-bold transition-all text-slate-500 hover:text-slate-800 select-none';
+    } else {
+        if (btnUsd) btnUsd.className = 'px-2 py-0.5 rounded-md text-xs font-black transition-all bg-white text-brand-primary shadow-2xs select-none';
+        if (btnArs) btnArs.className = 'px-2 py-0.5 rounded-md text-xs font-bold transition-all text-slate-500 hover:text-slate-800 select-none';
+    }
+
+    updateQuickCurrencyLabels();
+    if (!isRestoringState) {
+        calculateQuickQuote();
+        saveQuickQuoteFormState();
+    }
+}
+window.setQuickCurrency = setQuickCurrency;
+
+function toggleOperatorMenu(el) {
+    if (window.event) window.event.stopPropagation();
+    const container = el.closest('.relative');
+    const menu = container ? container.querySelector('.operator-popover-menu') : null;
+    if (!menu) return;
+
+    const isHidden = menu.classList.contains('hidden');
+    document.querySelectorAll('.operator-popover-menu').forEach(m => m.classList.add('hidden'));
+
+    if (isHidden) {
+        menu.classList.remove('hidden');
+    }
+}
+window.toggleOperatorMenu = toggleOperatorMenu;
+
+function setRowOperator(el, operatorName) {
+    if (window.event) window.event.stopPropagation();
+    const tr = el.closest('tr.quick-row');
+    if (!tr) return;
+
+    document.querySelectorAll('.operator-popover-menu').forEach(m => m.classList.add('hidden'));
+
+    updateRowOperatorUI(tr, operatorName);
+    saveQuickQuoteFormState();
+}
+window.setRowOperator = setRowOperator;
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.operator-popover-menu') && !e.target.closest('.quick-row-operator-wrapper')) {
+        document.querySelectorAll('.operator-popover-menu').forEach(m => m.classList.add('hidden'));
+    }
+});
+
 function loadDefaultQuickQuoteRows() {
     currentQuickQuoteId = null;
     window.currentQuickQuoteOwner = null;
@@ -560,8 +725,8 @@ function loadDefaultQuickQuoteRows() {
     const passengerInput = document.getElementById('rapido-pasajero');
     if (passengerInput) passengerInput.value = '';
 
-    const paxCountInput = document.getElementById('rapido-pax-count');
-    if (paxCountInput) paxCountInput.value = 2;
+    updatePaxStepperUI(2);
+    setQuickCurrency('USD');
 
     const destInput = document.getElementById('rapido-destino');
     if (destInput) destInput.value = '';
@@ -595,6 +760,7 @@ function addQuickBudgetRow(data = null) {
     const labelVal = data && data.label ? data.label : conceptTypes[selectedTipo].label;
     const rawMonto = (data && data.monto !== undefined) ? data.monto : '';
     const montoVal = rawMonto !== '' ? formatPriceES(parseFormattedNumber(rawMonto)) : '';
+    const operadorVal = data && data.operador ? data.operador : '';
     const isDefault = data && data.isDefault;
     const isUndeletable = (selectedTipo === 'fee-aereo' || selectedTipo === 'admin' || selectedTipo === 'redondeo');
     const isLabelReadOnly = isUndeletable ? 'readonly' : '';
@@ -659,17 +825,24 @@ function addQuickBudgetRow(data = null) {
     }
 
     tr.innerHTML = `
-        <td class="py-3.5 font-bold text-slate-700 flex items-center gap-1.5 pl-3 bg-white">
-            <span class="quick-row-icon flex items-center justify-center">${conceptTypes[selectedTipo].icon}</span>
-            ${labelCellHtml}
+        <td class="py-3.5 font-bold text-slate-700 flex items-center gap-1.5 pl-3 bg-white relative">
+            <span class="quick-row-icon flex items-center justify-center flex-shrink-0">${conceptTypes[selectedTipo].icon}</span>
+            <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                ${labelCellHtml}
+                ${(selectedTipo !== 'admin' && selectedTipo !== 'redondeo' && selectedTipo !== 'fee-aereo') ? `
+                    <div class="quick-row-operator-wrapper relative inline-flex items-center justify-center flex-shrink-0 my-auto">
+                    </div>
+                ` : ''}
+            </div>
             <input type="hidden" class="quick-row-tipo" value="${selectedTipo}">
+            <input type="hidden" class="quick-row-operador" value="${operadorVal}">
         </td>
         <td class="py-3.5 text-right relative">
             <div class="flex items-center justify-end max-w-[180px] ml-auto">
                 <span class="quick-fee-unlock-container absolute right-full top-1/2 -translate-y-1/2 mr-2 flex items-center ${selectedTipo === 'fee-aereo' ? 'block' : 'hidden'}">
                     <button type="button" class="quick-row-fee-unlock flex items-center justify-center text-slate-400 hover:text-brand-primary bg-slate-100 hover:bg-slate-200 transition-all duration-300 p-1.5 cursor-pointer rounded-full" title="Activar/Desactivar edición manual">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
                         </svg>
                     </button>
                 </span>
@@ -690,6 +863,7 @@ function addQuickBudgetRow(data = null) {
     `;
 
     tbody.appendChild(tr);
+    updateRowOperatorUI(tr, operadorVal);
     updateQuickCurrencyLabels();
 
     // Bind dynamic row elements events
@@ -972,24 +1146,26 @@ async function saveQuickQuote(andRedirect = false) {
     document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
         const label = tr.querySelector('.quick-row-label')?.value || '';
+        const operador = tr.querySelector('.quick-row-operador')?.value || '';
         const monto = parseFormattedNumber(tr.querySelector('.quick-row-monto')?.value);
 
         if (tipo === 'vuelo') {
             totalAereo += monto;
-            vuelos.push({ nombre: label, monto: monto, fee: 0 });
+            vuelos.push({ nombre: label, monto: monto, fee: 0, operador: operador });
         } else if (tipo === 'fee-aereo') {
             totalAereo += monto;
             if (vuelos.length > 0) {
                 vuelos[0].fee += monto;
+                if (operador) vuelos[0].operador = operador;
             } else {
-                vuelos.push({ nombre: "Fee Aéreo", monto: 0, fee: monto });
+                vuelos.push({ nombre: "Fee Aéreo", monto: 0, fee: monto, operador: operador });
             }
         } else if (tipo === 'hotel') {
             totalTerrestreNeto += monto;
-            hoteles.push({ nombre: label, costo: monto });
+            hoteles.push({ nombre: label, costo: monto, operador: operador });
         } else if (tipo === 'traslado') {
             totalTerrestreNeto += monto;
-            traslados.push({ nombre: label, costo: monto });
+            traslados.push({ nombre: label, costo: monto, operador: operador });
         }
     });
 
@@ -1008,6 +1184,7 @@ async function saveQuickQuote(andRedirect = false) {
             fecha_salida: fechaSalida,
             fecha_regreso: fechaRegreso,
             moneda: document.getElementById('rapido-moneda')?.value || 'USD',
+            operador: document.getElementById('rapido-operador')?.value || '',
             redondear: isQuickRedondeoActive
         }
     ];
@@ -1301,7 +1478,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
                 if (v.nombre === "Fee Aéreo" && v.monto === 0) {
                     return;
                 }
-                addQuickBudgetRow({ tipo: 'vuelo', label: v.nombre, monto: v.monto });
+                addQuickBudgetRow({ tipo: 'vuelo', label: v.nombre, monto: v.monto, operador: v.operador });
             });
         }
 
@@ -1327,19 +1504,17 @@ async function loadQuickBudgetIntoForm(quoteId) {
                         retPickerInput._flatpickr.setDate(h.fecha_regreso);
                     }
                     const currency = h.moneda || 'USD';
-                    const monedaSelect = document.getElementById('rapido-moneda');
-                    if (monedaSelect) {
-                        monedaSelect.value = currency;
-                    }
+                    setQuickCurrency(currency);
                     const savedRedondeo = typeof h.redondear !== 'undefined' ? h.redondear : false;
                     toggleQuickQuoteRedondeo(savedRedondeo);
                     return;
                 }
                 const tipo = h.nombre.toLowerCase().includes('traslado') ? 'traslado' : 'hotel';
-                addQuickBudgetRow({ tipo: tipo, label: h.nombre, monto: h.costo });
+                addQuickBudgetRow({ tipo: tipo, label: h.nombre, monto: h.costo, operador: h.operador });
             });
         }
         updateQuickCurrencyLabels();
+        updatePaxStepperUI(q.cantidad_pasajeros || 2);
 
         // Add Admin row
         addQuickBudgetRow({ tipo: 'admin' });
@@ -1671,6 +1846,9 @@ export function closeSavedQuickQuoteView() {
     if (depPickerInput && depPickerInput._flatpickr) depPickerInput._flatpickr.clear();
     const retPickerInput = document.getElementById('rapido-fecha-regreso');
     if (retPickerInput && retPickerInput._flatpickr) retPickerInput._flatpickr.clear();
+
+    const operadorSelect = document.getElementById('rapido-operador');
+    if (operadorSelect) operadorSelect.value = '';
 
     const tbody = document.getElementById('quick-budget-body');
     if (tbody) tbody.innerHTML = '';
