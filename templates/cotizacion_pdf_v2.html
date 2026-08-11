@@ -117,34 +117,26 @@
            ══════════════════════════════════════════════════════════════════ */
         .title-section {
             text-align: center;
-            margin: 25px 0 45px 0;
+            margin: 20px 0 32px 0;
         }
 
         .destination-title {
             font-weight: 900;
-
-            font-size: {
-                    {
-                    destino_font_size|default('40pt')
-                }
-            }
-
-            ;
+            font-size: {{ destino_font_size|default('46pt') }};
             text-transform: uppercase;
             color: #343434;
             letter-spacing: -0.03em;
-            line-height: 1;
+            line-height: 1.05;
             margin: 0;
         }
 
-        .proposal-inline-subtitle {
-            font-size: 9.5pt;
+        .proposal-subtitle {
+            font-size: 10pt;
             font-weight: 500;
             color: #64748b;
-            text-transform: none;
+            margin-top: 6px;
             letter-spacing: 0.02em;
-            margin-left: 4px;
-            display: inline;
+            text-align: center;
         }
 
         /* ══════════════════════════════════════════════════════════════════
@@ -548,7 +540,7 @@
         }
 
         body.single-hotel-layout .title-section {
-            margin: 24px 0 38px 0;
+            margin: 20px 0 28px 0;
         }
 
         body.single-hotel-layout .section-heading {
@@ -597,7 +589,7 @@
 
         body.two-hotels-layout .title-section,
         body.three-hotels-layout .title-section {
-            margin: 16px 0 26px 0;
+            margin: 14px 0 20px 0;
         }
 
         body.two-hotels-layout .section-heading,
@@ -644,13 +636,13 @@
     <!-- ═══════════════ 2. TÍTULO PRINCIPAL ═══════════════ -->
     <div class="title-section">
         <h1 class="destination-title">{{ destino }}</h1>
+        <div class="proposal-subtitle">
+            Propuesta para {{ nombre_pax }} con salida el {{ fecha_salida }}
+        </div>
     </div>
 
     <!-- ═══════════════ 3. SERVICIOS INCLUIDOS ═══════════════ -->
-    <div class="section-heading">
-        Servicios incluidos <span class="proposal-inline-subtitle">• Propuesta para {{ nombre_pax }} con salida el {{
-            fecha_salida }}</span>
-    </div>
+    <div class="section-heading">Servicios incluidos</div>
     <table class="services-list">
         <tr>
             <td class="svc-icon">

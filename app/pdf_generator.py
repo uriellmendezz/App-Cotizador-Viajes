@@ -342,13 +342,13 @@ def generate_pdf(data: dict) -> bytes:
     destino = data.get("destino", "Destino")
     destino_len = len(destino)
     if destino_len > 25:
-        destino_font_size = "20pt"
+        destino_font_size = "22pt"
     elif destino_len > 18:
-        destino_font_size = "26pt"
+        destino_font_size = "30pt"
     elif destino_len > 12:
-        destino_font_size = "32pt"
+        destino_font_size = "36pt"
     else:
-        destino_font_size = "40pt"
+        destino_font_size = "46pt"
 
     # ── Calculate trip duration in days for vehicle rental ─────────────────
     cantidad_dias_viaje = 7
