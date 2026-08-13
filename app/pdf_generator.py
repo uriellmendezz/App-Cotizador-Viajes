@@ -267,6 +267,7 @@ def generate_pdf(data: dict) -> bytes:
     svg_bag_valija = _read_svg_content("valija-23kg.svg")
     svg_avion_despegando = _read_svg_content("avion-despegando.svg")
     svg_avion_aterrizando = _read_svg_content("avion-aterrizando.svg")
+    svg_avion = _read_svg_content("avion.svg") or svg_avion_despegando
 
     # ── Decode flight images from base64 ───────────────────────────────────
     temp_files = []  # track temp files for cleanup
@@ -285,8 +286,29 @@ def generate_pdf(data: dict) -> bytes:
         if img_vuelta_uri:
             temp_files.append(img_vuelta_uri)
 
-    # Detect currency
+    # 3rd flight segment (Tramo adicional / intermedio)
     hoteles_raw = data.get("hoteles", [])
+    fecha_vuelo_3 = data.get("fecha_vuelo_3", "")
+    img_3_b64 = data.get("img_vuelo_3") or data.get("img_vuelo_3_base64")
+
+    if not fecha_vuelo_3 or not img_3_b64:
+        for h in hoteles_raw:
+            if h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+                if not fecha_vuelo_3:
+                    fecha_vuelo_3 = h.get("fecha_vuelo_3", "")
+                if not img_3_b64:
+                    img_3_b64 = h.get("img_vuelo_3", "")
+                break
+
+    img_3_uri = None
+    if img_3_b64:
+        img_3_uri = _safe_base64_to_temp_file(img_3_b64, "vuelo_3_")
+        if img_3_uri:
+            temp_files.append(img_3_uri)
+
+    has_vuelo_3 = bool(img_3_uri or (fecha_vuelo_3 and str(fecha_vuelo_3).strip()))
+
+    # Detect currency
     moneda = data.get("moneda")
     if not moneda:
         for h in hoteles_raw:
@@ -299,9 +321,34 @@ def generate_pdf(data: dict) -> bytes:
     # ── Process hotel data ─────────────────────────────────────────────────
     hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     processed_hotels = []
+    primary_hotel_noches = None
 
     for idx, hotel in enumerate(hoteles[:3]):  # Max 3 hotels
         h = dict(hotel)  # don't mutate original
+
+        # Calculate hotel nights from checkin / checkout if available
+        ci_str = h.get("fecha_checkin")
+        co_str = h.get("fecha_checkout")
+        h_noches = None
+        if ci_str and co_str:
+            for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%y"):
+                try:
+                    dt_ci = datetime.strptime(str(ci_str).strip(), fmt)
+                    dt_co = datetime.strptime(str(co_str).strip(), fmt)
+                    dias = abs((dt_co - dt_ci).days)
+                    if dias > 0:
+                        h_noches = dias
+                        break
+                except ValueError:
+                    pass
+        if h_noches:
+            h["noches"] = h_noches
+            h["noches_alojamiento"] = "1 noche" if h_noches == 1 else f"{h_noches} noches"
+        else:
+            h["noches_alojamiento"] = h.get("noches_alojamiento") or data.get("noches_alojamiento", "7 noches")
+
+        if idx == 0 and h.get("noches_alojamiento"):
+            primary_hotel_noches = h["noches_alojamiento"]
 
         # Star rating
         h["stars_count"] = _get_stars_count(h.get("estrellas"))
@@ -365,14 +412,15 @@ def generate_pdf(data: dict) -> bytes:
                     break
             except ValueError:
                 pass
-    if cantidad_dias_viaje == 7 and data.get("noches_alojamiento"):
+    if cantidad_dias_viaje == 7 and (primary_hotel_noches or data.get("noches_alojamiento")):
         import re
-        match = re.search(r'\d+', str(data.get("noches_alojamiento")))
+        match = re.search(r'\d+', str(primary_hotel_noches or data.get("noches_alojamiento")))
         if match:
             cantidad_dias_viaje = int(match.group())
 
     # ── Build template context ─────────────────────────────────────────────
     fecha_generacion = datetime.now().strftime("%d/%m/%Y")
+    noches_alojamiento_final = primary_hotel_noches or data.get("noches_alojamiento", "7 noches")
 
     context = {
         # Fonts
@@ -392,7 +440,7 @@ def generate_pdf(data: dict) -> bytes:
         # Services summary
         "origen": data.get("origen", "Córdoba"),
         "cantidad_pasajeros": data.get("cantidad_pasajeros", 1),
-        "noches_alojamiento": data.get("noches_alojamiento", "7 noches"),
+        "noches_alojamiento": noches_alojamiento_final,
         "tipo_traslado": data.get("tipo_traslado", "tradicional"),
         "cantidad_dias_viaje": cantidad_dias_viaje,
         # SVGs for dynamic inlining and styling
@@ -407,11 +455,15 @@ def generate_pdf(data: dict) -> bytes:
         "svg_bag_valija": svg_bag_valija,
         "svg_avion_despegando": svg_avion_despegando,
         "svg_avion_aterrizando": svg_avion_aterrizando,
+        "svg_avion": svg_avion,
         # Flights
         "fecha_vuelo_ida": data.get("fecha_vuelo_ida", ""),
         "fecha_vuelo_vuelta": data.get("fecha_vuelo_vuelta", ""),
+        "fecha_vuelo_3": fecha_vuelo_3,
         "img_vuelo_ida": img_ida_uri,
         "img_vuelo_vuelta": img_vuelta_uri,
+        "img_vuelo_3": img_3_uri,
+        "has_vuelo_3": has_vuelo_3,
         "detalle_vuelo_completo": data.get("detalle_vuelo_completo", ""),
         # Baggage selection list
         "equipaje": data.get("equipaje", []),

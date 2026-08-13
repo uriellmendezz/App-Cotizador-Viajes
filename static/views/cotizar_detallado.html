@@ -164,13 +164,18 @@
                 <!-- Section 2: Cronograma de Vuelos -->
                 <section
                     class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
-                    <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
-                        <span
-                            class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">2</span>
-                        <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Vuelos</h2>
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                        <div class="flex items-center gap-3">
+                            <span
+                                class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">2</span>
+                            <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Vuelos</h2>
+                        </div>
+                        <button type="button" id="btn-toggle-flight-segment"
+                            class="px-4 py-2 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-full font-bold text-xs text-slate-600 uppercase tracking-wider transition-all duration-300 cursor-pointer"
+                            onclick="toggleExtraFlightSegment()">+ Agregar Tramo</button>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 transition-all duration-300" id="flight-segments-container">
                         <!-- Ida Card -->
                         <div class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
                             <span class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo de
@@ -201,6 +206,47 @@
                                         class="dropzone-preview absolute inset-0 w-full h-full object-contain bg-slate-50 rounded-xl"
                                         style="display: none;" alt="">
                                     <input type="hidden" id="data-vuelo-ida">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tramo Intermedio Card (Optional) -->
+                        <div id="card-vuelo-3" class="hidden bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4 relative">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo Intermedio</span>
+                                <button type="button" onclick="removeExtraFlightSegment()"
+                                    class="text-slate-400 hover:text-rose-500 transition-colors p-1 rounded-lg hover:bg-rose-50 cursor-pointer" title="Eliminar este tramo">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label for="fecha_vuelo_3"
+                                    class="text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</label>
+                                <input type="date" id="fecha_vuelo_3" onchange="validateDates()"
+                                    class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white">
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura Tramo Intermedio</label>
+                                <div class="dropzone relative overflow-hidden border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-6 bg-white flex flex-col items-center justify-center min-h-[140px] cursor-pointer transition-all duration-300 group"
+                                    id="dropzone-vuelo-3" tabindex="0"
+                                    onclick="triggerFileInput('file-vuelo-3')">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        class="w-8 h-8 text-slate-400 group-hover:text-brand-primary transition-colors mb-2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                                    </svg>
+                                    <span
+                                        class="text-xs text-slate-500 font-semibold text-center leading-relaxed">Arrastra,
+                                        haz clic para subir<br><span
+                                            class="text-[10px] text-brand-primary/80 font-bold">o pulsa Ctrl+V para
+                                            pegar</span></span>
+                                    <input type="file" id="file-vuelo-3" accept="image/*" class="hidden"
+                                        onchange="handleImageUpload(this, 'preview-vuelo-3', 'data-vuelo-3')">
+                                    <img id="preview-vuelo-3"
+                                        class="dropzone-preview absolute inset-0 w-full h-full object-contain bg-slate-50 rounded-xl"
+                                        style="display: none;" alt="">
+                                    <input type="hidden" id="data-vuelo-3">
                                 </div>
                             </div>
                         </div>

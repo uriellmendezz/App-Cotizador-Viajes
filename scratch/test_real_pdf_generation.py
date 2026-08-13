@@ -11,7 +11,10 @@ from app.pdf_generator import generate_pdf
 def main():
     print("Testing real PDF generation with WeasyPrint...")
     
-    # Mock data structure matching generate_pdf requirements
+    # 1x1 transparent png base64 for test
+    dummy_b64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+
+    # Mock data structure matching generate_pdf requirements with 3 flights
     data = {
         "nombre_pax": "Juan Pérez",
         "destino": "Cancún, México",
@@ -19,14 +22,20 @@ def main():
         "fecha_salida": "15/12/2026",
         "origen": "Córdoba",
         "fecha_vuelo_ida": "15/12/2026",
-        "fecha_vuelo_vuelta": "22/12/2026",
-        "noches_alojamiento": "7 noches",
+        "fecha_vuelo_3": "18/12/2026",
+        "fecha_vuelo_vuelta": "25/12/2026",
+        "img_vuelo_ida": dummy_b64,
+        "img_vuelo_3": dummy_b64,
+        "img_vuelo_vuelta": dummy_b64,
+        "noches_alojamiento": "10 noches",
         "base_habitacion": "Doble",
-        "detalle_vuelo_completo": "Vuelos desde Córdoba a Cancún. Incluye equipaje de mano y valija (23kg).",
+        "detalle_vuelo_completo": "Vuelos desde Córdoba a Cancún con escala intermedia. Incluye equipaje de mano y valija (23kg).",
         "hoteles": [
             {
                 "nombre": "Grand Oasis Cancun",
                 "estrellas": "★★★★",
+                "fecha_checkin": "16/12/2026",
+                "fecha_checkout": "24/12/2026",
                 "descripcion": "Resort todo incluido en la zona hotelera de Cancún con excelentes playas y actividades.",
                 "regimen": "All Inclusive",
                 "habitacion": "Estándar Vista al Mar",

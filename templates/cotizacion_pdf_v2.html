@@ -239,7 +239,7 @@
         }
 
         /* ══════════════════════════════════════════════════════════════════
-           4. VUELOS — Dos columnas
+           4. VUELOS — Dos o tres columnas
            ══════════════════════════════════════════════════════════════════ */
         .flights-section {
             break-inside: avoid;
@@ -248,16 +248,16 @@
 
         .flights-row {
             display: flex;
+            gap: 12px;
         }
 
         .flight-col {
             flex: 1;
-            margin-right: 8px;
+            min-width: 0;
         }
 
         .flights-row .flight-col:last-child {
             margin-right: 0;
-            margin-left: 8px;
         }
 
         .flights-row.flights-stacked {
@@ -278,6 +278,35 @@
 
         .flights-row.flights-stacked .flight-img-container img {
             height: 100px !important;
+            object-fit: contain;
+        }
+
+        .flights-row.flights-3-col {
+            display: flex !important;
+            gap: 8px !important;
+        }
+
+        .flights-row.flights-3-col .flight-col {
+            flex: 1 !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+        }
+
+        .flights-row.flights-3-col .flight-label {
+            font-size: 7.5pt !important;
+            padding: 5px 4px !important;
+            gap: 4px !important;
+            letter-spacing: 0.02em !important;
+        }
+
+        .flights-row.flights-3-col .flight-label span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .flights-row.flights-3-col .flight-img-container img {
+            height: 65px !important;
             object-fit: contain;
         }
 
@@ -679,12 +708,12 @@
     <!-- ═══════════════ 4. VUELOS ═══════════════ -->
     <div class="flights-section">
         <div class="section-heading">Vuelos</div>
-        <div class="flights-row {% if hoteles|length == 1 %}flights-stacked{% endif %}">
+        <div class="flights-row {% if has_vuelo_3 %}flights-3-col{% elif hoteles|length == 1 %}flights-stacked{% endif %}">
             <div class="flight-col">
                 <div class="flight-label">
                     <span class="flight-icon">{{ svg_avion_despegando.replace('<svg', '<svg fill="#334155"' )|safe
                             }}</span>
-                            <span>SALIDA - {{ fecha_vuelo_ida }}</span>
+                    <span>SALIDA - {{ fecha_vuelo_ida }}</span>
                 </div>
                 <div class="flight-img-container">
                     {% if img_vuelo_ida %}
@@ -692,11 +721,30 @@
                     {% endif %}
                 </div>
             </div>
+            {% if has_vuelo_3 %}
+            <div class="flight-col">
+                <div class="flight-label">
+                    <span class="flight-icon">
+                        {% if svg_avion %}
+                        {{ svg_avion.replace('<svg', '<svg fill="#334155"' )|safe }}
+                        {% else %}
+                        {{ svg_avion_despegando.replace('<svg', '<svg fill="#334155"' )|safe }}
+                        {% endif %}
+                    </span>
+                    <span>TRAMO 2 - {{ fecha_vuelo_3 }}</span>
+                </div>
+                <div class="flight-img-container">
+                    {% if img_vuelo_3 %}
+                    <img src="{{ img_vuelo_3 }}" alt="Tramo 2">
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
             <div class="flight-col">
                 <div class="flight-label">
                     <span class="flight-icon">{{ svg_avion_aterrizando.replace('<svg', '<svg fill="#334155"' )|safe
                             }}</span>
-                            <span>REGRESO - {{ fecha_vuelo_vuelta }}</span>
+                    <span>REGRESO - {{ fecha_vuelo_vuelta }}</span>
                 </div>
                 <div class="flight-img-container">
                     {% if img_vuelo_vuelta %}
@@ -751,7 +799,7 @@
                         <span class="hotel-svc-badge">
                             <span class="badge-icon">{{ svg_noches.replace('<svg', '<svg fill="#475569"' )|safe
                                     }}</span>
-                                    {{ noches_alojamiento }}
+                                    {{ hotel.noches_alojamiento|default(noches_alojamiento) }}
                             </span>
                             <span class="hotel-svc-badge">
                                 <span class="badge-icon">{{ svg_dormitorios.replace('<svg', '<svg fill="#475569"' )|safe
