@@ -137,6 +137,37 @@ def extract_currency(hoteles):
             return h.get("moneda", "USD")
     return "USD"
 
+def _calculate_noches_and_format_hotels(quote: dict) -> str:
+    hoteles_list = quote.get("hoteles", [])
+    primary_hotel_noches = None
+    
+    for h in hoteles_list:
+        if not isinstance(h, dict) or h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+            continue
+        ci = parse_date(h.get("fecha_checkin"))
+        co = parse_date(h.get("fecha_checkout"))
+        if ci and co:
+            h_noches = abs((co - ci).days)
+            h["noches"] = h_noches
+            h["noches_alojamiento"] = "1 noche" if h_noches == 1 else f"{h_noches} noches"
+            if not primary_hotel_noches:
+                primary_hotel_noches = h["noches_alojamiento"]
+        if h.get("fecha_checkin"):
+            h["fecha_checkin"] = format_to_dd_mm_yy(h.get("fecha_checkin"))
+        if h.get("fecha_checkout"):
+            h["fecha_checkout"] = format_to_dd_mm_yy(h.get("fecha_checkout"))
+            
+    if primary_hotel_noches:
+        return primary_hotel_noches
+        
+    fecha_ida_dt = parse_date(quote.get("fecha_vuelo_ida"))
+    fecha_vuelta_dt = parse_date(quote.get("fecha_vuelo_vuelta"))
+    if fecha_ida_dt and fecha_vuelta_dt:
+        noches = abs((fecha_vuelta_dt - fecha_ida_dt).days)
+        return "1 noche" if noches == 1 else f"{noches} noches"
+        
+    return quote.get("noches_alojamiento") or "7 noches"
+
 def send_notification_email(sender_franchise: str, owner_name: str, owner_email: str, agent_name: str, agent_email: str, agent_role: str, notes: str):
     import smtplib
     from email.mime.text import MIMEText
@@ -529,16 +560,13 @@ def api_cotizar(quote: dict, current_user: dict = Depends(get_current_active_age
     elif cant_pax > 4: base_habitacion = "Grupal"
     quote["base_habitacion"] = base_habitacion
     
-    fecha_ida_dt = parse_date(quote.get("fecha_vuelo_ida"))
-    fecha_vuelta_dt = parse_date(quote.get("fecha_vuelo_vuelta"))
-    noches_alojamiento = "7 noches"
-    if fecha_ida_dt and fecha_vuelta_dt:
-        noches = abs((fecha_vuelta_dt - fecha_ida_dt).days)
-        noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
+    noches_alojamiento = _calculate_noches_and_format_hotels(quote)
     quote["noches_alojamiento"] = noches_alojamiento
     
     quote["fecha_vuelo_ida"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_ida"))
     quote["fecha_vuelo_vuelta"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_vuelta"))
+    if "fecha_vuelo_3" in quote and quote["fecha_vuelo_3"]:
+        quote["fecha_vuelo_3"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_3"))
     quote["fecha_salida"] = format_to_dd_mm_yy(quote.get("fecha_salida"))
     if "validez_cotizacion" in quote:
         quote["validez_cotizacion"] = format_to_dd_mm_yy(quote.get("validez_cotizacion"))
@@ -669,16 +697,13 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
     elif cant_pax > 4: base_habitacion = "Grupal"
     quote["base_habitacion"] = base_habitacion
     
-    fecha_ida_dt = parse_date(quote.get("fecha_vuelo_ida"))
-    fecha_vuelta_dt = parse_date(quote.get("fecha_vuelo_vuelta"))
-    noches_alojamiento = "7 noches"
-    if fecha_ida_dt and fecha_vuelta_dt:
-        noches = abs((fecha_vuelta_dt - fecha_ida_dt).days)
-        noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
+    noches_alojamiento = _calculate_noches_and_format_hotels(quote)
     quote["noches_alojamiento"] = noches_alojamiento
     
     quote["fecha_vuelo_ida"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_ida"))
     quote["fecha_vuelo_vuelta"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_vuelta"))
+    if "fecha_vuelo_3" in quote and quote["fecha_vuelo_3"]:
+        quote["fecha_vuelo_3"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_3"))
     quote["fecha_salida"] = format_to_dd_mm_yy(quote.get("fecha_salida"))
     if "validez_cotizacion" in quote:
         quote["validez_cotizacion"] = format_to_dd_mm_yy(quote.get("validez_cotizacion"))
@@ -846,16 +871,13 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
     elif cant_pax > 4: base_habitacion = "Grupal"
     payload["base_habitacion"] = base_habitacion
     
-    fecha_ida_dt = parse_date(payload.get("fecha_vuelo_ida"))
-    fecha_vuelta_dt = parse_date(payload.get("fecha_vuelo_vuelta"))
-    noches_alojamiento = "7 noches"
-    if fecha_ida_dt and fecha_vuelta_dt:
-        noches = abs((fecha_vuelta_dt - fecha_ida_dt).days)
-        noches_alojamiento = "1 noche" if noches == 1 else f"{noches} noches"
+    noches_alojamiento = _calculate_noches_and_format_hotels(payload)
     payload["noches_alojamiento"] = noches_alojamiento
     
     payload["fecha_vuelo_ida"] = format_to_dd_mm_yy(payload.get("fecha_vuelo_ida"))
     payload["fecha_vuelo_vuelta"] = format_to_dd_mm_yy(payload.get("fecha_vuelo_vuelta"))
+    if "fecha_vuelo_3" in payload and payload["fecha_vuelo_3"]:
+        payload["fecha_vuelo_3"] = format_to_dd_mm_yy(payload.get("fecha_vuelo_3"))
     payload["fecha_salida"] = format_to_dd_mm_yy(payload.get("fecha_salida"))
     if "validez_cotizacion" in payload:
         payload["validez_cotizacion"] = format_to_dd_mm_yy(payload.get("validez_cotizacion"))

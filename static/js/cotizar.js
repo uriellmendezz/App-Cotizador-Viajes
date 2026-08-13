@@ -11,6 +11,168 @@ let isRestoringStateDetailed = false;
 let savedQuotesCurrentPage = 1;
 const savedQuotesPerPage = 10;
 
+function showExtraFlightSegment(show = true) {
+    const card = document.getElementById('card-vuelo-3');
+    const container = document.getElementById('flight-segments-container');
+    const btn = document.getElementById('btn-toggle-flight-segment');
+    if (!card || !container) return;
+
+    if (show) {
+        card.classList.remove('hidden');
+        container.classList.remove('md:grid-cols-2');
+        container.classList.add('md:grid-cols-3');
+        if (btn) {
+            btn.innerText = '− Quitar Tramo';
+            btn.classList.remove('bg-slate-100', 'text-slate-600');
+            btn.classList.add('bg-rose-50', 'text-rose-600', 'hover:bg-rose-100');
+        }
+    } else {
+        card.classList.add('hidden');
+        container.classList.remove('md:grid-cols-3');
+        container.classList.add('md:grid-cols-2');
+        if (btn) {
+            btn.innerText = '+ Agregar Tramo';
+            btn.classList.remove('bg-rose-50', 'text-rose-600', 'hover:bg-rose-100');
+            btn.classList.add('bg-slate-100', 'text-slate-600');
+        }
+    }
+}
+window.showExtraFlightSegment = showExtraFlightSegment;
+
+function toggleExtraFlightSegment() {
+    const card = document.getElementById('card-vuelo-3');
+    if (!card) return;
+    const isHidden = card.classList.contains('hidden');
+    if (isHidden) {
+        showExtraFlightSegment(true);
+    } else {
+        removeExtraFlightSegment();
+    }
+    saveDetailedQuoteFormState();
+    updateRealTimeSummary();
+}
+window.toggleExtraFlightSegment = toggleExtraFlightSegment;
+
+function removeExtraFlightSegment() {
+    showExtraFlightSegment(false);
+    // Clear date
+    const dateInput = document.getElementById('fecha_vuelo_3');
+    if (dateInput) {
+        if (dateInput._flatpickr) dateInput._flatpickr.clear();
+        else dateInput.value = '';
+    }
+    // Clear image
+    const dataInput = document.getElementById('data-vuelo-3');
+    if (dataInput) dataInput.value = '';
+    const preview = document.getElementById('preview-vuelo-3');
+    if (preview) {
+        preview.src = '';
+        preview.style.display = 'none';
+    }
+    const dz = document.getElementById('dropzone-vuelo-3');
+    if (dz) {
+        const span = dz.querySelector('span');
+        const svg = dz.querySelector('svg');
+        if (span) span.style.display = 'block';
+        if (svg) svg.style.display = 'block';
+    }
+    saveDetailedQuoteFormState();
+    updateRealTimeSummary();
+}
+window.removeExtraFlightSegment = removeExtraFlightSegment;
+
+function getDatePickerValueFromInput(el) {
+    if (!el) return "";
+    if (el._flatpickr && el._flatpickr.selectedDates && el._flatpickr.selectedDates.length > 0) {
+        const d = el._flatpickr.selectedDates[0];
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    return el.value || "";
+}
+window.getDatePickerValueFromInput = getDatePickerValueFromInput;
+
+function formatToPicker(val) {
+    if (!val) return '';
+    val = String(val).trim();
+    if (val.includes('-')) {
+        const parts = val.split('-');
+        if (parts[0].length === 4) return val; // YYYY-MM-DD
+        if (parts[2].length === 4) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        const yr = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+        return `${yr}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    if (val.includes('/')) {
+        const parts = val.split('/');
+        if (parts.length === 3) {
+            const yr = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+            return `${yr}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+    }
+    return val;
+}
+window.formatToPicker = formatToPicker;
+
+function updateHotelNights(card) {
+    if (!card) return 0;
+    const checkinInput = card.querySelector('.hotel-checkin-val');
+    const checkoutInput = card.querySelector('.hotel-checkout-val');
+    const badge = card.querySelector('.hotel-noches-badge');
+    
+    const ciVal = getDatePickerValueFromInput(checkinInput);
+    const coVal = getDatePickerValueFromInput(checkoutInput);
+    
+    let nights = 0;
+    if (ciVal && coVal) {
+        const d1 = new Date(ciVal + 'T00:00:00');
+        const d2 = new Date(coVal + 'T00:00:00');
+        const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        if (diff > 0) {
+            nights = diff;
+        }
+    }
+    
+    if (badge) {
+        if (nights > 0) {
+            badge.innerText = nights === 1 ? '1 noche' : `${nights} noches`;
+            badge.classList.remove('hidden');
+        } else {
+            badge.innerText = '';
+        }
+    }
+    return nights;
+}
+window.updateHotelNights = updateHotelNights;
+
+function syncHotelDatesWithFlights() {
+    const flightIda = getDatePickerValue('fecha_vuelo_ida');
+    const flightVuelta = getDatePickerValue('fecha_vuelo_vuelta');
+    if (!flightIda && !flightVuelta) return;
+
+    document.querySelectorAll('#hotels-container .hotel-option-card').forEach(card => {
+        const checkinInput = card.querySelector('.hotel-checkin-val');
+        const checkoutInput = card.querySelector('.hotel-checkout-val');
+        if (checkinInput && !getDatePickerValueFromInput(checkinInput) && flightIda) {
+            if (checkinInput._flatpickr) {
+                checkinInput._flatpickr.setDate(flightIda);
+            } else {
+                checkinInput.value = flightIda;
+            }
+        }
+        if (checkoutInput && !getDatePickerValueFromInput(checkoutInput) && flightVuelta) {
+            if (checkoutInput._flatpickr) {
+                checkoutInput._flatpickr.setDate(flightVuelta);
+            } else {
+                checkoutInput.value = flightVuelta;
+            }
+        }
+        updateHotelNights(card);
+    });
+}
+window.syncHotelDatesWithFlights = syncHotelDatesWithFlights;
+
 function saveDetailedQuoteFormState() {
     if (isRestoringStateDetailed) return;
 
@@ -23,6 +185,11 @@ function saveDetailedQuoteFormState() {
         const estrellas = card.querySelector('.hotel-estrellas-val')?.value || '';
         const regimen = card.querySelector('.hotel-regimen-val')?.value || '';
         const habitacion = getHabitacionValueFromCard(card);
+        const checkinEl = card.querySelector('.hotel-checkin-val');
+        const checkoutEl = card.querySelector('.hotel-checkout-val');
+        const fecha_checkin = getDatePickerValueFromInput(checkinEl);
+        const fecha_checkout = getDatePickerValueFromInput(checkoutEl);
+        const noches = updateHotelNights(card);
         const costo = card.querySelector('.hotel-costo-val')?.value || '';
         const descripcion = card.querySelector('.hotel-descripcion-val')?.value || '';
 
@@ -37,12 +204,18 @@ function saveDetailedQuoteFormState() {
             estrellas,
             regimen,
             habitacion,
+            fecha_checkin,
+            fecha_checkout,
+            noches,
             costo,
             descripcion,
             imagen,
             recommended
         });
     });
+
+    const cardVuelo3 = document.getElementById('card-vuelo-3');
+    const hasExtraFlight = cardVuelo3 && !cardVuelo3.classList.contains('hidden');
 
     const state = {
         currentQuoteId: currentQuoteId,
@@ -56,9 +229,12 @@ function saveDetailedQuoteFormState() {
         fecha_salida: document.getElementById('fecha_salida')?.value || '',
         fecha_vuelo_ida: document.getElementById('fecha_vuelo_ida')?.value || '',
         fecha_vuelo_vuelta: document.getElementById('fecha_vuelo_vuelta')?.value || '',
+        has_extra_flight: hasExtraFlight,
+        fecha_vuelo_3: document.getElementById('fecha_vuelo_3')?.value || '',
         validez_cotizacion: document.getElementById('validez_cotizacion')?.value || '',
         img_vuelo_ida: document.getElementById('data-vuelo-ida')?.value || '',
         img_vuelo_vuelta: document.getElementById('data-vuelo-vuelta')?.value || '',
+        img_vuelo_3: document.getElementById('data-vuelo-3')?.value || '',
         monto_vuelos: document.getElementById('monto_vuelos')?.value || '',
         fee_aereo_monto: document.getElementById('fee_aereo_monto')?.value || '',
         monto_traslados: document.getElementById('monto_traslados')?.value || '',
@@ -150,6 +326,15 @@ function restoreDetailedQuoteFormState() {
 
         populateImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida', state.img_vuelo_ida);
         populateImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta', state.img_vuelo_vuelta);
+
+        // 3rd Flight Segment restore
+        if (state.has_extra_flight || state.fecha_vuelo_3 || state.img_vuelo_3) {
+            showExtraFlightSegment(true);
+            setDateSafe('fecha_vuelo_3', state.fecha_vuelo_3);
+            populateImage('preview-vuelo-3', 'data-vuelo-3', 'dropzone-vuelo-3', state.img_vuelo_3);
+        } else {
+            showExtraFlightSegment(false);
+        }
 
         // Costs
         document.getElementById('monto_vuelos').value = state.monto_vuelos || '';
@@ -332,15 +517,35 @@ window.addEventListener('load', () => {
         altFormat: "d/m/y",
         disableMobile: "true",
         onChange: function (selectedDates, dateStr, instance) {
-            const returnPicker = document.getElementById('fecha_vuelo_vuelta')._flatpickr;
-            if (returnPicker) {
-                if (selectedDates[0]) {
-                    returnPicker.set('minDate', selectedDates[0]);
-                } else {
-                    returnPicker.set('minDate', null);
-                }
+            const extraPicker = document.getElementById('fecha_vuelo_3')?._flatpickr;
+            const returnPicker = document.getElementById('fecha_vuelo_vuelta')?._flatpickr;
+            if (selectedDates[0]) {
+                if (extraPicker) extraPicker.set('minDate', selectedDates[0]);
+                if (returnPicker) returnPicker.set('minDate', selectedDates[0]);
+            } else {
+                if (extraPicker) extraPicker.set('minDate', null);
+                if (returnPicker) returnPicker.set('minDate', null);
             }
             validateDates();
+            syncHotelDatesWithFlights();
+            saveDetailedQuoteFormState();
+            updateRealTimeSummary();
+        }
+    });
+    flatpickr("#fecha_vuelo_3", {
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "d/m/y",
+        disableMobile: "true",
+        onChange: function (selectedDates, dateStr, instance) {
+            const returnPicker = document.getElementById('fecha_vuelo_vuelta')?._flatpickr;
+            if (returnPicker && selectedDates[0]) {
+                returnPicker.set('minDate', selectedDates[0]);
+            }
+            validateDates();
+            syncHotelDatesWithFlights();
+            saveDetailedQuoteFormState();
+            updateRealTimeSummary();
         }
     });
     flatpickr("#fecha_vuelo_vuelta", {
@@ -476,6 +681,9 @@ window.addEventListener('load', () => {
     document.getElementById('nombre_pax').addEventListener('input', updateRealTimeSummary);
     document.getElementById('destino').addEventListener('input', updateRealTimeSummary);
     document.getElementById('fecha_vuelo_ida').addEventListener('change', updateRealTimeSummary);
+    if (document.getElementById('fecha_vuelo_3')) {
+        document.getElementById('fecha_vuelo_3').addEventListener('change', updateRealTimeSummary);
+    }
     document.getElementById('fecha_vuelo_vuelta').addEventListener('change', updateRealTimeSummary);
     if (document.getElementById('validez_cotizacion')) {
         document.getElementById('validez_cotizacion').addEventListener('change', updateRealTimeSummary);
@@ -1052,6 +1260,15 @@ function addHotelCard(data = null) {
         }
     }
 
+    let checkinVal = data ? (data.fecha_checkin || data.checkin || '') : '';
+    let checkoutVal = data ? (data.fecha_checkout || data.checkout || '') : '';
+    if (!checkinVal) {
+        checkinVal = getDatePickerValue('fecha_vuelo_ida') || '';
+    }
+    if (!checkoutVal) {
+        checkoutVal = getDatePickerValue('fecha_vuelo_vuelta') || '';
+    }
+
     card.innerHTML = `
         <div class="flex items-center justify-between mb-1">
             <label class="hotel-recommended-label flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 cursor-pointer text-[10px] font-bold uppercase tracking-wider hover:bg-slate-200 transition-all select-none">
@@ -1083,6 +1300,20 @@ function addHotelCard(data = null) {
                 <select class="hotel-regimen-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white">
                     ${regimenOptionsHtml}
                 </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="flex flex-col gap-1">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha Check-in</label>
+                <input type="date" class="hotel-checkin-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" placeholder="dd/mm/aa" value="${checkinVal}">
+            </div>
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center justify-between">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha Check-out</label>
+                    <span class="hotel-noches-badge text-[10px] font-extrabold text-brand-primary uppercase tracking-wider"></span>
+                </div>
+                <input type="date" class="hotel-checkout-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" placeholder="dd/mm/aa" value="${checkoutVal}">
             </div>
         </div>
         
@@ -1164,6 +1395,58 @@ function addHotelCard(data = null) {
     container.appendChild(card);
     updateRemoveButtons();
     updateCurrencyLabels();
+
+    // Initialize Flatpickr on Check-in and Check-out
+    const checkinInput = card.querySelector('.hotel-checkin-val');
+    const checkoutInput = card.querySelector('.hotel-checkout-val');
+
+    if (checkinInput && checkoutInput) {
+        const fpCheckin = flatpickr(checkinInput, {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d/m/y",
+            disableMobile: "true",
+            defaultDate: checkinVal ? formatToPicker(checkinVal) : null,
+            onChange: function(selectedDates, dateStr, instance) {
+                if (checkoutInput._flatpickr) {
+                    if (selectedDates[0]) {
+                        checkoutInput._flatpickr.set('minDate', selectedDates[0]);
+                    } else {
+                        checkoutInput._flatpickr.set('minDate', null);
+                    }
+                }
+                updateHotelNights(card);
+                saveDetailedQuoteFormState();
+                updateRealTimeSummary();
+            }
+        });
+
+        const fpCheckout = flatpickr(checkoutInput, {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d/m/y",
+            disableMobile: "true",
+            defaultDate: checkoutVal ? formatToPicker(checkoutVal) : null,
+            onOpen: function(selectedDates, dateStr, instance) {
+                const ciVal = getDatePickerValueFromInput(checkinInput);
+                if (ciVal && !instance.selectedDates.length) {
+                    instance.jumpToDate(ciVal);
+                }
+            },
+            onChange: function(selectedDates, dateStr, instance) {
+                updateHotelNights(card);
+                saveDetailedQuoteFormState();
+                updateRealTimeSummary();
+            }
+        });
+
+        const initialCi = getDatePickerValueFromInput(checkinInput);
+        if (initialCi && fpCheckout) {
+            fpCheckout.set('minDate', initialCi);
+        }
+
+        updateHotelNights(card);
+    }
 
     // Initialize character counter for hotel description
     card.querySelectorAll('.hotel-descripcion-val').forEach(ta => {
@@ -1370,11 +1653,24 @@ document.addEventListener('paste', e => {
 // Validation rules: Date checks
 function validateDates() {
     const flightIda = getDatePickerValue('fecha_vuelo_ida');
+    const flight3 = getDatePickerValue('fecha_vuelo_3');
     const flightVuelta = getDatePickerValue('fecha_vuelo_vuelta');
 
     if (flightIda && flightVuelta) {
         if (new Date(flightVuelta) < new Date(flightIda)) {
             showAlert('warning', 'La fecha de retorno no puede ser anterior a la fecha de ida.');
+            return false;
+        }
+    }
+    if (flightIda && flight3) {
+        if (new Date(flight3) < new Date(flightIda)) {
+            showAlert('warning', 'La fecha del tramo intermedio no puede ser anterior a la fecha de ida.');
+            return false;
+        }
+    }
+    if (flight3 && flightVuelta) {
+        if (new Date(flightVuelta) < new Date(flight3)) {
+            showAlert('warning', 'La fecha de retorno no puede ser anterior a la fecha del tramo intermedio.');
             return false;
         }
     }
@@ -1404,9 +1700,15 @@ function checkIfFormHasData() {
     const flights = document.getElementById('monto_vuelos')?.value || '';
     const transfers = document.getElementById('monto_traslados')?.value || '';
     const dateIda = document.getElementById('fecha_vuelo_ida')?.value || '';
+    const date3 = document.getElementById('fecha_vuelo_3')?.value || '';
     const dateVuelta = document.getElementById('fecha_vuelo_vuelta')?.value || '';
+    const imgIda = document.getElementById('data-vuelo-ida')?.value || '';
+    const img3 = document.getElementById('data-vuelo-3')?.value || '';
+    const imgVuelta = document.getElementById('data-vuelo-vuelta')?.value || '';
 
-    if (pax.trim() !== '' || dest.trim() !== '' || flights.trim() !== '' || transfers.trim() !== '' || dateIda.trim() !== '' || dateVuelta.trim() !== '') {
+    if (pax.trim() !== '' || dest.trim() !== '' || flights.trim() !== '' || transfers.trim() !== '' || 
+        dateIda.trim() !== '' || date3.trim() !== '' || dateVuelta.trim() !== '' ||
+        imgIda.trim() !== '' || img3.trim() !== '' || imgVuelta.trim() !== '') {
         return true;
     }
 
@@ -1930,6 +2232,10 @@ window.openPDFInNewTab = openPDFInNewTab;
 function _buildPayload() {
     const imgIda = document.getElementById('data-vuelo-ida').value;
     const imgVuelta = document.getElementById('data-vuelo-vuelta').value;
+    const cardVuelo3 = document.getElementById('card-vuelo-3');
+    const isVuelo3Active = cardVuelo3 && !cardVuelo3.classList.contains('hidden');
+    const fechaVuelo3 = isVuelo3Active ? formatDatePickerDate(getDatePickerValue('fecha_vuelo_3')) : '';
+    const imgVuelo3 = isVuelo3Active ? (document.getElementById('data-vuelo-3')?.value || '') : '';
     const aplicarRedondeo = document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true;
 
     const payload = {
@@ -1941,9 +2247,11 @@ function _buildPayload() {
         agente_nombre: window.loggedInUser || '',
         fecha_vuelo_ida: formatDatePickerDate(getDatePickerValue('fecha_vuelo_ida')),
         fecha_vuelo_vuelta: formatDatePickerDate(getDatePickerValue('fecha_vuelo_vuelta')),
+        fecha_vuelo_3: fechaVuelo3,
         validez_cotizacion: formatDatePickerDate(getDatePickerValue('validez_cotizacion')),
         img_vuelo_ida: imgIda,
         img_vuelo_vuelta: imgVuelta,
+        img_vuelo_3: imgVuelo3,
         monto_vuelos: parseFloat(document.getElementById('monto_vuelos').value),
         fee_aereo: parseFloat(document.getElementById('fee_aereo_monto').value),
         monto_traslados: parseFloat(document.getElementById('monto_traslados').value),
@@ -1975,12 +2283,28 @@ function _buildPayload() {
         ...hotelCards.filter((_, idx) => idx !== recommendedIdx)
     ];
 
-    orderedCards.forEach(card => {
+    let primaryHotelNochesAlojamiento = "";
+    orderedCards.forEach((card, idx) => {
+        const checkinEl = card.querySelector('.hotel-checkin-val');
+        const checkoutEl = card.querySelector('.hotel-checkout-val');
+        const fechaCheckin = formatDatePickerDate(getDatePickerValueFromInput(checkinEl));
+        const fechaCheckout = formatDatePickerDate(getDatePickerValueFromInput(checkoutEl));
+        const nochesCount = updateHotelNights(card);
+        const nochesAlojamiento = nochesCount > 0 ? (nochesCount === 1 ? "1 noche" : `${nochesCount} noches`) : "";
+
+        if (idx === 0 && nochesAlojamiento) {
+            primaryHotelNochesAlojamiento = nochesAlojamiento;
+        }
+
         payload.hoteles.push({
             nombre: card.querySelector('.hotel-nombre-val').value,
             estrellas: card.querySelector('.hotel-estrellas-val').value,
             regimen: card.querySelector('.hotel-regimen-val').value,
             habitacion: getHabitacionValueFromCard(card),
+            fecha_checkin: fechaCheckin,
+            fecha_checkout: fechaCheckout,
+            noches: nochesCount,
+            noches_alojamiento: nochesAlojamiento,
             costo: parseFloat(card.querySelector('.hotel-costo-val').value),
             descripcion: card.querySelector('.hotel-descripcion-val').value,
             imagen1: card.querySelector('.hotel-imagen-val-1').value,
@@ -1990,10 +2314,16 @@ function _buildPayload() {
         });
     });
 
+    if (primaryHotelNochesAlojamiento) {
+        payload.noches_alojamiento = primaryHotelNochesAlojamiento;
+    }
+
     const monedaVal = document.getElementById('moneda_seleccionada')?.value || 'USD';
     payload.hoteles.push({
         nombre: "METADATA_COTIZACION",
-        moneda: monedaVal
+        moneda: monedaVal,
+        fecha_vuelo_3: fechaVuelo3,
+        img_vuelo_3: imgVuelo3
     });
 
     return payload;
@@ -2138,15 +2468,6 @@ function loadImportedQuoteIntoForm(idx) {
     updateRealTimeSummary();
 }
 window.loadImportedQuoteIntoForm = loadImportedQuoteIntoForm;
-
-function formatToPicker(dateStr) {
-    if (!dateStr) return "";
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-        return `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
-    }
-    return dateStr;
-}
 
 // AI Description Optimizer Frontend API Caller
 async function optimizeDescription(btn) {
@@ -2348,6 +2669,7 @@ function resetForm() {
     };
     clearDateSafe('fecha_salida');
     clearDateSafe('fecha_vuelo_ida');
+    clearDateSafe('fecha_vuelo_3');
     clearDateSafe('fecha_vuelo_vuelta');
     clearDateSafe('validez_cotizacion');
 
@@ -2372,7 +2694,9 @@ function resetForm() {
     };
 
     resetDropzone('dropzone-vuelo-ida', 'preview-vuelo-ida', 'data-vuelo-ida');
+    resetDropzone('dropzone-vuelo-3', 'preview-vuelo-3', 'data-vuelo-3');
     resetDropzone('dropzone-vuelo-vuelta', 'preview-vuelo-vuelta', 'data-vuelo-vuelta');
+    showExtraFlightSegment(false);
 
     // Clear flights costs
     document.getElementById('monto_vuelos').value = '';
@@ -2691,16 +3015,6 @@ async function handlePDFEditImport(inputEl) {
             aplicarRedondeoEl.checked = typeof data.redondear !== 'undefined' ? data.redondear : true;
         }
 
-        const formatToPicker = (val) => {
-            if (!val) return '';
-            if (val.includes('-')) return val; // already YYYY-MM-DD
-            if (val.includes('/')) {
-                const parts = val.split('/');
-                return `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
-            }
-            return val;
-        };
-
         // Update Flatpickr date fields
         const flightIdaStr = formatToPicker(data.fecha_vuelo_ida);
         document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(flightIdaStr);
@@ -2758,6 +3072,27 @@ async function handlePDFEditImport(inputEl) {
 
         populateImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida', data.img_vuelo_ida);
         populateImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta', data.img_vuelo_vuelta);
+
+        // 3rd flight segment
+        let pdfFechaVuelo3 = data.fecha_vuelo_3 || '';
+        let pdfImgVuelo3 = data.img_vuelo_3 || '';
+        if ((!pdfFechaVuelo3 || !pdfImgVuelo3) && data.hoteles) {
+            const meta = data.hoteles.find(h => h.nombre === 'METADATA_COTIZACION');
+            if (meta) {
+                if (!pdfFechaVuelo3 && meta.fecha_vuelo_3) pdfFechaVuelo3 = meta.fecha_vuelo_3;
+                if (!pdfImgVuelo3 && meta.img_vuelo_3) pdfImgVuelo3 = meta.img_vuelo_3;
+            }
+        }
+
+        if (pdfFechaVuelo3 || pdfImgVuelo3) {
+            showExtraFlightSegment(true);
+            if (document.getElementById('fecha_vuelo_3')?._flatpickr) {
+                document.getElementById('fecha_vuelo_3')._flatpickr.setDate(formatToPicker(pdfFechaVuelo3));
+            }
+            populateImage('preview-vuelo-3', 'data-vuelo-3', 'dropzone-vuelo-3', pdfImgVuelo3);
+        } else {
+            showExtraFlightSegment(false);
+        }
 
         // Hotels
         const hotelsContainer = document.getElementById('hotels-container');
@@ -3721,16 +4056,6 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
             aplicarRedondeoEl.checked = (q.hoteles && q.hoteles[0] && typeof q.hoteles[0].redondear !== 'undefined') ? q.hoteles[0].redondear : (q.redondear !== undefined ? q.redondear : false);
         }
 
-        const formatToPicker = (val) => {
-            if (!val) return '';
-            if (val.includes('-')) return val; // YYYY-MM-DD
-            if (val.includes('/')) {
-                const parts = val.split('/');
-                return `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
-            }
-            return val;
-        };
-
         // Set dates
         const dateIda = formatToPicker(q.fecha_vuelo_ida);
         document.getElementById('fecha_vuelo_ida')._flatpickr.setDate(dateIda);
@@ -3788,6 +4113,27 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
 
         populateImage('preview-vuelo-ida', 'data-vuelo-ida', 'dropzone-vuelo-ida', q.img_vuelo_ida);
         populateImage('preview-vuelo-vuelta', 'data-vuelo-vuelta', 'dropzone-vuelo-vuelta', q.img_vuelo_vuelta);
+
+        // 3rd flight segment
+        let qFechaVuelo3 = q.fecha_vuelo_3 || '';
+        let qImgVuelo3 = q.img_vuelo_3 || '';
+        if ((!qFechaVuelo3 || !qImgVuelo3) && q.hoteles) {
+            const meta = q.hoteles.find(h => h.nombre === 'METADATA_COTIZACION');
+            if (meta) {
+                if (!qFechaVuelo3 && meta.fecha_vuelo_3) qFechaVuelo3 = meta.fecha_vuelo_3;
+                if (!qImgVuelo3 && meta.img_vuelo_3) qImgVuelo3 = meta.img_vuelo_3;
+            }
+        }
+
+        if (qFechaVuelo3 || qImgVuelo3) {
+            showExtraFlightSegment(true);
+            if (document.getElementById('fecha_vuelo_3')?._flatpickr) {
+                document.getElementById('fecha_vuelo_3')._flatpickr.setDate(formatToPicker(qFechaVuelo3));
+            }
+            populateImage('preview-vuelo-3', 'data-vuelo-3', 'dropzone-vuelo-3', qImgVuelo3);
+        } else {
+            showExtraFlightSegment(false);
+        }
 
         // Hotels
         const hotelsContainer = document.getElementById('hotels-container');
@@ -4025,13 +4371,30 @@ export function initCotizar() {
         altFormat: "d/m/y",
         disableMobile: "true",
         onChange: function (selectedDates, dateStr, instance) {
+            const extraPicker = document.getElementById("fecha_vuelo_3")?._flatpickr;
             const returnPicker = document.getElementById("fecha_vuelo_vuelta")?._flatpickr;
-            if (returnPicker) {
-                if (selectedDates[0]) {
-                    returnPicker.set("minDate", selectedDates[0]);
-                } else {
-                    returnPicker.set("minDate", null);
-                }
+            if (selectedDates[0]) {
+                if (extraPicker) extraPicker.set("minDate", selectedDates[0]);
+                if (returnPicker) returnPicker.set("minDate", selectedDates[0]);
+            } else {
+                if (extraPicker) extraPicker.set("minDate", null);
+                if (returnPicker) returnPicker.set("minDate", null);
+            }
+            validateDates();
+            syncHotelDatesWithFlights();
+            saveDetailedQuoteFormState();
+        }
+    });
+
+    flatpickr("#fecha_vuelo_3", {
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "d/m/y",
+        disableMobile: "true",
+        onChange: function (selectedDates, dateStr, instance) {
+            const returnPicker = document.getElementById("fecha_vuelo_vuelta")?._flatpickr;
+            if (returnPicker && selectedDates[0]) {
+                returnPicker.set("minDate", selectedDates[0]);
             }
             validateDates();
             saveDetailedQuoteFormState();
@@ -4050,6 +4413,7 @@ export function initCotizar() {
             }
         },
         onChange: function (selectedDates, dateStr, instance) {
+            syncHotelDatesWithFlights();
             saveDetailedQuoteFormState();
         }
     });
