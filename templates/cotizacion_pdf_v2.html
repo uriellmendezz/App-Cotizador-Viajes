@@ -384,6 +384,37 @@
             flex-shrink: 0;
             overflow: hidden;
             background: #f1f5f9;
+            position: relative;
+        }
+
+        .hotel-dest-bookmark {
+            position: absolute;
+            top: 0;
+            left: 8px;
+            z-index: 10;
+            background: #ff545d;
+            color: #ffffff;
+            font-size: 7.2pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 3.5px 8px 5px 8px;
+            border-radius: 0 0 5px 5px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+            display: flex;
+            align-items: center;
+            gap: 3.5px;
+            white-space: nowrap;
+            line-height: 1.1;
+        }
+
+        .hotel-dest-bookmark .bookmark-icon {
+            font-size: 6.8pt;
+            line-height: 1;
+        }
+
+        .hotel-dest-bookmark .bookmark-city {
+            font-weight: 800;
         }
 
         .hotel-card-img img {
@@ -512,6 +543,7 @@
             color: #343434;
             font-weight: 700;
             margin-top: 1px;
+            white-space: nowrap;
         }
 
         .reco-badge {
@@ -608,49 +640,347 @@
            ══════════════════════════════════════════════════════════════════ */
         body.two-hotels-layout,
         body.three-hotels-layout {
-            padding-bottom: 20mm !important;
+            padding-bottom: 18mm !important;
         }
 
         body.two-hotels-layout .header,
         body.three-hotels-layout .header {
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
         body.two-hotels-layout .title-section,
         body.three-hotels-layout .title-section {
-            margin: 14px 0 20px 0;
+            margin: 12px 0 16px 0;
         }
 
         body.two-hotels-layout .section-heading,
         body.three-hotels-layout .section-heading {
-            margin-top: 28px;
-            margin-bottom: 10px;
+            margin-top: 20px;
+            margin-bottom: 8px;
         }
 
         body.two-hotels-layout>.section-heading,
         body.three-hotels-layout>.section-heading {
-            margin-top: 24px;
+            margin-top: 18px;
         }
 
         body.two-hotels-layout .services-list,
         body.three-hotels-layout .services-list {
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
 
         body.two-hotels-layout .flights-section,
         body.three-hotels-layout .flights-section {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
-        body.two-hotels-layout .hotel-card,
+        /* 2 Hotels: Taller, spacious cards */
+        body.two-hotels-layout .hotel-card {
+            min-height: 125px;
+            margin-bottom: 14px;
+        }
+
+        body.two-hotels-layout .hotel-card-img {
+            min-height: 125px;
+        }
+
+        body.two-hotels-layout .hotel-card-body {
+            padding: 10px 14px !important;
+        }
+
+        /* 3 Hotels: Taller than base 95px, well balanced */
         body.three-hotels-layout .hotel-card {
+            min-height: 106px;
+            margin-bottom: 9px;
+        }
+
+        body.three-hotels-layout .hotel-card-img {
+            min-height: 106px;
+        }
+
+        body.three-hotels-layout .hotel-card-body {
+            padding: 8px 12px 6px 12px !important;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           MULTIDESTINO STYLES & LAYOUT
+           ══════════════════════════════════════════════════════════════════ */
+        body.multidestino-layout {
+            padding-bottom: 20mm !important;
+        }
+
+        body.multidestino-layout .header {
+            margin-bottom: 12px;
+        }
+
+        body.multidestino-layout .title-section {
+            margin: 12px 0 16px 0;
+        }
+
+        body.multidestino-layout .section-heading {
+            margin-top: 18px;
+            margin-bottom: 8px;
+        }
+
+        body.multidestino-layout .hotels-section {
+            margin-top: 24px;
+        }
+
+        body.multidestino-layout .hotels-section .section-heading {
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+
+        body.multidestino-layout .hotel-card {
+            min-height: 120px;
+            margin-bottom: 16px;
+        }
+
+        body.multidestino-layout .hotel-card-img {
+            min-height: 120px;
+        }
+
+        body.multidestino-layout .hotel-card-body {
+            padding: 10px 14px 10px 14px !important;
+            justify-content: flex-start;
+        }
+
+        body.multidestino-layout .hotel-name-row {
+            margin-top: 0 !important;
+            margin-bottom: 6px !important;
+        }
+
+        body.multidestino-layout .hotel-services {
+            margin-top: 0 !important;
+            margin-bottom: 6px !important;
+            gap: 5px;
+        }
+
+        body.multidestino-layout .dest-stop-badge {
+            margin-bottom: 5px !important;
+        }
+
+        body.multidestino-layout .hotel-desc {
+            max-width: 100% !important;
+            margin-top: 2px;
+            font-size: 7.8pt;
+            line-height: 1.35;
+        }
+
+        /* 2 Hoteles Multidestino: Espaciado amplio y tarjetas altas */
+        body.multidestino-layout.multi-2-layout .hotels-section {
+            margin-top: 22px;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotels-section .section-heading {
+            margin-bottom: 12px;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotel-card {
+            min-height: 130px;
+            margin-bottom: 16px;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotel-card-img {
+            min-height: 130px;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotel-card-body {
+            padding: 12px 16px !important;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotel-svc-badge {
+            font-size: 8pt;
+            padding: 3px 8px !important;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotel-desc {
+            font-size: 8pt;
+            line-height: 1.35;
+        }
+
+        body.multidestino-layout.multi-2-layout .multidestino-total-card {
+            margin-top: 18px;
+            padding: 12px 18px;
+        }
+
+        /* 3 Hoteles Multidestino: Tarjetas más altas (96px vs 74px) sin verse comprimidas */
+        body.multidestino-layout.multi-3-layout {
+            padding-bottom: 15mm !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .header {
+            margin-bottom: 6px;
+        }
+
+        body.multidestino-layout.multi-3-layout .title-section {
+            margin: 6px 0 10px 0;
+        }
+
+        body.multidestino-layout.multi-3-layout .services-list {
+            margin-bottom: 8px;
+        }
+
+        body.multidestino-layout.multi-3-layout .flights-section {
             margin-bottom: 10px;
+        }
+
+        body.multidestino-layout.multi-3-layout .flights-section .flights-row .flight-img-container img {
+            height: 54px !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotels-section {
+            margin-top: 12px;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotels-section .section-heading {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-card {
+            height: 96px;
+            min-height: 96px;
+            max-height: 96px;
+            margin-bottom: 7px;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-card-img {
+            height: 96px;
+            min-height: 96px;
+            max-height: 96px;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-card-body {
+            padding: 7px 12px 6px 12px !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-name {
+            font-size: 11.5pt !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-name-row {
+            margin-bottom: 4px !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-dest-bookmark {
+            font-size: 6.8pt;
+            padding: 2.5px 6px 4px 6px;
+            left: 6px;
+        }
+
+        body.multidestino-layout.multi-3-layout .dest-stop-badge {
+            font-size: 7pt;
+            padding: 1.5px 5px !important;
+            margin-bottom: 3px !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-svc-badge {
+            font-size: 7.5pt;
+            padding: 2px 6px !important;
+            margin-bottom: 2px !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-desc {
+            font-size: 7.2pt;
+            line-height: 1.25;
+            margin-top: 2px;
+        }
+
+        body.multidestino-layout.multi-3-layout .multidestino-total-card {
+            margin-top: 8px;
+            margin-bottom: 4px;
+            padding: 7px 14px;
+        }
+
+        .dest-stop-badge {
+            display: inline-block !important;
+            vertical-align: middle !important;
+            font-size: 8pt;
+            font-weight: 700;
+            color: #475569;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 2.5px 7px !important;
+            white-space: nowrap;
+            margin-bottom: 4px !important;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .multidestino-total-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px 18px;
+            margin-top: 24px;
+            margin-bottom: 8px;
+            break-inside: avoid;
+        }
+
+        .m-total-left {
+            flex: 1;
+            padding-right: 15px;
+        }
+
+        .m-total-title {
+            font-size: 9.5pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #343434;
+        }
+
+        .m-total-subtitle {
+            font-size: 7.5pt;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .m-total-right {
+            text-align: right;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .m-total-pp {
+            font-size: 13pt;
+            font-weight: 900;
+            color: #ff545d;
+            line-height: 1.1;
+            white-space: nowrap;
+        }
+
+        .m-total-pp .currency {
+            font-size: 9.5pt;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+
+        .m-total-base {
+            font-size: 7.5pt;
+            color: #94a3b8;
+            font-weight: 600;
+            margin-top: 1px;
+            white-space: nowrap;
+        }
+
+        .m-total-final {
+            font-size: 8.5pt;
+            color: #343434;
+            font-weight: 700;
+            margin-top: 2px;
+            white-space: nowrap;
         }
     </style>
 </head>
 
 <body
-    class="{% if hoteles|length == 1 %}single-hotel-layout{% elif hoteles|length == 2 %}two-hotels-layout{% elif hoteles|length == 3 %}three-hotels-layout{% endif %}">
+    class="{% if is_multidestino %}multidestino-layout multi-{{ hoteles|length }}-layout{% elif hoteles|length == 1 %}single-hotel-layout{% elif hoteles|length == 2 %}two-hotels-layout{% elif hoteles|length == 3 %}three-hotels-layout{% endif %}">
 
     <!-- ═══════════════ 1. CABECERA ═══════════════ -->
     <div class="header">
@@ -697,6 +1027,8 @@
             <td class="svc-text">
                 {% if tipo_traslado == 'auto' %}
                 Alquiler de vehículo particular.
+                {% elif is_multidestino %}
+                Todos los traslados incluidos.
                 {% else %}
                 Traslados IN-OUT (Aeropuerto → Hotel → Aeropuerto).
                 {% endif %}
@@ -708,12 +1040,13 @@
     <!-- ═══════════════ 4. VUELOS ═══════════════ -->
     <div class="flights-section">
         <div class="section-heading">Vuelos</div>
-        <div class="flights-row {% if has_vuelo_3 %}flights-3-col{% elif hoteles|length == 1 %}flights-stacked{% endif %}">
+        <div
+            class="flights-row {% if has_vuelo_3 %}flights-3-col{% elif hoteles|length == 1 %}flights-stacked{% endif %}">
             <div class="flight-col">
                 <div class="flight-label">
                     <span class="flight-icon">{{ svg_avion_despegando.replace('<svg', '<svg fill="#334155"' )|safe
                             }}</span>
-                    <span>SALIDA - {{ fecha_vuelo_ida }}</span>
+                            <span>SALIDA - {{ fecha_vuelo_ida }}</span>
                 </div>
                 <div class="flight-img-container">
                     {% if img_vuelo_ida %}
@@ -726,12 +1059,9 @@
                 <div class="flight-label">
                     <span class="flight-icon">
                         {% if svg_avion %}
-                        {{ svg_avion.replace('<svg', '<svg fill="#334155"' )|safe }}
-                        {% else %}
-                        {{ svg_avion_despegando.replace('<svg', '<svg fill="#334155"' )|safe }}
-                        {% endif %}
-                    </span>
-                    <span>TRAMO 2 - {{ fecha_vuelo_3 }}</span>
+                        {{ svg_avion.replace('<svg', '<svg fill="#334155"' )|safe }} {% else %} {{
+                            svg_avion_despegando.replace('<svg', '<svg fill="#334155"' )|safe }} {% endif %} </span>
+                            <span>TRAMO 2 - {{ fecha_vuelo_3 }}</span>
                 </div>
                 <div class="flight-img-container">
                     {% if img_vuelo_3 %}
@@ -744,7 +1074,7 @@
                 <div class="flight-label">
                     <span class="flight-icon">{{ svg_avion_aterrizando.replace('<svg', '<svg fill="#334155"' )|safe
                             }}</span>
-                    <span>REGRESO - {{ fecha_vuelo_vuelta }}</span>
+                            <span>REGRESO - {{ fecha_vuelo_vuelta }}</span>
                 </div>
                 <div class="flight-img-container">
                     {% if img_vuelo_vuelta %}
@@ -757,7 +1087,9 @@
 
     <!-- ═══════════════ 5. ALOJAMIENTO ═══════════════ -->
     <div class="hotels-section">
-        {% if hoteles|length == 1 %}
+        {% if is_multidestino %}
+        <div class="section-heading">Itinerario de Alojamientos</div>
+        {% elif hoteles|length == 1 %}
         <div class="section-heading">Alojamiento</div>
         {% else %}
         <div class="section-heading">Opciones de Alojamiento</div>
@@ -766,12 +1098,18 @@
         {% for hotel in hoteles %}
         <div class="hotel-card">
             <!-- Recommendation badge for first hotel -->
-            {% if loop.first and hoteles|length > 1 %}
+            {% if loop.first and hoteles|length > 1 and not is_multidestino %}
             <div class="reco-badge">RECOMENDADO</div>
             {% endif %}
 
             <!-- Hotel Image -->
             <div class="hotel-card-img">
+                {% if hotel.destino %}
+                <div class="hotel-dest-bookmark">
+                    <span class="bookmark-icon">📍</span>
+                    <span class="bookmark-city">{{ hotel.destino }}</span>
+                </div>
+                {% endif %}
                 {% if hotel.imagen_path %}
                 <img src="{{ hotel.imagen_path }}" alt="{{ hotel.nombre }}">
                 {% endif %}
@@ -781,7 +1119,8 @@
             <div class="hotel-card-body">
                 <div class="hotel-card-top">
                     <!-- Name -->
-                    <div class="hotel-name-row" {% if loop.first and hoteles|length> 1 %}style="padding-right: 125px;"
+                    <div class="hotel-name-row" {% if loop.first and hoteles|length> 1 and not is_multidestino
+                        %}style="padding-right: 125px;"
                         {% endif %}>
                         <span class="hotel-name">{{ hotel.nombre }}</span>
                         <span class="stars-container">
@@ -819,6 +1158,7 @@
                     {% endif %}
                 </div>
 
+                {% if not is_multidestino %}
                 <!-- Pricing -->
                 <div class="hotel-pricing">
                     <div class="hotel-price-pp">
@@ -837,9 +1177,36 @@
                     </div>
                     {% endif %}
                 </div>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
+
+        {% if is_multidestino %}
+        <div class="multidestino-total-card">
+            <div class="m-total-left">
+                <div class="m-total-title">Total del Itinerario Completo</div>
+                <div class="m-total-subtitle">Incluye vuelos, todos los alojamientos del itinerario, traslados e
+                    impuestos.</div>
+            </div>
+            <div class="m-total-right">
+                <div class="m-total-pp">
+                    <span class="currency">{{ moneda|default('USD') }}</span> {{ format_price(precio_persona_general) }}
+                </div>
+                <div class="m-total-base">
+                    {% if base_habitacion|lower == 'single' %}
+                    Base {{ base_habitacion }}
+                    {% else %}
+                    por persona — Base {{ base_habitacion }}
+                    {% endif %}
+                </div>
+                {% if base_habitacion|lower != 'single' %}
+                <div class="m-total-final" style="white-space: nowrap;">Total: {{ moneda|default('USD') }} {{
+                    format_price(costo_total_general) }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- ═══════════════ 6. PIE DE PÁGINA — LEGALES ═══════════════ -->
