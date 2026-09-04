@@ -1894,7 +1894,7 @@ function renderMultidestinoSummaryHTML(config, container) {
     if (!hotelList || hotelList.length === 0) {
         container.innerHTML = `
             <div class="text-center py-8 text-slate-400 text-xs font-semibold">
-                No hay alojamientos agregados en el itinerario aún.
+                No hay alojamientos agregados aún.
             </div>
         `;
         return;
@@ -1911,135 +1911,108 @@ function renderMultidestinoSummaryHTML(config, container) {
     const totalRoundingAdded = roundedTotal - subtotalGeneral;
 
     let hotelsRowsHtml = '';
-    hotelList.forEach((h, idx) => {
-        const hName = h.hotelName || `Hotel ${idx + 1}`;
-        const hDest = h.destino ? ` <span class="text-[9px] text-slate-700 font-semibold bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">📍 ${h.destino}</span>` : '';
-        const hNights = h.noches ? `<span class="text-[9px] text-slate-400 font-medium">(${h.noches} ${h.noches === 1 ? 'noche' : 'noches'})</span>` : '';
+    if (hotelList.length === 1) {
+        const h = hotelList[0];
+        const hName = h.hotelName || 'Hotel 1';
         const hCost = parseFloat(h.hotelCost) || 0;
-        hotelsRowsHtml += `
-            <tr class="text-[10px] bg-white/60">
-                <td class="py-1.5 pl-4 pr-2 text-slate-700">
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                        <span class="font-bold text-slate-800">${hName}</span>
-                        ${hDest}
-                        ${hNights}
-                    </div>
+        hotelsRowsHtml = `
+            <tr>
+                <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
+                    <img src="/assets/iconos/cama.svg" class="w-3.5 h-3.5 icon-slate" alt="Alojamiento">
+                    <span class="truncate" title="${hName}">Alojamiento: ${hName}</span>
                 </td>
-                <td class="py-1.5 px-3 text-right font-semibold text-slate-700 whitespace-nowrap">
-                    ${currency} ${formatPriceES(hCost)}
-                </td>
+                <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(hCost)}</td>
             </tr>
         `;
-    });
+    } else {
+        const stopsHtml = hotelList.map((h, idx) => {
+            const hName = h.hotelName || `Hotel ${idx + 1}`;
+            const hCost = parseFloat(h.hotelCost) || 0;
+            return `
+                <tr>
+                    <td class="py-1.5 pr-2 font-medium text-slate-500 flex items-center gap-1">
+                        <img src="/assets/iconos/cama.svg" class="w-3.5 h-3.5 icon-slate" alt="Alojamiento">
+                        <span class="truncate" title="${hName}">Parada ${idx + 1}: ${hName}</span>
+                    </td>
+                    <td class="py-1.5 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(hCost)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        hotelsRowsHtml = `
+            ${stopsHtml}
+            <tr class="bg-slate-50/50 font-semibold border-t border-slate-100">
+                <td class="py-1.5 pr-2 text-[9px] text-slate-500 uppercase tracking-wider pl-4">Subtotal Alojamientos</td>
+                <td class="py-1.5 px-2 text-right font-bold text-slate-800">${currency} ${formatPriceES(totalHoteles)}</td>
+            </tr>
+        `;
+    }
 
     container.innerHTML = `
-        <div class="w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div class="bg-gradient-to-r from-slate-800 to-slate-900 text-white px-3 py-2 flex items-center justify-between">
-                <span class="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-brand-primary"></span>
-                    Itinerario Multidestino (Operador AND)
-                </span>
-                <span class="text-[9px] font-bold text-slate-300">${hotelList.length} ${hotelList.length === 1 ? 'parada' : 'paradas'}</span>
-            </div>
-            <table class="w-full text-left border-collapse text-[10px]">
-                <tbody class="divide-y divide-slate-100">
-                    <!-- Vuelos -->
-                    <tr class="bg-slate-50/50">
-                        <td class="py-2 px-3 font-semibold text-slate-600 flex items-center gap-1.5">
+        <div class="w-full overflow-x-auto">
+            <table class="w-full min-w-max text-left border-collapse text-[10px] font-medium">
+                <thead>
+                    <tr class="border-b border-slate-200 text-slate-500 font-bold">
+                        <th class="py-2 pr-2 text-[9px] uppercase tracking-wider text-slate-400 w-[95px]">Concepto</th>
+                        <th class="py-2 px-2 text-right text-[9px] uppercase tracking-wider text-brand-primary font-extrabold min-w-[80px]">Itinerario</th>
+                    </tr>
+                    <tr class="border-b border-slate-100 text-slate-700">
+                        <th class="py-1.5 pr-2 text-[9px] uppercase tracking-wider text-slate-400 font-semibold">Paradas</th>
+                        <th class="py-1.5 px-2 text-right text-[10px] font-bold text-slate-800">${hotelList.length} ${hotelList.length === 1 ? 'Parada' : 'Paradas'}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-slate-600">
+                    <tr>
+                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                             <img src="/assets/iconos/avion.svg" class="w-3.5 h-3.5 icon-slate" alt="Vuelos">
-                            <span>Vuelos</span>
+                            <span class="truncate">Vuelos</span>
                         </td>
-                        <td class="py-2 px-3 text-right font-semibold text-slate-700">
-                            ${currency} ${formatPriceES(flightsCost)}
-                        </td>
+                        <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(flightsCost)}</td>
                     </tr>
-                    ${flightsFee > 0 ? `
-                    <tr class="bg-slate-50/50">
-                        <td class="py-1.5 px-3 font-medium text-slate-500 flex items-center gap-1.5">
-                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Fee">
-                            <span>Fee Aéreo</span>
+                    <tr class="${flightsFee > 0 ? '' : 'opacity-40'}">
+                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
+                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Fee Aéreo">
+                            <span class="truncate">Fee Aéreo</span>
                         </td>
-                        <td class="py-1.5 px-3 text-right font-semibold text-slate-700">
-                            ${currency} ${formatPriceES(flightsFee)}
-                        </td>
-                    </tr>
-                    ` : ''}
-
-                    <!-- Paradas de Alojamientos -->
-                    <tr class="bg-slate-50 border-t border-b border-slate-200">
-                        <td colspan="2" class="py-1.5 px-3 font-bold text-slate-700 text-[9px] uppercase tracking-wider">
-                            🏨 Alojamientos del Itinerario (Suma Total)
-                        </td>
+                        <td class="py-2 px-2 text-right font-semibold text-slate-700">${flightsFee > 0 ? currency + ' ' + formatPriceES(flightsFee) : '<span class="text-slate-300">—</span>'}</td>
                     </tr>
                     ${hotelsRowsHtml}
-                    ${hotelList.length > 1 ? `
-                    <tr class="bg-slate-50 font-bold border-t border-slate-200/60">
-                        <td class="py-1.5 px-3 text-[9px] text-slate-500 uppercase tracking-wider">
-                            Subtotal Alojamientos (${hotelList.length})
-                        </td>
-                        <td class="py-1.5 px-3 text-right font-bold text-slate-800">
-                            ${currency} ${formatPriceES(totalHoteles)}
-                        </td>
-                    </tr>
-                    ` : ''}
-
-                    <!-- Traslados -->
                     ${transfersCost > 0 ? `
                     <tr>
-                        <td class="py-2 px-3 font-semibold text-slate-600 flex items-center gap-1.5">
+                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                             <img src="/assets/iconos/traslados.svg" class="w-3.5 h-3.5 icon-slate" alt="Traslados">
-                            <span>Traslados</span>
+                            <span class="truncate">Traslados</span>
                         </td>
-                        <td class="py-2 px-3 text-right font-semibold text-slate-700">
-                            ${currency} ${formatPriceES(transfersCost)}
-                        </td>
+                        <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(transfersCost)}</td>
                     </tr>
                     ` : ''}
-
-                    <!-- Gastos Admin -->
                     <tr>
-                        <td class="py-2 px-3 font-semibold text-slate-600 flex items-center gap-1.5">
-                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Admin">
-                            <span>Gastos Administrativos (5%)</span>
+                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
+                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Gastos Admin">
+                            <span class="truncate">Gastos Admin (5%)</span>
                         </td>
-                        <td class="py-2 px-3 text-right font-semibold text-slate-700">
-                            ${currency} ${formatPriceES(adminFee)}
-                        </td>
+                        <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(adminFee)}</td>
                     </tr>
-
-                    <!-- Redondeo -->
-                    ${aplicarRedondeo && Math.abs(totalRoundingAdded) > 0.001 ? `
                     <tr>
-                        <td class="py-1.5 px-3 font-medium text-slate-500 flex items-center gap-1.5">
+                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                             <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 icon-slate" alt="Redondeo">
-                            <span>Ajuste de Redondeo</span>
+                            <span class="truncate">Redondeo</span>
                         </td>
-                        <td class="py-1.5 px-3 text-right font-semibold text-slate-700">
-                            ${currency} ${formatPriceES(totalRoundingAdded)}
-                        </td>
+                        <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(totalRoundingAdded)}</td>
                     </tr>
-                    ` : ''}
-
-                    <!-- Total Itinerario Completo -->
-                    <tr class="bg-gradient-to-r from-slate-900 to-slate-800 text-white font-extrabold border-t-2 border-slate-700">
-                        <td class="py-2.5 px-3 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
-                            <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 filter brightness-200" alt="Total">
-                            <span>Total Itinerario Completo</span>
+                    <tr class="bg-slate-50/50 font-bold border-t border-slate-200">
+                        <td class="py-2.5 pr-2 text-[10px] text-slate-800 uppercase tracking-wider flex items-center gap-1">
+                            <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 icon-dark" alt="Total">
+                            <span>Total</span>
                         </td>
-                        <td class="py-2.5 px-3 text-right text-xs text-white">
-                            ${currency} ${formatPriceES(roundedTotal)}
-                        </td>
+                        <td class="py-2.5 px-2 text-right text-xs text-brand-primary font-extrabold">${currency} ${formatPriceES(roundedTotal)}</td>
                     </tr>
-
-                    <!-- Por Pax -->
-                    <tr class="bg-rose-500/10 font-black border-t border-rose-500/20">
-                        <td class="py-2.5 px-3 text-[10px] text-rose-600 uppercase tracking-widest flex items-center gap-1.5">
+                    <tr class="bg-brand-primary/5 font-bold border-t border-brand-primary/10">
+                        <td class="py-2.5 pr-2 text-[9px] text-brand-primary uppercase tracking-widest flex items-center gap-1">
                             <img src="/assets/iconos/persona.svg" class="w-3.5 h-3.5 icon-brand" alt="Por Pax">
-                            <span>Por Persona (${cantPax} pax)</span>
+                            <span class="truncate">Por Pax (${cantPax})</span>
                         </td>
-                        <td class="py-2.5 px-3 text-right text-xs text-rose-600">
-                            ${currency} ${formatPriceES(roundedPerPerson)}
-                        </td>
+                        <td class="py-2.5 px-2 text-right text-xs text-brand-primary font-extrabold">${currency} ${formatPriceES(roundedPerPerson)}</td>
                     </tr>
                 </tbody>
             </table>
@@ -4240,6 +4213,17 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
         if (!res.ok) throw new Error("No se pudo cargar la cotización solicitada.");
         const q = await res.json();
 
+        const isMultidestino = q.tipo_cotizacion === 'multidestino' ||
+            (Array.isArray(q.hoteles) && q.hoteles.some(h => h.tipo_cotizacion === 'multidestino'));
+
+        if (isMultidestino) {
+            window.pendingEditQuoteId = quoteId;
+            window.pendingEditQuoteEditable = forceEditMode;
+            window.hideLoader();
+            navigateTo('/cotizacion-multidestino?id=' + quoteId);
+            return;
+        }
+
         switchTab('cotizacion-tab');
 
         // Fill basic data fields
@@ -4837,6 +4821,7 @@ export async function initVerCotizacion() {
         // Cache quote id and owner
         currentQuoteId = quote.id;
         window.currentQuoteOwner = quote.agente_nombre;
+        window.currentViewQuote = quote;
 
         // Update document title dynamically for detailed quote preview
         const appName = (window.agencyConfig && window.agencyConfig.nombre_agencia) || 'One Trip';
@@ -4957,11 +4942,41 @@ export async function initVerCotizacion() {
 }
 window.initVerCotizacion = initVerCotizacion;
 
-export function editQuoteFromView() {
-    if (!currentQuoteId) return;
-    window.pendingEditQuoteId = currentQuoteId;
+export async function editQuoteFromView() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const quoteId = urlParams.get('id') || currentQuoteId;
+    if (!quoteId) return;
+
+    let quote = window.currentViewQuote;
+    if (!quote && window.lastGeneratedQuote && String(window.lastGeneratedQuote.id) === String(quoteId)) {
+        quote = window.lastGeneratedQuote;
+    }
+
+    if (!quote) {
+        try {
+            const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`);
+            if (res.ok) {
+                quote = await res.json();
+                window.currentViewQuote = quote;
+            }
+        } catch (e) {
+            console.warn("Could not pre-fetch quote to determine route:", e);
+        }
+    }
+
+    const isMultidestino = quote && (
+        quote.tipo_cotizacion === 'multidestino' ||
+        (Array.isArray(quote.hoteles) && quote.hoteles.some(h => h.tipo_cotizacion === 'multidestino'))
+    );
+
+    window.pendingEditQuoteId = quoteId;
     window.pendingEditQuoteEditable = true;
-    navigateTo('/cotizacion-completa');
+
+    if (isMultidestino) {
+        navigateTo('/cotizacion-multidestino?id=' + quoteId);
+    } else {
+        navigateTo('/cotizacion-completa?id=' + quoteId);
+    }
 }
 window.editQuoteFromView = editQuoteFromView;
 
@@ -4993,7 +5008,19 @@ async function duplicateQuoteFromView() {
 
         window.pendingEditQuoteId = cloned.id;
         window.pendingEditQuoteEditable = true;
-        navigateTo('/cotizacion-completa');
+
+        const isMultidestino = cloned.tipo_cotizacion === 'multidestino' ||
+            (window.currentViewQuote && (
+                window.currentViewQuote.tipo_cotizacion === 'multidestino' ||
+                (Array.isArray(window.currentViewQuote.hoteles) && window.currentViewQuote.hoteles.some(h => h.tipo_cotizacion === 'multidestino'))
+            )) ||
+            (Array.isArray(cloned.hoteles) && cloned.hoteles.some(h => h.tipo_cotizacion === 'multidestino'));
+
+        if (isMultidestino) {
+            navigateTo('/cotizacion-multidestino?id=' + cloned.id);
+        } else {
+            navigateTo('/cotizacion-completa?id=' + cloned.id);
+        }
     } catch (e) {
         if (e.name === 'AbortError') return;
         window.hideLoader();

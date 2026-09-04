@@ -1136,5 +1136,6 @@ def api_duplicate_cotizacion(quote_id: str, current_user: dict = Depends(get_cur
     saved = save_cotizacion(cloned_payload)
     if not saved:
         raise HTTPException(status_code=500, detail="No se pudo duplicar la cotización en la base de datos.")
+    saved["tipo_cotizacion"] = "multidestino" if is_multidestino_quote(saved) else "estandar"
     return saved
 

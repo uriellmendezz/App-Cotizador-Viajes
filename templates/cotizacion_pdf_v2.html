@@ -512,6 +512,7 @@
             color: #343434;
             font-weight: 700;
             margin-top: 1px;
+            white-space: nowrap;
         }
 
         .reco-badge {
@@ -706,6 +707,7 @@
 
         .m-total-left {
             flex: 1;
+            padding-right: 15px;
         }
 
         .m-total-title {
@@ -724,7 +726,8 @@
 
         .m-total-right {
             text-align: right;
-            min-width: 140px;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
 
         .m-total-pp {
@@ -732,6 +735,7 @@
             font-weight: 900;
             color: #ff545d;
             line-height: 1.1;
+            white-space: nowrap;
         }
 
         .m-total-pp .currency {
@@ -745,6 +749,7 @@
             color: #94a3b8;
             font-weight: 600;
             margin-top: 1px;
+            white-space: nowrap;
         }
 
         .m-total-final {
@@ -752,6 +757,7 @@
             color: #343434;
             font-weight: 700;
             margin-top: 2px;
+            white-space: nowrap;
         }
     </style>
 </head>
@@ -975,7 +981,7 @@
                     {% endif %}
                 </div>
                 {% if base_habitacion|lower != 'single' %}
-                <div class="m-total-final">Total General: {{ moneda|default('USD') }} {{ format_price(costo_total_general) }}</div>
+                <div class="m-total-final" style="white-space: nowrap;">Total General: {{ moneda|default('USD') }} {{ format_price(costo_total_general) }}</div>
                 {% endif %}
             </div>
         </div>

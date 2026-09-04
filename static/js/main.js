@@ -1012,6 +1012,13 @@ window.addEventListener('keydown', async (e) => {
         } else if (path === '/cotizacion-rapida' && typeof window.fillQuickTestData === 'function') {
             e.preventDefault();
             await window.fillQuickTestData();
+        } else if (path === '/cotizacion-multidestino' && (typeof window.fillMultidestinoTestData === 'function' || typeof window.fillTestData === 'function')) {
+            e.preventDefault();
+            if (typeof window.fillMultidestinoTestData === 'function') {
+                await window.fillMultidestinoTestData();
+            } else {
+                await window.fillTestData();
+            }
         }
     }
 });
