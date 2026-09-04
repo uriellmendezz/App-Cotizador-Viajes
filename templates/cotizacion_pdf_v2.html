@@ -384,6 +384,37 @@
             flex-shrink: 0;
             overflow: hidden;
             background: #f1f5f9;
+            position: relative;
+        }
+
+        .hotel-dest-bookmark {
+            position: absolute;
+            top: 0;
+            left: 8px;
+            z-index: 10;
+            background: #ff545d;
+            color: #ffffff;
+            font-size: 7.2pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 3.5px 8px 5px 8px;
+            border-radius: 0 0 5px 5px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+            display: flex;
+            align-items: center;
+            gap: 3.5px;
+            white-space: nowrap;
+            line-height: 1.1;
+        }
+
+        .hotel-dest-bookmark .bookmark-icon {
+            font-size: 6.8pt;
+            line-height: 1;
+        }
+
+        .hotel-dest-bookmark .bookmark-city {
+            font-weight: 800;
         }
 
         .hotel-card-img img {
@@ -647,7 +678,6 @@
         body.three-hotels-layout .hotel-card {
             margin-bottom: 10px;
         }
-
         /* ══════════════════════════════════════════════════════════════════
            MULTIDESTINO STYLES & LAYOUT
            ══════════════════════════════════════════════════════════════════ */
@@ -668,12 +698,170 @@
             margin-bottom: 8px;
         }
 
+        body.multidestino-layout .hotels-section {
+            margin-top: 32px;
+        }
+
+        body.multidestino-layout .hotels-section .section-heading {
+            margin-top: 0;
+            margin-bottom: 14px;
+        }
+
         body.multidestino-layout .hotel-card {
-            margin-bottom: 10px;
+            min-height: 110px;
+            margin-bottom: 18px;
+        }
+
+        body.multidestino-layout .hotel-card-img {
+            min-height: 110px;
+        }
+
+        body.multidestino-layout .hotel-card-body {
+            padding: 10px 14px 10px 14px !important;
+            justify-content: flex-start;
+        }
+
+        body.multidestino-layout .hotel-name-row {
+            margin-top: 0 !important;
+            margin-bottom: 6px !important;
+        }
+
+        body.multidestino-layout .hotel-services {
+            margin-top: 0 !important;
+            margin-bottom: 6px !important;
+            gap: 5px;
+        }
+
+        body.multidestino-layout .dest-stop-badge {
+            margin-bottom: 5px !important;
         }
 
         body.multidestino-layout .hotel-desc {
             max-width: 100% !important;
+            margin-top: 2px;
+            font-size: 7.8pt;
+            line-height: 1.35;
+        }
+
+        /* 2 Hoteles Multidestino: Espaciado amplio y aireado */
+        body.multidestino-layout.multi-2-layout .hotels-section {
+            margin-top: 26px;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotels-section .section-heading {
+            margin-bottom: 12px;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotel-card {
+            min-height: 112px;
+            margin-bottom: 16px;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotel-card-img {
+            min-height: 112px;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotel-card-body {
+            padding: 10px 14px 10px 14px !important;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotel-svc-badge {
+            font-size: 8pt;
+            padding: 2.5px 7px !important;
+        }
+
+        body.multidestino-layout.multi-2-layout .hotel-desc {
+            font-size: 8pt;
+            line-height: 1.35;
+        }
+
+        body.multidestino-layout.multi-2-layout .multidestino-total-card {
+            margin-top: 18px;
+            padding: 12px 18px;
+        }
+
+        /* 3 Hoteles Multidestino: Ajuste compacto balanceado */
+        body.multidestino-layout.multi-3-layout {
+            padding-bottom: 18mm !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .header {
+            margin-bottom: 8px;
+        }
+
+        body.multidestino-layout.multi-3-layout .title-section {
+            margin: 8px 0 12px 0;
+        }
+
+        body.multidestino-layout.multi-3-layout .services-list {
+            margin-bottom: 10px;
+        }
+
+        body.multidestino-layout.multi-3-layout .flights-section {
+            margin-bottom: 14px;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotels-section {
+            margin-top: 16px;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotels-section .section-heading {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-card {
+            height: 74px;
+            min-height: 74px;
+            max-height: 74px;
+            margin-bottom: 8px;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-card-img {
+            height: 74px;
+            min-height: 74px;
+            max-height: 74px;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-card-body {
+            padding: 6px 12px 6px 12px !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-name {
+            font-size: 11.5pt !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-name-row {
+            margin-bottom: 4px !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-dest-bookmark {
+            font-size: 6.6pt;
+            padding: 2.5px 6px 4px 6px;
+            left: 6px;
+        }
+
+        body.multidestino-layout.multi-3-layout .dest-stop-badge {
+            font-size: 7pt;
+            padding: 1.5px 5px !important;
+            margin-bottom: 3px !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-svc-badge {
+            font-size: 7.5pt;
+            padding: 2px 6px !important;
+            margin-bottom: 2px !important;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-desc {
+            font-size: 7.2pt;
+            line-height: 1.25;
+            margin-top: 1px;
+        }
+
+        body.multidestino-layout.multi-3-layout .multidestino-total-card {
+            margin-top: 14px;
+            padding: 9px 15px;
         }
 
         .dest-stop-badge {
@@ -699,8 +887,8 @@
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
-            padding: 10px 16px;
-            margin-top: 12px;
+            padding: 12px 18px;
+            margin-top: 24px;
             margin-bottom: 8px;
             break-inside: avoid;
         }
@@ -810,6 +998,8 @@
             <td class="svc-text">
                 {% if tipo_traslado == 'auto' %}
                 Alquiler de vehículo particular.
+                {% elif is_multidestino %}
+                Todos los traslados incluidos.
                 {% else %}
                 Traslados IN-OUT (Aeropuerto → Hotel → Aeropuerto).
                 {% endif %}
@@ -887,6 +1077,12 @@
 
             <!-- Hotel Image -->
             <div class="hotel-card-img">
+                {% if hotel.destino %}
+                <div class="hotel-dest-bookmark">
+                    <span class="bookmark-icon">📍</span>
+                    <span class="bookmark-city">{{ hotel.destino }}</span>
+                </div>
+                {% endif %}
                 {% if hotel.imagen_path %}
                 <img src="{{ hotel.imagen_path }}" alt="{{ hotel.nombre }}">
                 {% endif %}
@@ -895,11 +1091,6 @@
             <!-- Hotel Info -->
             <div class="hotel-card-body">
                 <div class="hotel-card-top">
-                    {% if is_multidestino and hotel.destino %}
-                    <div class="dest-stop-badge">
-                        <span>📍 {{ hotel.destino }}</span>
-                    </div>
-                    {% endif %}
                     <!-- Name -->
                     <div class="hotel-name-row" {% if loop.first and hoteles|length> 1 and not is_multidestino %}style="padding-right: 125px;"
                         {% endif %}>
