@@ -646,11 +646,118 @@
         body.three-hotels-layout .hotel-card {
             margin-bottom: 10px;
         }
+
+        /* ══════════════════════════════════════════════════════════════════
+           MULTIDESTINO STYLES & LAYOUT
+           ══════════════════════════════════════════════════════════════════ */
+        body.multidestino-layout {
+            padding-bottom: 22mm !important;
+        }
+
+        body.multidestino-layout .header {
+            margin-bottom: 12px;
+        }
+
+        body.multidestino-layout .title-section {
+            margin: 12px 0 16px 0;
+        }
+
+        body.multidestino-layout .section-heading {
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+
+        body.multidestino-layout .hotel-card {
+            margin-bottom: 10px;
+        }
+
+        body.multidestino-layout .hotel-desc {
+            max-width: 100% !important;
+        }
+
+        .dest-stop-badge {
+            display: inline-block !important;
+            vertical-align: middle !important;
+            font-size: 8pt;
+            font-weight: 700;
+            color: #475569;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 2.5px 7px !important;
+            white-space: nowrap;
+            margin-bottom: 4px !important;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .multidestino-total-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 16px;
+            margin-top: 12px;
+            margin-bottom: 8px;
+            break-inside: avoid;
+        }
+
+        .m-total-left {
+            flex: 1;
+        }
+
+        .m-total-title {
+            font-size: 9.5pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #343434;
+        }
+
+        .m-total-subtitle {
+            font-size: 7.5pt;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .m-total-right {
+            text-align: right;
+            min-width: 140px;
+        }
+
+        .m-total-pp {
+            font-size: 13pt;
+            font-weight: 900;
+            color: #ff545d;
+            line-height: 1.1;
+        }
+
+        .m-total-pp .currency {
+            font-size: 9.5pt;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+
+        .m-total-base {
+            font-size: 7.5pt;
+            color: #94a3b8;
+            font-weight: 600;
+            margin-top: 1px;
+        }
+
+        .m-total-final {
+            font-size: 8.5pt;
+            color: #343434;
+            font-weight: 700;
+            margin-top: 2px;
+        }
     </style>
 </head>
 
 <body
-    class="{% if hoteles|length == 1 %}single-hotel-layout{% elif hoteles|length == 2 %}two-hotels-layout{% elif hoteles|length == 3 %}three-hotels-layout{% endif %}">
+    class="{% if is_multidestino %}multidestino-layout multi-{{ hoteles|length }}-layout{% elif hoteles|length == 1 %}single-hotel-layout{% elif hoteles|length == 2 %}two-hotels-layout{% elif hoteles|length == 3 %}three-hotels-layout{% endif %}">
 
     <!-- ═══════════════ 1. CABECERA ═══════════════ -->
     <div class="header">
@@ -757,7 +864,9 @@
 
     <!-- ═══════════════ 5. ALOJAMIENTO ═══════════════ -->
     <div class="hotels-section">
-        {% if hoteles|length == 1 %}
+        {% if is_multidestino %}
+        <div class="section-heading">Itinerario de Alojamientos</div>
+        {% elif hoteles|length == 1 %}
         <div class="section-heading">Alojamiento</div>
         {% else %}
         <div class="section-heading">Opciones de Alojamiento</div>
@@ -766,7 +875,7 @@
         {% for hotel in hoteles %}
         <div class="hotel-card">
             <!-- Recommendation badge for first hotel -->
-            {% if loop.first and hoteles|length > 1 %}
+            {% if loop.first and hoteles|length > 1 and not is_multidestino %}
             <div class="reco-badge">RECOMENDADO</div>
             {% endif %}
 
@@ -780,8 +889,13 @@
             <!-- Hotel Info -->
             <div class="hotel-card-body">
                 <div class="hotel-card-top">
+                    {% if is_multidestino and hotel.destino %}
+                    <div class="dest-stop-badge">
+                        <span>📍 {{ hotel.destino }}</span>
+                    </div>
+                    {% endif %}
                     <!-- Name -->
-                    <div class="hotel-name-row" {% if loop.first and hoteles|length> 1 %}style="padding-right: 125px;"
+                    <div class="hotel-name-row" {% if loop.first and hoteles|length> 1 and not is_multidestino %}style="padding-right: 125px;"
                         {% endif %}>
                         <span class="hotel-name">{{ hotel.nombre }}</span>
                         <span class="stars-container">
@@ -819,6 +933,7 @@
                     {% endif %}
                 </div>
 
+                {% if not is_multidestino %}
                 <!-- Pricing -->
                 <div class="hotel-pricing">
                     <div class="hotel-price-pp">
@@ -837,9 +952,34 @@
                     </div>
                     {% endif %}
                 </div>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
+
+        {% if is_multidestino %}
+        <div class="multidestino-total-card">
+            <div class="m-total-left">
+                <div class="m-total-title">Total del Itinerario Completo</div>
+                <div class="m-total-subtitle">Incluye vuelos, todos los alojamientos del itinerario, traslados e impuestos</div>
+            </div>
+            <div class="m-total-right">
+                <div class="m-total-pp">
+                    <span class="currency">{{ moneda|default('USD') }}</span> {{ format_price(precio_persona_general) }}
+                </div>
+                <div class="m-total-base">
+                    {% if base_habitacion|lower == 'single' %}
+                    Base {{ base_habitacion }}
+                    {% else %}
+                    por persona — Base {{ base_habitacion }}
+                    {% endif %}
+                </div>
+                {% if base_habitacion|lower != 'single' %}
+                <div class="m-total-final">Total General: {{ moneda|default('USD') }} {{ format_price(costo_total_general) }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- ═══════════════ 6. PIE DE PÁGINA — LEGALES ═══════════════ -->

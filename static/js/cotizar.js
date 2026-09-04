@@ -1887,6 +1887,167 @@ function renderSummaryTableHTML(config, container) {
     `;
 }
 
+function renderMultidestinoSummaryHTML(config, container) {
+    const { currency, cantPax, flightsCost, flightsFee, transfersCost, aplicarRedondeo, hotelList } = config;
+    if (!container) return;
+
+    if (!hotelList || hotelList.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-slate-400 text-xs font-semibold">
+                No hay alojamientos agregados en el itinerario aún.
+            </div>
+        `;
+        return;
+    }
+
+    const aereosTotal = flightsCost + flightsFee;
+    const totalHoteles = hotelList.reduce((acc, h) => acc + (parseFloat(h.hotelCost) || 0), 0);
+    const adminFee = (totalHoteles + transfersCost) * 0.05;
+    const subtotalGeneral = aereosTotal + totalHoteles + transfersCost + adminFee;
+    const perPerson = subtotalGeneral / cantPax;
+
+    const roundedPerPerson = aplicarRedondeo ? (Math.ceil(perPerson / 10) * 10) : perPerson;
+    const roundedTotal = aplicarRedondeo ? (roundedPerPerson * cantPax) : subtotalGeneral;
+    const totalRoundingAdded = roundedTotal - subtotalGeneral;
+
+    let hotelsRowsHtml = '';
+    hotelList.forEach((h, idx) => {
+        const hName = h.hotelName || `Hotel ${idx + 1}`;
+        const hDest = h.destino ? ` <span class="text-[9px] text-slate-700 font-semibold bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">📍 ${h.destino}</span>` : '';
+        const hNights = h.noches ? `<span class="text-[9px] text-slate-400 font-medium">(${h.noches} ${h.noches === 1 ? 'noche' : 'noches'})</span>` : '';
+        const hCost = parseFloat(h.hotelCost) || 0;
+        hotelsRowsHtml += `
+            <tr class="text-[10px] bg-white/60">
+                <td class="py-1.5 pl-4 pr-2 text-slate-700">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="font-bold text-slate-800">${hName}</span>
+                        ${hDest}
+                        ${hNights}
+                    </div>
+                </td>
+                <td class="py-1.5 px-3 text-right font-semibold text-slate-700 whitespace-nowrap">
+                    ${currency} ${formatPriceES(hCost)}
+                </td>
+            </tr>
+        `;
+    });
+
+    container.innerHTML = `
+        <div class="w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div class="bg-gradient-to-r from-slate-800 to-slate-900 text-white px-3 py-2 flex items-center justify-between">
+                <span class="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-brand-primary"></span>
+                    Itinerario Multidestino (Operador AND)
+                </span>
+                <span class="text-[9px] font-bold text-slate-300">${hotelList.length} ${hotelList.length === 1 ? 'parada' : 'paradas'}</span>
+            </div>
+            <table class="w-full text-left border-collapse text-[10px]">
+                <tbody class="divide-y divide-slate-100">
+                    <!-- Vuelos -->
+                    <tr class="bg-slate-50/50">
+                        <td class="py-2 px-3 font-semibold text-slate-600 flex items-center gap-1.5">
+                            <img src="/assets/iconos/avion.svg" class="w-3.5 h-3.5 icon-slate" alt="Vuelos">
+                            <span>Vuelos</span>
+                        </td>
+                        <td class="py-2 px-3 text-right font-semibold text-slate-700">
+                            ${currency} ${formatPriceES(flightsCost)}
+                        </td>
+                    </tr>
+                    ${flightsFee > 0 ? `
+                    <tr class="bg-slate-50/50">
+                        <td class="py-1.5 px-3 font-medium text-slate-500 flex items-center gap-1.5">
+                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Fee">
+                            <span>Fee Aéreo</span>
+                        </td>
+                        <td class="py-1.5 px-3 text-right font-semibold text-slate-700">
+                            ${currency} ${formatPriceES(flightsFee)}
+                        </td>
+                    </tr>
+                    ` : ''}
+
+                    <!-- Paradas de Alojamientos -->
+                    <tr class="bg-slate-50 border-t border-b border-slate-200">
+                        <td colspan="2" class="py-1.5 px-3 font-bold text-slate-700 text-[9px] uppercase tracking-wider">
+                            🏨 Alojamientos del Itinerario (Suma Total)
+                        </td>
+                    </tr>
+                    ${hotelsRowsHtml}
+                    ${hotelList.length > 1 ? `
+                    <tr class="bg-slate-50 font-bold border-t border-slate-200/60">
+                        <td class="py-1.5 px-3 text-[9px] text-slate-500 uppercase tracking-wider">
+                            Subtotal Alojamientos (${hotelList.length})
+                        </td>
+                        <td class="py-1.5 px-3 text-right font-bold text-slate-800">
+                            ${currency} ${formatPriceES(totalHoteles)}
+                        </td>
+                    </tr>
+                    ` : ''}
+
+                    <!-- Traslados -->
+                    ${transfersCost > 0 ? `
+                    <tr>
+                        <td class="py-2 px-3 font-semibold text-slate-600 flex items-center gap-1.5">
+                            <img src="/assets/iconos/traslados.svg" class="w-3.5 h-3.5 icon-slate" alt="Traslados">
+                            <span>Traslados</span>
+                        </td>
+                        <td class="py-2 px-3 text-right font-semibold text-slate-700">
+                            ${currency} ${formatPriceES(transfersCost)}
+                        </td>
+                    </tr>
+                    ` : ''}
+
+                    <!-- Gastos Admin -->
+                    <tr>
+                        <td class="py-2 px-3 font-semibold text-slate-600 flex items-center gap-1.5">
+                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Admin">
+                            <span>Gastos Administrativos (5%)</span>
+                        </td>
+                        <td class="py-2 px-3 text-right font-semibold text-slate-700">
+                            ${currency} ${formatPriceES(adminFee)}
+                        </td>
+                    </tr>
+
+                    <!-- Redondeo -->
+                    ${aplicarRedondeo && Math.abs(totalRoundingAdded) > 0.001 ? `
+                    <tr>
+                        <td class="py-1.5 px-3 font-medium text-slate-500 flex items-center gap-1.5">
+                            <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 icon-slate" alt="Redondeo">
+                            <span>Ajuste de Redondeo</span>
+                        </td>
+                        <td class="py-1.5 px-3 text-right font-semibold text-slate-700">
+                            ${currency} ${formatPriceES(totalRoundingAdded)}
+                        </td>
+                    </tr>
+                    ` : ''}
+
+                    <!-- Total Itinerario Completo -->
+                    <tr class="bg-gradient-to-r from-slate-900 to-slate-800 text-white font-extrabold border-t-2 border-slate-700">
+                        <td class="py-2.5 px-3 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                            <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 filter brightness-200" alt="Total">
+                            <span>Total Itinerario Completo</span>
+                        </td>
+                        <td class="py-2.5 px-3 text-right text-xs text-white">
+                            ${currency} ${formatPriceES(roundedTotal)}
+                        </td>
+                    </tr>
+
+                    <!-- Por Pax -->
+                    <tr class="bg-rose-500/10 font-black border-t border-rose-500/20">
+                        <td class="py-2.5 px-3 text-[10px] text-rose-600 uppercase tracking-widest flex items-center gap-1.5">
+                            <img src="/assets/iconos/persona.svg" class="w-3.5 h-3.5 icon-brand" alt="Por Pax">
+                            <span>Por Persona (${cantPax} pax)</span>
+                        </td>
+                        <td class="py-2.5 px-3 text-right text-xs text-rose-600">
+                            ${currency} ${formatPriceES(roundedPerPerson)}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+window.renderMultidestinoSummaryHTML = renderMultidestinoSummaryHTML;
+
 function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdown-container') {
     const container = document.getElementById(containerId);
     if (!container || !quote) return;
@@ -1897,6 +2058,8 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
     if (metaItem && metaItem.moneda) {
         currency = metaItem.moneda;
     }
+
+    const isMultidestino = quote.tipo_cotizacion === 'multidestino' || metaItem?.tipo_cotizacion === 'multidestino';
 
     const cantPax = parseInt(quote.cantidad_pasajeros || quote.cant_pax) || 1;
     const flightsCost = parseFloat(quote.monto_vuelos) || 0;
@@ -1918,6 +2081,30 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
                 No hay hoteles en esta cotización.
             </div>
         `;
+        return;
+    }
+
+    if (isMultidestino) {
+        const hotelList = realHotels.map((h, idx) => {
+            const hotelName = h.nombre || h.hotel_nombre || `Parada ${idx + 1}`;
+            const hotelCost = parseFloat(h.costo_neto !== undefined ? h.costo_neto : (h.costo_original !== undefined ? h.costo_original : h.costo)) || 0;
+            return {
+                hotelName,
+                destino: h.destino || '',
+                noches: h.noches || 0,
+                hotelCost
+            };
+        });
+
+        renderMultidestinoSummaryHTML({
+            currency,
+            cantPax,
+            flightsCost,
+            flightsFee,
+            transfersCost,
+            aplicarRedondeo,
+            hotelList
+        }, container);
         return;
     }
 
@@ -2175,6 +2362,8 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
             nombre_pax: payload.nombre_pax,
             destino: payload.destino,
             agente_nombre: payload.agente_nombre || window.loggedInUser,
+            redondear: payload.redondear,
+            hoteles: payload.hoteles,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         };
@@ -2296,6 +2485,7 @@ function _buildPayload() {
             primaryHotelNochesAlojamiento = nochesAlojamiento;
         }
 
+        const hotelCostVal = parseFloat(card.querySelector('.hotel-costo-val').value) || 0;
         payload.hoteles.push({
             nombre: card.querySelector('.hotel-nombre-val').value,
             estrellas: card.querySelector('.hotel-estrellas-val').value,
@@ -2305,7 +2495,8 @@ function _buildPayload() {
             fecha_checkout: fechaCheckout,
             noches: nochesCount,
             noches_alojamiento: nochesAlojamiento,
-            costo: parseFloat(card.querySelector('.hotel-costo-val').value),
+            costo_neto: hotelCostVal,
+            costo: hotelCostVal,
             descripcion: card.querySelector('.hotel-descripcion-val').value,
             imagen1: card.querySelector('.hotel-imagen-val-1').value,
             imagen2: "",
@@ -2323,7 +2514,8 @@ function _buildPayload() {
         nombre: "METADATA_COTIZACION",
         moneda: monedaVal,
         fecha_vuelo_3: fechaVuelo3,
-        img_vuelo_3: imgVuelo3
+        img_vuelo_3: imgVuelo3,
+        redondear: aplicarRedondeo
     });
 
     return payload;
@@ -3012,7 +3204,13 @@ async function handlePDFEditImport(inputEl) {
         if (agentEl) agentEl.value = data.agente_nombre || 'Uriel';
         const aplicarRedondeoEl = document.getElementById('aplicar_redondeo');
         if (aplicarRedondeoEl) {
-            aplicarRedondeoEl.checked = typeof data.redondear !== 'undefined' ? data.redondear : true;
+            let redondearVal = data.redondear;
+            if (typeof redondearVal === 'undefined' && data.hoteles) {
+                const meta = data.hoteles.find(h => h.nombre === 'METADATA_COTIZACION');
+                if (meta && typeof meta.redondear !== 'undefined') redondearVal = meta.redondear;
+                else if (data.hoteles[0] && typeof data.hoteles[0].redondear !== 'undefined') redondearVal = data.hoteles[0].redondear;
+            }
+            aplicarRedondeoEl.checked = typeof redondearVal !== 'undefined' ? (redondearVal === true || redondearVal === 'true') : true;
         }
 
         // Update Flatpickr date fields
@@ -4595,6 +4793,16 @@ export async function initVerCotizacion() {
             const res = await authenticatedFetch(`/api/cotizaciones/${quoteId}`, { signal });
             if (!res.ok) throw new Error("No se pudo cargar la cotización.");
             quote = await res.json();
+
+            // Ensure redondear is properly propagated if missing at top level
+            if (typeof quote.redondear === 'undefined') {
+                const meta = (quote.hoteles || []).find(h => h.nombre === 'METADATA_COTIZACION');
+                if (meta && typeof meta.redondear !== 'undefined') {
+                    quote.redondear = meta.redondear;
+                } else if (quote.hoteles && quote.hoteles[0] && typeof quote.hoteles[0].redondear !== 'undefined') {
+                    quote.redondear = quote.hoteles[0].redondear;
+                }
+            }
 
             // Generate the PDF
             const pdfRes = await authenticatedFetch('/api/cotizar-pdf', {

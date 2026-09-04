@@ -318,13 +318,24 @@ def generate_pdf(data: dict) -> bytes:
     if not moneda:
         moneda = "USD"
 
+    # Detect if this is a multi-destination quotation
+    is_multidestino = (
+        str(data.get("tipo_cotizacion", "")).strip().lower() == "multidestino"
+        or any(
+            isinstance(h, dict) and str(h.get("tipo_cotizacion", "")).strip().lower() == "multidestino"
+            for h in hoteles_raw
+        )
+    )
+
     # ── Process hotel data ─────────────────────────────────────────────────
     hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     processed_hotels = []
     primary_hotel_noches = None
+    hotel_limit = 5 if is_multidestino else 3
 
-    for idx, hotel in enumerate(hoteles[:3]):  # Max 3 hotels
+    for idx, hotel in enumerate(hoteles[:hotel_limit]):
         h = dict(hotel)  # don't mutate original
+        h["destino"] = h.get("destino") or h.get("ciudad") or f"Parada {idx + 1}"
 
         # Calculate hotel nights from checkin / checkout if available
         ci_str = h.get("fecha_checkin")
@@ -422,6 +433,32 @@ def generate_pdf(data: dict) -> bytes:
     fecha_generacion = datetime.now().strftime("%d/%m/%Y")
     noches_alojamiento_final = primary_hotel_noches or data.get("noches_alojamiento", "7 noches")
 
+    if is_multidestino:
+        total_noches_itinerario = sum(h.get("noches", 0) for h in processed_hotels if h.get("noches"))
+        if total_noches_itinerario > 0:
+            noches_alojamiento_final = f"{total_noches_itinerario} noche" if total_noches_itinerario == 1 else f"{total_noches_itinerario} noches"
+            cantidad_dias_viaje = total_noches_itinerario
+
+    # Multidestino unified grand total calculation (fallback if not precomputed)
+    costo_total_general = float(data.get("costo_total", 0.0))
+    precio_persona_general = float(data.get("precio_persona", 0.0))
+    if is_multidestino and (costo_total_general == 0.0 or precio_persona_general == 0.0):
+        import math
+        m_vuelos = float(data.get("monto_vuelos", 0.0))
+        m_fee = float(data.get("fee_aereo", 0.0))
+        m_traslados = float(data.get("monto_traslados", 0.0))
+        m_hoteles = sum(float(h.get("costo_neto") if "costo_neto" in h else h.get("costo", 0.0)) for h in processed_hotels)
+        m_admin = (m_hoteles + m_traslados) * 0.05
+        cant_p = int(data.get("cantidad_pasajeros", 1))
+        tot_calc = (m_vuelos + m_fee) + m_hoteles + m_traslados + m_admin
+        pp_calc = tot_calc / cant_p if cant_p > 0 else tot_calc
+        redond = data.get("redondear", True)
+        if redond:
+            pp_calc = math.ceil(pp_calc / 10.0) * 10
+            tot_calc = pp_calc * cant_p
+        costo_total_general = tot_calc
+        precio_persona_general = pp_calc
+
     context = {
         # Fonts
         **font_uris,
@@ -443,6 +480,10 @@ def generate_pdf(data: dict) -> bytes:
         "noches_alojamiento": noches_alojamiento_final,
         "tipo_traslado": data.get("tipo_traslado", "tradicional"),
         "cantidad_dias_viaje": cantidad_dias_viaje,
+        # Multidestino flag and unified pricing
+        "is_multidestino": is_multidestino,
+        "costo_total_general": costo_total_general,
+        "precio_persona_general": precio_persona_general,
         # SVGs for dynamic inlining and styling
         "svg_vuelos": svg_vuelos,
         "svg_dormitorios": svg_dormitorios,

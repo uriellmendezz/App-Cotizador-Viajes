@@ -137,6 +137,63 @@ def extract_currency(hoteles):
             return h.get("moneda", "USD")
     return "USD"
 
+def extract_redondear(data: dict) -> bool:
+    """
+    Extracts the 'redondear' boolean flag from a quotation dictionary or payload.
+    Checks:
+    1. Root 'redondear'
+    2. 'METADATA_COTIZACION' or 'METADATA_PRESUPUESTO_RAPIDO' item in 'hoteles'
+    3. Any hotel in 'hoteles'
+    Defaults to True if not explicitly specified.
+    """
+    if not isinstance(data, dict):
+        return True
+        
+    val = data.get("redondear")
+    if val is None:
+        hoteles_raw = data.get("hoteles", [])
+        if isinstance(hoteles_raw, list):
+            for h in hoteles_raw:
+                if isinstance(h, dict) and h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+                    if "redondear" in h and h["redondear"] is not None:
+                        val = h["redondear"]
+                        break
+            if val is None:
+                for h in hoteles_raw:
+                    if isinstance(h, dict) and h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+                        if "redondear" in h and h["redondear"] is not None:
+                            val = h["redondear"]
+                            break
+
+    if val is None:
+        return True
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, float)):
+        return bool(val)
+    if isinstance(val, str):
+        return val.strip().lower() not in ("false", "0", "no", "off", "")
+    return bool(val)
+
+def is_multidestino_quote(data: dict) -> bool:
+    """
+    Checks if a quote is of type 'multidestino' (multi-destination itinerary with AND logic).
+    """
+    if not isinstance(data, dict):
+        return False
+    if str(data.get("tipo_cotizacion", "")).strip().lower() == "multidestino":
+        return True
+    hoteles_raw = data.get("hoteles", [])
+    if isinstance(hoteles_raw, list):
+        for h in hoteles_raw:
+            if isinstance(h, dict):
+                if h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+                    if str(h.get("tipo_cotizacion", "")).strip().lower() == "multidestino":
+                        return True
+                if str(h.get("tipo_cotizacion", "")).strip().lower() == "multidestino":
+                    return True
+    return False
+
 def _calculate_noches_and_format_hotels(quote: dict) -> str:
     hoteles_list = quote.get("hoteles", [])
     primary_hotel_noches = None
@@ -157,6 +214,11 @@ def _calculate_noches_and_format_hotels(quote: dict) -> str:
         if h.get("fecha_checkout"):
             h["fecha_checkout"] = format_to_dd_mm_yy(h.get("fecha_checkout"))
             
+    if is_multidestino_quote(quote):
+        total_noches_itinerario = sum(int(h.get("noches", 0)) for h in hoteles_list if isinstance(h, dict) and h.get("noches"))
+        if total_noches_itinerario > 0:
+            return "1 noche" if total_noches_itinerario == 1 else f"{total_noches_itinerario} noches"
+
     if primary_hotel_noches:
         return primary_hotel_noches
         
@@ -529,29 +591,57 @@ def api_cotizar(quote: dict, current_user: dict = Depends(get_current_active_age
     if not hoteles:
         raise HTTPException(status_code=400, detail="Se requiere al menos una opción de hotel.")
     
-    redondear = quote.get("redondear", True)
+    redondear = extract_redondear(quote)
+    quote["redondear"] = redondear
     
-    for hotel in hoteles:
-        costo_hotel = float(hotel.get("costo_neto")) if "costo_neto" in hotel else float(hotel.get("costo", 0.0))
-        gastos_admin = (costo_hotel + monto_traslados) * 0.05
-        costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
+    is_multi = is_multidestino_quote(quote)
+    if is_multi:
+        quote["tipo_cotizacion"] = "multidestino"
+        suma_costo_hoteles = sum(
+            float(h.get("costo_neto") if "costo_neto" in h else h.get("costo", 0.0))
+            for h in hoteles
+        )
+        gastos_admin = (suma_costo_hoteles + monto_traslados) * 0.05
+        costo_total = (monto_vuelos + fee_aereo) + suma_costo_hoteles + monto_traslados + gastos_admin + gastos_iva
         precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
-        
+
         if redondear:
-            # Round up per person to whole number (multiple of 10)
             rounded_pp = math.ceil(precio_persona / 10.0) * 10
             rounded_total = rounded_pp * cant_pax
         else:
             rounded_pp = round(precio_persona, 2)
             rounded_total = round(costo_total, 2)
+
+        for hotel in hoteles:
+            costo_h = float(hotel.get("costo_neto") if "costo_neto" in hotel else hotel.get("costo", 0.0))
+            hotel["costo_neto"] = costo_h
+            hotel["costo"] = costo_h
+            hotel["precio_persona"] = rounded_pp
+
+        quote["costo_total"] = rounded_total
+        quote["precio_persona"] = rounded_pp
+    else:
+        for hotel in hoteles:
+            costo_hotel = float(hotel.get("costo_neto")) if "costo_neto" in hotel else float(hotel.get("costo", 0.0))
+            gastos_admin = (costo_hotel + monto_traslados) * 0.05
+            costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
+            precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
+            
+            if redondear:
+                # Round up per person to whole number (multiple of 10)
+                rounded_pp = math.ceil(precio_persona / 10.0) * 10
+                rounded_total = rounded_pp * cant_pax
+            else:
+                rounded_pp = round(precio_persona, 2)
+                rounded_total = round(costo_total, 2)
+            
+            hotel["costo_neto"] = costo_hotel
+            hotel["costo"] = rounded_total
+            hotel["precio_persona"] = rounded_pp
         
-        hotel["costo_neto"] = costo_hotel
-        hotel["costo"] = rounded_total
-        hotel["precio_persona"] = rounded_pp
-    
-    primary_hotel = hoteles[0]
-    quote["costo_total"] = primary_hotel["costo"]
-    quote["precio_persona"] = primary_hotel["precio_persona"]
+        primary_hotel = hoteles[0]
+        quote["costo_total"] = primary_hotel["costo"]
+        quote["precio_persona"] = primary_hotel["precio_persona"]
     
     base_habitacion = "Single"
     if cant_pax == 2: base_habitacion = "Doble"
@@ -666,29 +756,68 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
     if not hoteles:
         raise HTTPException(status_code=400, detail="Se requiere al menos una opción de hotel.")
         
-    redondear = quote.get("redondear", True)
+    redondear = extract_redondear(quote)
+    quote["redondear"] = redondear
+    is_multidestino = is_multidestino_quote(quote)
+    if is_multidestino:
+        quote["tipo_cotizacion"] = "multidestino"
     
-    for hotel in hoteles:
-        costo_hotel = safe_float(hotel.get("costo_neto")) if "costo_neto" in hotel else safe_float(hotel.get("costo", 0.0))
-        gastos_admin = (costo_hotel + monto_traslados) * 0.05
-        costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
+    if is_multidestino:
+        # AND operator: Sum all hotel stops for a single unified itinerary cost
+        suma_costo_hoteles = sum(
+            safe_float(h.get("costo_neto")) if "costo_neto" in h else safe_float(h.get("costo", 0.0))
+            for h in hoteles
+        )
+        gastos_admin = (suma_costo_hoteles + monto_traslados) * 0.05
+        costo_total = (monto_vuelos + fee_aereo) + suma_costo_hoteles + monto_traslados + gastos_admin + gastos_iva
         precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
         
         if redondear:
-            # Round up per person to whole number (multiple of 10)
             rounded_pp = math.ceil(precio_persona / 10.0) * 10
             rounded_total = rounded_pp * cant_pax
         else:
             rounded_pp = round(precio_persona, 2)
             rounded_total = round(costo_total, 2)
+            
+        for hotel in hoteles:
+            costo_h = safe_float(hotel.get("costo_neto")) if "costo_neto" in hotel else safe_float(hotel.get("costo", 0.0))
+            hotel["costo_neto"] = costo_h
+            hotel["costo"] = costo_h
+            hotel["precio_persona"] = round(costo_h / cant_pax, 2) if cant_pax > 0 else costo_h
+            hotel["redondear"] = redondear
+            hotel["tipo_cotizacion"] = "multidestino"
+            
+        quote["costo_total"] = rounded_total
+        quote["precio_persona"] = rounded_pp
+    else:
+        # Standard quote (OR operator: each hotel is an alternative option)
+        for hotel in hoteles:
+            costo_hotel = safe_float(hotel.get("costo_neto")) if "costo_neto" in hotel else safe_float(hotel.get("costo", 0.0))
+            gastos_admin = (costo_hotel + monto_traslados) * 0.05
+            costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
+            precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
+            
+            if redondear:
+                rounded_pp = math.ceil(precio_persona / 10.0) * 10
+                rounded_total = rounded_pp * cant_pax
+            else:
+                rounded_pp = round(precio_persona, 2)
+                rounded_total = round(costo_total, 2)
+            
+            hotel["costo_neto"] = costo_hotel
+            hotel["costo"] = rounded_total
+            hotel["precio_persona"] = rounded_pp
+            hotel["redondear"] = redondear
+            
+        primary_hotel = hoteles[0]
+        quote["costo_total"] = primary_hotel["costo"]
+        quote["precio_persona"] = primary_hotel["precio_persona"]
         
-        hotel["costo_neto"] = costo_hotel
-        hotel["costo"] = rounded_total
-        hotel["precio_persona"] = rounded_pp
-        
-    primary_hotel = hoteles[0]
-    quote["costo_total"] = primary_hotel["costo"]
-    quote["precio_persona"] = primary_hotel["precio_persona"]
+    for h in hoteles_raw:
+        if isinstance(h, dict) and h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+            h["redondear"] = redondear
+            if is_multidestino:
+                h["tipo_cotizacion"] = "multidestino"
     
     base_habitacion = "Single"
     if cant_pax == 2: base_habitacion = "Doble"
@@ -780,7 +909,12 @@ def api_get_cotizaciones(current_user: dict = Depends(get_current_active_agent))
         if not sucursal_id:
             raise HTTPException(status_code=400, detail="El agente no tiene una sucursal asignada.")
         quotes = get_cotizaciones(sucursal_id=sucursal_id)
-    return resolve_agent_names(quotes, current_user)
+    quotes = resolve_agent_names(quotes, current_user)
+    for q in quotes:
+        if isinstance(q, dict):
+            q["redondear"] = extract_redondear(q)
+            q["tipo_cotizacion"] = "multidestino" if is_multidestino_quote(q) else "estandar"
+    return quotes
 
 @router.get("/cotizaciones/{quote_id}")
 def api_get_cotizacion(quote_id: str, current_user: dict = Depends(get_current_active_agent)):
@@ -799,7 +933,10 @@ def api_get_cotizacion(quote_id: str, current_user: dict = Depends(get_current_a
             raise HTTPException(status_code=403, detail="No tienes permisos para acceder a esta cotización.")
             
     resolved = resolve_agent_names([quote], current_user)
-    return resolved[0]
+    quote_res = resolved[0]
+    quote_res["redondear"] = extract_redondear(quote_res)
+    quote_res["tipo_cotizacion"] = "multidestino" if is_multidestino_quote(quote_res) else "estandar"
+    return quote_res
 
 @router.post("/cotizaciones")
 def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_active_agent)):
@@ -837,30 +974,81 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
     payload["moneda"] = moneda
     
     hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
-    redondear = payload.get("redondear", True)
+    redondear = extract_redondear(payload)
+    payload["redondear"] = redondear
+    is_multidestino = is_multidestino_quote(payload)
+    if is_multidestino:
+        payload["tipo_cotizacion"] = "multidestino"
     
-    for hotel in hoteles:
-        costo_hotel = safe_float(hotel.get("costo_neto")) if "costo_neto" in hotel else safe_float(hotel.get("costo", 0.0))
-        gastos_admin = (costo_hotel + monto_traslados) * 0.05
-        costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
+    if is_multidestino:
+        # AND operator: Sum all hotel stops for a single unified itinerary cost
+        suma_costo_hoteles = sum(
+            safe_float(h.get("costo_neto")) if "costo_neto" in h else safe_float(h.get("costo", 0.0))
+            for h in hoteles
+        )
+        gastos_admin = (suma_costo_hoteles + monto_traslados) * 0.05
+        costo_total = (monto_vuelos + fee_aereo) + suma_costo_hoteles + monto_traslados + gastos_admin + gastos_iva
         precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
         
         if redondear:
-            # Round up per person to whole number (multiple of 10)
             rounded_pp = math.ceil(precio_persona / 10.0) * 10
             rounded_total = rounded_pp * cant_pax
         else:
             rounded_pp = round(precio_persona, 2)
             rounded_total = round(costo_total, 2)
-        
-        hotel["costo_neto"] = costo_hotel
-        hotel["costo"] = rounded_total
-        hotel["precio_persona"] = rounded_pp
-        
-    if hoteles:
-        primary_hotel = hoteles[0]
-        payload["costo_total"] = primary_hotel["costo"]
-        payload["precio_persona"] = primary_hotel["precio_persona"]
+            
+        for hotel in hoteles:
+            costo_h = safe_float(hotel.get("costo_neto")) if "costo_neto" in hotel else safe_float(hotel.get("costo", 0.0))
+            hotel["costo_neto"] = costo_h
+            hotel["costo"] = costo_h
+            hotel["precio_persona"] = round(costo_h / cant_pax, 2) if cant_pax > 0 else costo_h
+            hotel["redondear"] = redondear
+            hotel["tipo_cotizacion"] = "multidestino"
+            
+        payload["costo_total"] = rounded_total
+        payload["precio_persona"] = rounded_pp
+    else:
+        # Standard quote (OR operator: each hotel is an alternative option)
+        for hotel in hoteles:
+            costo_hotel = safe_float(hotel.get("costo_neto")) if "costo_neto" in hotel else safe_float(hotel.get("costo", 0.0))
+            gastos_admin = (costo_hotel + monto_traslados) * 0.05
+            costo_total = (monto_vuelos + fee_aereo) + costo_hotel + monto_traslados + gastos_admin + gastos_iva
+            precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
+            
+            if redondear:
+                rounded_pp = math.ceil(precio_persona / 10.0) * 10
+                rounded_total = rounded_pp * cant_pax
+            else:
+                rounded_pp = round(precio_persona, 2)
+                rounded_total = round(costo_total, 2)
+            
+            hotel["costo_neto"] = costo_hotel
+            hotel["costo"] = rounded_total
+            hotel["precio_persona"] = rounded_pp
+            hotel["redondear"] = redondear
+            
+        if hoteles:
+            primary_hotel = hoteles[0]
+            payload["costo_total"] = primary_hotel["costo"]
+            payload["precio_persona"] = primary_hotel["precio_persona"]
+
+    meta_found = False
+    for h in hoteles_raw:
+        if isinstance(h, dict) and h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
+            h["redondear"] = redondear
+            if is_multidestino:
+                h["tipo_cotizacion"] = "multidestino"
+            meta_found = True
+            break
+    if not meta_found:
+        meta_dict = {
+            "nombre": "METADATA_COTIZACION",
+            "redondear": redondear,
+            "moneda": moneda
+        }
+        if is_multidestino:
+            meta_dict["tipo_cotizacion"] = "multidestino"
+        hoteles_raw.append(meta_dict)
         
     base_habitacion = "Single"
     if cant_pax == 2: base_habitacion = "Doble"
@@ -883,6 +1071,7 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
     saved_quote = save_cotizacion(payload)
     if not saved_quote:
         raise HTTPException(status_code=500, detail="No se pudo guardar la cotización.")
+    saved_quote["redondear"] = redondear
     return saved_quote
 
 @router.delete("/cotizaciones/{quote_id}")
