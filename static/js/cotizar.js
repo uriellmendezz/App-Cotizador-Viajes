@@ -1914,12 +1914,14 @@ function renderMultidestinoSummaryHTML(config, container) {
     if (hotelList.length === 1) {
         const h = hotelList[0];
         const hName = h.hotelName || 'Hotel 1';
+        const hDest = h.destino ? `${h.destino} — ` : '';
+        const hNoches = h.noches ? ` (${h.noches} nts)` : '';
         const hCost = parseFloat(h.hotelCost) || 0;
         hotelsRowsHtml = `
             <tr>
                 <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                     <img src="/assets/iconos/cama.svg" class="w-3.5 h-3.5 icon-slate" alt="Alojamiento">
-                    <span class="truncate" title="${hName}">Alojamiento: ${hName}</span>
+                    <span class="truncate" title="${hDest}${hName}${hNoches}">Alojamiento: ${hDest}${hName}${hNoches}</span>
                 </td>
                 <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(hCost)}</td>
             </tr>
@@ -1927,12 +1929,14 @@ function renderMultidestinoSummaryHTML(config, container) {
     } else {
         const stopsHtml = hotelList.map((h, idx) => {
             const hName = h.hotelName || `Hotel ${idx + 1}`;
+            const hDest = h.destino ? `${h.destino} — ` : '';
+            const hNoches = h.noches ? ` (${h.noches} nts)` : '';
             const hCost = parseFloat(h.hotelCost) || 0;
             return `
                 <tr>
                     <td class="py-1.5 pr-2 font-medium text-slate-500 flex items-center gap-1">
                         <img src="/assets/iconos/cama.svg" class="w-3.5 h-3.5 icon-slate" alt="Alojamiento">
-                        <span class="truncate" title="${hName}">Parada ${idx + 1}: ${hName}</span>
+                        <span class="truncate" title="Parada ${idx + 1}: ${hDest}${hName}${hNoches}">Parada ${idx + 1}: ${hDest}${hName}${hNoches}</span>
                     </td>
                     <td class="py-1.5 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(hCost)}</td>
                 </tr>
@@ -2025,14 +2029,20 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
     const container = document.getElementById(containerId);
     if (!container || !quote) return;
 
-    let currency = quote.moneda || 'USD';
+    let currency = quote.moneda;
     const hotelesRaw = quote.hoteles || [];
     const metaItem = hotelesRaw.find(h => h.nombre === "METADATA_COTIZACION" || h.nombre === "METADATA_PRESUPUESTO_RAPIDO");
-    if (metaItem && metaItem.moneda) {
+    if (!currency && metaItem && metaItem.moneda) {
         currency = metaItem.moneda;
     }
+    if (!currency) {
+        const hotelWithMoneda = hotelesRaw.find(h => h && h.moneda);
+        currency = hotelWithMoneda ? hotelWithMoneda.moneda : 'USD';
+    }
 
-    const isMultidestino = quote.tipo_cotizacion === 'multidestino' || metaItem?.tipo_cotizacion === 'multidestino';
+    const isMultidestino = quote.tipo_cotizacion === 'multidestino' ||
+        metaItem?.tipo_cotizacion === 'multidestino' ||
+        (Array.isArray(hotelesRaw) && hotelesRaw.some(h => h.tipo_cotizacion === 'multidestino' || h.destino));
 
     const cantPax = parseInt(quote.cantidad_pasajeros || quote.cant_pax) || 1;
     const flightsCost = parseFloat(quote.monto_vuelos) || 0;
@@ -2060,11 +2070,18 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
     if (isMultidestino) {
         const hotelList = realHotels.map((h, idx) => {
             const hotelName = h.nombre || h.hotel_nombre || `Parada ${idx + 1}`;
-            const hotelCost = parseFloat(h.costo_neto !== undefined ? h.costo_neto : (h.costo_original !== undefined ? h.costo_original : h.costo)) || 0;
+            let hotelCost = 0;
+            if (h.costo_neto !== undefined && h.costo_neto !== null && !isNaN(h.costo_neto)) {
+                hotelCost = parseFloat(h.costo_neto);
+            } else if (h.costo_original !== undefined && h.costo_original !== null && !isNaN(h.costo_original)) {
+                hotelCost = parseFloat(h.costo_original);
+            } else if (h.costo !== undefined && h.costo !== null && !isNaN(h.costo)) {
+                hotelCost = parseFloat(h.costo);
+            }
             return {
                 hotelName,
                 destino: h.destino || '',
-                noches: h.noches || 0,
+                noches: h.noches || (h.noches_alojamiento ? parseInt(h.noches_alojamiento) : 0),
                 hotelCost
             };
         });
@@ -2091,7 +2108,20 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
 
     const hotelList = orderedHotels.map((h, idx) => {
         const hotelName = h.nombre || h.hotel_nombre || `Opción ${idx + 1}`;
-        const hotelCost = parseFloat(h.costo_neto !== undefined ? h.costo_neto : (h.costo_original !== undefined ? h.costo_original : h.costo)) || 0;
+        let hotelCost = 0;
+        if (h.costo_neto !== undefined && h.costo_neto !== null && !isNaN(h.costo_neto) && Number(h.costo_neto) > 0) {
+            hotelCost = parseFloat(h.costo_neto);
+        } else if (h.costo_original !== undefined && h.costo_original !== null && !isNaN(h.costo_original)) {
+            hotelCost = parseFloat(h.costo_original);
+        } else if (h.costo !== undefined && h.costo !== null && !isNaN(h.costo)) {
+            const rawCost = parseFloat(h.costo);
+            if (quote.costo_total && Math.abs(rawCost - parseFloat(quote.costo_total)) < 1) {
+                const subtotalTerrestre = (rawCost - (flightsCost + flightsFee)) / 1.05;
+                hotelCost = Math.max(0, subtotalTerrestre - transfersCost);
+            } else {
+                hotelCost = rawCost;
+            }
+        }
         return {
             hotelName,
             hotelCost,
@@ -2331,12 +2361,19 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
 
         window.lastGeneratedPdfUrl = url;
         window.lastGeneratedQuote = {
+            ...payload,
             id: currentQuoteId,
-            nombre_pax: payload.nombre_pax,
-            destino: payload.destino,
-            agente_nombre: payload.agente_nombre || window.loggedInUser,
+            moneda: selectedCurrency,
+            cantidad_pasajeros: payload.cantidad_pasajeros,
+            monto_vuelos: payload.monto_vuelos,
+            fee_aereo: payload.fee_aereo,
+            fee_aereo_monto: payload.fee_aereo,
+            monto_traslados: payload.monto_traslados,
+            tipo_traslado: payload.tipo_traslado,
             redondear: payload.redondear,
             hoteles: payload.hoteles,
+            costo_total: roundedTotal,
+            precio_persona: roundedPerPerson,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         };
@@ -2421,6 +2458,7 @@ function _buildPayload() {
         gastos_iva: 0.0,
         equipaje: selectedBaggage,
         redondear: aplicarRedondeo,
+        moneda: document.getElementById('moneda_seleccionada')?.value || 'USD',
         hoteles: []
     };
 

@@ -489,6 +489,7 @@ def optimizar_descripcion(payload: dict, current_user: str = Depends(get_current
     if not descripcion_original:
         raise HTTPException(status_code=400, detail="La descripción no puede estar vacía.")
         
+    load_dotenv(override=True)
     groq_api_key = os.getenv("GROQ_API_KEY")
     if not groq_api_key:
         raise HTTPException(status_code=500, detail="GROQ_API_KEY no está configurada en las variables de entorno.")
@@ -496,10 +497,11 @@ def optimizar_descripcion(payload: dict, current_user: str = Depends(get_current
     prompt_sistema = (
         "Eres un redactor experto en marketing de turismo de lujo para la agencia de viajes One Trip Giordano. "
         "Tu tarea es optimizar la descripción de un hotel provista por el agente de viajes para hacerla sumamente atractiva, fluida y persuasiva. "
-        "Destaca sus servicios principales, régimen, ubicación y ventajas de forma elegante. "
-        "REGLA CRÍTICA DE LONGITUD: La descripción optimizada DEBE tener una extensión entre 150 y 200 tokens/caracteres (idealmente entre 160 y 190 caracteres), "
-        "aprovechando el contenido al máximo sin cortar oraciones a la mitad y sin exceder jamás los 200 tokens totales. "
-        "No agregues saludos, firmas, introducciones ni explicaciones. Responde únicamente con el texto final optimizado."
+        "Destaca sus servicios principales, régimen, ubicación y comodidades de forma elegante. "
+        "REGLAS CRÍTICAS INQUEBRANTABLES:\n"
+        "1. La respuesta DEBE tener entre 140 y 190 caracteres totales. Bajo ninguna circunstancia debe superar los 200 caracteres.\n"
+        "2. No agregues comillas, saludos, firmas, introducciones ni explicaciones.\n"
+        "3. Responde únicamente en español con el texto final optimizado en un solo párrafo."
     )
     
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -507,37 +509,55 @@ def optimizar_descripcion(payload: dict, current_user: str = Depends(get_current
         "Authorization": f"Bearer {groq_api_key}",
         "Content-Type": "application/json"
     }
-    data = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": [
-            {"role": "system", "content": prompt_sistema},
-            {"role": "user", "content": descripcion_original}
-        ],
-        "temperature": 0.7,
-        "max_tokens": 200
-    }
     
-    try:
-        res = requests.post(url, headers=headers, json=data, timeout=15)
-        res.raise_for_status()
-        res_data = res.json()
-        descripcion_optimizada = res_data["choices"][0]["message"]["content"].strip()
-        return {"descripcion_optimizada": descripcion_optimizada}
-    except Exception as e:
-        print(f"Error calling Groq API with main model llama-3.3-70b-versatile: {e}")
-        fallback_models = ["llama-3.1-8b-instant", "mixtral-8x7b-32768"]
-        for m in fallback_models:
-            try:
-                print(f"Trying fallback model: {m}...")
-                data["model"] = m
-                res = requests.post(url, headers=headers, json=data, timeout=15)
-                res.raise_for_status()
+    candidate_models = [
+        "qwen/qwen3.8-27b",
+        "groq/compound-mini",
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "openai/gpt-oss-120b"
+    ]
+    
+    last_error = None
+    for model_name in candidate_models:
+        try:
+            data = {
+                "model": model_name,
+                "messages": [
+                    {"role": "system", "content": prompt_sistema},
+                    {"role": "user", "content": descripcion_original}
+                ],
+                "temperature": 0.6,
+                "max_tokens": 150
+            }
+            res = requests.post(url, headers=headers, json=data, timeout=12)
+            if res.status_code == 200:
                 res_data = res.json()
-                descripcion_optimizada = res_data["choices"][0]["message"]["content"].strip()
-                return {"descripcion_optimizada": descripcion_optimizada}
-            except Exception as e2:
-                print(f"Fallback model {m} failed: {e2}")
-        raise HTTPException(status_code=500, detail=f"Error al optimizar la descripción: {str(e)}")
+                content = res_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content:
+                    descripcion_optimizada = content.strip().strip('"\'«»“”')
+                    # Asegurar límite visual y funcional de 200 caracteres
+                    if len(descripcion_optimizada) > 200:
+                        truncated = descripcion_optimizada[:200]
+                        last_punct = max(truncated.rfind('.'), truncated.rfind('!'), truncated.rfind('?'))
+                        if last_punct >= 110:
+                            descripcion_optimizada = truncated[:last_punct+1].strip()
+                        else:
+                            last_space = truncated[:197].rfind(' ')
+                            if last_space > 80:
+                                descripcion_optimizada = truncated[:last_space].strip() + '...'
+                            else:
+                                descripcion_optimizada = truncated[:197] + '...'
+                    return {"descripcion_optimizada": descripcion_optimizada}
+            else:
+                last_error = f"{model_name}: {res.status_code} {res.text}"
+                print(f"Groq API {model_name} returned status {res.status_code}: {res.text}")
+        except Exception as e:
+            last_error = f"{model_name}: {str(e)}"
+            print(f"Exception calling Groq API model {model_name}: {last_error}")
+            
+    raise HTTPException(status_code=500, detail=f"Error al optimizar la descripción con Groq: {last_error}")
+
 
 @router.post("/importar-excel")
 async def importar_excel(file: UploadFile = File(...), current_user: str = Depends(verify_agent_user)):
@@ -914,6 +934,7 @@ def api_get_cotizaciones(current_user: dict = Depends(get_current_active_agent))
         if isinstance(q, dict):
             q["redondear"] = extract_redondear(q)
             q["tipo_cotizacion"] = "multidestino" if is_multidestino_quote(q) else "estandar"
+            q["moneda"] = extract_currency(q.get("hoteles", []))
     return quotes
 
 @router.get("/cotizaciones/{quote_id}")
@@ -936,6 +957,11 @@ def api_get_cotizacion(quote_id: str, current_user: dict = Depends(get_current_a
     quote_res = resolved[0]
     quote_res["redondear"] = extract_redondear(quote_res)
     quote_res["tipo_cotizacion"] = "multidestino" if is_multidestino_quote(quote_res) else "estandar"
+    quote_res["moneda"] = extract_currency(quote_res.get("hoteles", []))
+    quote_res["fee_aereo"] = safe_float(quote_res.get("fee_aereo", 0.0))
+    quote_res["monto_vuelos"] = safe_float(quote_res.get("monto_vuelos", 0.0))
+    quote_res["monto_traslados"] = safe_float(quote_res.get("monto_traslados", 0.0))
+    quote_res["cantidad_pasajeros"] = safe_int(quote_res.get("cantidad_pasajeros", 1))
     return quote_res
 
 @router.post("/cotizaciones")

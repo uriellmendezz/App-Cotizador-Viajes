@@ -640,49 +640,73 @@
            ══════════════════════════════════════════════════════════════════ */
         body.two-hotels-layout,
         body.three-hotels-layout {
-            padding-bottom: 20mm !important;
+            padding-bottom: 18mm !important;
         }
 
         body.two-hotels-layout .header,
         body.three-hotels-layout .header {
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
         body.two-hotels-layout .title-section,
         body.three-hotels-layout .title-section {
-            margin: 14px 0 20px 0;
+            margin: 12px 0 16px 0;
         }
 
         body.two-hotels-layout .section-heading,
         body.three-hotels-layout .section-heading {
-            margin-top: 28px;
-            margin-bottom: 10px;
+            margin-top: 20px;
+            margin-bottom: 8px;
         }
 
         body.two-hotels-layout>.section-heading,
         body.three-hotels-layout>.section-heading {
-            margin-top: 24px;
+            margin-top: 18px;
         }
 
         body.two-hotels-layout .services-list,
         body.three-hotels-layout .services-list {
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
 
         body.two-hotels-layout .flights-section,
         body.three-hotels-layout .flights-section {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
-        body.two-hotels-layout .hotel-card,
-        body.three-hotels-layout .hotel-card {
-            margin-bottom: 10px;
+        /* 2 Hotels: Taller, spacious cards */
+        body.two-hotels-layout .hotel-card {
+            min-height: 125px;
+            margin-bottom: 14px;
         }
+
+        body.two-hotels-layout .hotel-card-img {
+            min-height: 125px;
+        }
+
+        body.two-hotels-layout .hotel-card-body {
+            padding: 10px 14px !important;
+        }
+
+        /* 3 Hotels: Taller than base 95px, well balanced */
+        body.three-hotels-layout .hotel-card {
+            min-height: 106px;
+            margin-bottom: 9px;
+        }
+
+        body.three-hotels-layout .hotel-card-img {
+            min-height: 106px;
+        }
+
+        body.three-hotels-layout .hotel-card-body {
+            padding: 8px 12px 6px 12px !important;
+        }
+
         /* ══════════════════════════════════════════════════════════════════
            MULTIDESTINO STYLES & LAYOUT
            ══════════════════════════════════════════════════════════════════ */
         body.multidestino-layout {
-            padding-bottom: 22mm !important;
+            padding-bottom: 20mm !important;
         }
 
         body.multidestino-layout .header {
@@ -694,26 +718,26 @@
         }
 
         body.multidestino-layout .section-heading {
-            margin-top: 20px;
+            margin-top: 18px;
             margin-bottom: 8px;
         }
 
         body.multidestino-layout .hotels-section {
-            margin-top: 32px;
+            margin-top: 24px;
         }
 
         body.multidestino-layout .hotels-section .section-heading {
             margin-top: 0;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
 
         body.multidestino-layout .hotel-card {
-            min-height: 110px;
-            margin-bottom: 18px;
+            min-height: 120px;
+            margin-bottom: 16px;
         }
 
         body.multidestino-layout .hotel-card-img {
-            min-height: 110px;
+            min-height: 120px;
         }
 
         body.multidestino-layout .hotel-card-body {
@@ -743,9 +767,9 @@
             line-height: 1.35;
         }
 
-        /* 2 Hoteles Multidestino: Espaciado amplio y aireado */
+        /* 2 Hoteles Multidestino: Espaciado amplio y tarjetas altas */
         body.multidestino-layout.multi-2-layout .hotels-section {
-            margin-top: 26px;
+            margin-top: 22px;
         }
 
         body.multidestino-layout.multi-2-layout .hotels-section .section-heading {
@@ -753,21 +777,21 @@
         }
 
         body.multidestino-layout.multi-2-layout .hotel-card {
-            min-height: 112px;
+            min-height: 130px;
             margin-bottom: 16px;
         }
 
         body.multidestino-layout.multi-2-layout .hotel-card-img {
-            min-height: 112px;
+            min-height: 130px;
         }
 
         body.multidestino-layout.multi-2-layout .hotel-card-body {
-            padding: 10px 14px 10px 14px !important;
+            padding: 12px 16px !important;
         }
 
         body.multidestino-layout.multi-2-layout .hotel-svc-badge {
             font-size: 8pt;
-            padding: 2.5px 7px !important;
+            padding: 3px 8px !important;
         }
 
         body.multidestino-layout.multi-2-layout .hotel-desc {
@@ -780,29 +804,33 @@
             padding: 12px 18px;
         }
 
-        /* 3 Hoteles Multidestino: Ajuste compacto balanceado */
+        /* 3 Hoteles Multidestino: Tarjetas más altas (96px vs 74px) sin verse comprimidas */
         body.multidestino-layout.multi-3-layout {
-            padding-bottom: 18mm !important;
+            padding-bottom: 15mm !important;
         }
 
         body.multidestino-layout.multi-3-layout .header {
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         body.multidestino-layout.multi-3-layout .title-section {
-            margin: 8px 0 12px 0;
+            margin: 6px 0 10px 0;
         }
 
         body.multidestino-layout.multi-3-layout .services-list {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         body.multidestino-layout.multi-3-layout .flights-section {
-            margin-bottom: 14px;
+            margin-bottom: 10px;
+        }
+
+        body.multidestino-layout.multi-3-layout .flights-section .flights-row .flight-img-container img {
+            height: 54px !important;
         }
 
         body.multidestino-layout.multi-3-layout .hotels-section {
-            margin-top: 16px;
+            margin-top: 12px;
         }
 
         body.multidestino-layout.multi-3-layout .hotels-section .section-heading {
@@ -811,20 +839,20 @@
         }
 
         body.multidestino-layout.multi-3-layout .hotel-card {
-            height: 74px;
-            min-height: 74px;
-            max-height: 74px;
-            margin-bottom: 8px;
+            height: 96px;
+            min-height: 96px;
+            max-height: 96px;
+            margin-bottom: 7px;
         }
 
         body.multidestino-layout.multi-3-layout .hotel-card-img {
-            height: 74px;
-            min-height: 74px;
-            max-height: 74px;
+            height: 96px;
+            min-height: 96px;
+            max-height: 96px;
         }
 
         body.multidestino-layout.multi-3-layout .hotel-card-body {
-            padding: 6px 12px 6px 12px !important;
+            padding: 7px 12px 6px 12px !important;
         }
 
         body.multidestino-layout.multi-3-layout .hotel-name {
@@ -836,7 +864,7 @@
         }
 
         body.multidestino-layout.multi-3-layout .hotel-dest-bookmark {
-            font-size: 6.6pt;
+            font-size: 6.8pt;
             padding: 2.5px 6px 4px 6px;
             left: 6px;
         }
@@ -856,12 +884,13 @@
         body.multidestino-layout.multi-3-layout .hotel-desc {
             font-size: 7.2pt;
             line-height: 1.25;
-            margin-top: 1px;
+            margin-top: 2px;
         }
 
         body.multidestino-layout.multi-3-layout .multidestino-total-card {
-            margin-top: 14px;
-            padding: 9px 15px;
+            margin-top: 8px;
+            margin-bottom: 4px;
+            padding: 7px 14px;
         }
 
         .dest-stop-badge {
@@ -1011,12 +1040,13 @@
     <!-- ═══════════════ 4. VUELOS ═══════════════ -->
     <div class="flights-section">
         <div class="section-heading">Vuelos</div>
-        <div class="flights-row {% if has_vuelo_3 %}flights-3-col{% elif hoteles|length == 1 %}flights-stacked{% endif %}">
+        <div
+            class="flights-row {% if has_vuelo_3 %}flights-3-col{% elif hoteles|length == 1 %}flights-stacked{% endif %}">
             <div class="flight-col">
                 <div class="flight-label">
                     <span class="flight-icon">{{ svg_avion_despegando.replace('<svg', '<svg fill="#334155"' )|safe
                             }}</span>
-                    <span>SALIDA - {{ fecha_vuelo_ida }}</span>
+                            <span>SALIDA - {{ fecha_vuelo_ida }}</span>
                 </div>
                 <div class="flight-img-container">
                     {% if img_vuelo_ida %}
@@ -1029,12 +1059,9 @@
                 <div class="flight-label">
                     <span class="flight-icon">
                         {% if svg_avion %}
-                        {{ svg_avion.replace('<svg', '<svg fill="#334155"' )|safe }}
-                        {% else %}
-                        {{ svg_avion_despegando.replace('<svg', '<svg fill="#334155"' )|safe }}
-                        {% endif %}
-                    </span>
-                    <span>TRAMO 2 - {{ fecha_vuelo_3 }}</span>
+                        {{ svg_avion.replace('<svg', '<svg fill="#334155"' )|safe }} {% else %} {{
+                            svg_avion_despegando.replace('<svg', '<svg fill="#334155"' )|safe }} {% endif %} </span>
+                            <span>TRAMO 2 - {{ fecha_vuelo_3 }}</span>
                 </div>
                 <div class="flight-img-container">
                     {% if img_vuelo_3 %}
@@ -1047,7 +1074,7 @@
                 <div class="flight-label">
                     <span class="flight-icon">{{ svg_avion_aterrizando.replace('<svg', '<svg fill="#334155"' )|safe
                             }}</span>
-                    <span>REGRESO - {{ fecha_vuelo_vuelta }}</span>
+                            <span>REGRESO - {{ fecha_vuelo_vuelta }}</span>
                 </div>
                 <div class="flight-img-container">
                     {% if img_vuelo_vuelta %}
@@ -1092,7 +1119,8 @@
             <div class="hotel-card-body">
                 <div class="hotel-card-top">
                     <!-- Name -->
-                    <div class="hotel-name-row" {% if loop.first and hoteles|length> 1 and not is_multidestino %}style="padding-right: 125px;"
+                    <div class="hotel-name-row" {% if loop.first and hoteles|length> 1 and not is_multidestino
+                        %}style="padding-right: 125px;"
                         {% endif %}>
                         <span class="hotel-name">{{ hotel.nombre }}</span>
                         <span class="stars-container">
@@ -1158,7 +1186,8 @@
         <div class="multidestino-total-card">
             <div class="m-total-left">
                 <div class="m-total-title">Total del Itinerario Completo</div>
-                <div class="m-total-subtitle">Incluye vuelos, todos los alojamientos del itinerario, traslados e impuestos</div>
+                <div class="m-total-subtitle">Incluye vuelos, todos los alojamientos del itinerario, traslados e
+                    impuestos.</div>
             </div>
             <div class="m-total-right">
                 <div class="m-total-pp">
@@ -1172,7 +1201,8 @@
                     {% endif %}
                 </div>
                 {% if base_habitacion|lower != 'single' %}
-                <div class="m-total-final" style="white-space: nowrap;">Total General: {{ moneda|default('USD') }} {{ format_price(costo_total_general) }}</div>
+                <div class="m-total-final" style="white-space: nowrap;">Total: {{ moneda|default('USD') }} {{
+                    format_price(costo_total_general) }}</div>
                 {% endif %}
             </div>
         </div>

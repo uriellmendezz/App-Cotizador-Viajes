@@ -770,7 +770,7 @@ function addHotelStop(data = null) {
         <div class="flex flex-col gap-1 w-full">
             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Descripción del Alojamiento</label>
             <div class="relative flex flex-col w-full">
-                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 pb-8 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[85px] resize-y w-full" placeholder="Breve reseña del hotel, ubicación y comodidades..." style="line-height: 1.3;" oninput="handleHotelDescInput(this); updateHotelDescCharCounter(this);" onkeyup="updateHotelDescCharCounter(this)" onpaste="setTimeout(() => updateHotelDescCharCounter(this), 10);">${data ? (data.descripcion || data.hotel_descripcion || '') : ''}</textarea>
+                <textarea class="hotel-descripcion-val border border-slate-200 rounded-xl px-3 py-2 pb-8 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white h-[90px] resize-y w-full" placeholder="Breve reseña del hotel, ubicación y comodidades..." style="line-height: 1.3;" oninput="handleHotelDescInput(this); updateHotelDescCharCounter(this);" onkeyup="updateHotelDescCharCounter(this)" onpaste="setTimeout(() => updateHotelDescCharCounter(this), 10);">${data ? (data.descripcion || data.hotel_descripcion || '') : ''}</textarea>
                 
                 <!-- Custom Error Tooltip -->
                 <div class="hotel-desc-error-tooltip hidden absolute -top-8 right-0 bg-rose-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-md shadow-lg pointer-events-none z-20 transition-all flex items-center gap-1">
@@ -799,7 +799,7 @@ function addHotelStop(data = null) {
 
         <div class="flex flex-col gap-2 w-full">
             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Imagen del Hotel / Destino</label>
-            <div class="dropzone relative overflow-hidden border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-4 bg-white flex flex-col items-center justify-center min-h-[110px] cursor-pointer transition-all duration-300 group w-full" id="dropzone-${cardId}" tabindex="0" onclick="triggerFileInput('file-${cardId}')">
+            <div class="dropzone relative overflow-hidden border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-xl p-4 bg-white flex flex-col items-center justify-center min-h-[135px] cursor-pointer transition-all duration-300 group w-full" id="dropzone-${cardId}" tabindex="0" onclick="triggerFileInput('file-${cardId}')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-slate-400 group-hover:text-brand-primary mb-2" style="${imgVal ? 'display: none;' : ''}"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
                 <span class="text-xs text-slate-500 font-semibold text-center leading-tight" style="${imgVal ? 'display: none;' : ''}">Seleccionar imagen<br><span class="text-[10px] text-brand-primary/80 font-bold">Ctrl+V para pegar</span></span>
                 <input type="file" id="file-${cardId}" accept="image/*" class="hidden" onchange="handleImageUpload(this, 'preview-${cardId}', 'data-${cardId}')">
@@ -988,12 +988,14 @@ function renderMultidestinoSummaryHTML(config, container) {
     if (hotelList.length === 1) {
         const h = hotelList[0];
         const hName = h.hotelName || 'Hotel 1';
+        const hDest = h.destino ? `${h.destino} — ` : '';
+        const hNoches = h.noches ? ` (${h.noches} nts)` : '';
         const hCost = parseFloat(h.hotelCost) || 0;
         hotelsRowsHtml = `
             <tr>
                 <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                     <img src="/assets/iconos/cama.svg" class="w-3.5 h-3.5 icon-slate" alt="Alojamiento">
-                    <span class="truncate" title="${hName}">Alojamiento: ${hName}</span>
+                    <span class="truncate" title="${hDest}${hName}${hNoches}">Alojamiento: ${hDest}${hName}${hNoches}</span>
                 </td>
                 <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(hCost)}</td>
             </tr>
@@ -1001,12 +1003,14 @@ function renderMultidestinoSummaryHTML(config, container) {
     } else {
         const stopsHtml = hotelList.map((h, idx) => {
             const hName = h.hotelName || `Hotel ${idx + 1}`;
+            const hDest = h.destino ? `${h.destino} — ` : '';
+            const hNoches = h.noches ? ` (${h.noches} nts)` : '';
             const hCost = parseFloat(h.hotelCost) || 0;
             return `
                 <tr>
                     <td class="py-1.5 pr-2 font-medium text-slate-500 flex items-center gap-1">
                         <img src="/assets/iconos/cama.svg" class="w-3.5 h-3.5 icon-slate" alt="Alojamiento">
-                        <span class="truncate" title="${hName}">Parada ${idx + 1}: ${hName}</span>
+                        <span class="truncate" title="Parada ${idx + 1}: ${hDest}${hName}${hNoches}">Parada ${idx + 1}: ${hDest}${hName}${hNoches}</span>
                     </td>
                     <td class="py-1.5 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(hCost)}</td>
                 </tr>
@@ -1157,6 +1161,7 @@ function _buildPayload() {
 
     const payload = {
         tipo_cotizacion: "multidestino",
+        moneda: monedaVal,
         nombre_pax: document.getElementById('nombre_pax')?.value || '',
         destino: document.getElementById('destino')?.value || '',
         cantidad_pasajeros: parseInt(document.getElementById('cantidad_pasajeros')?.value) || 1,
@@ -1331,13 +1336,20 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
 
         window.lastGeneratedPdfUrl = url;
         window.lastGeneratedQuote = {
+            ...payload,
             id: currentQuoteId,
             tipo_cotizacion: "multidestino",
-            nombre_pax: payload.nombre_pax,
-            destino: payload.destino,
-            agente_nombre: payload.agente_nombre || window.loggedInUser,
+            moneda: payload.moneda || document.getElementById('moneda_seleccionada')?.value || 'USD',
+            cantidad_pasajeros: payload.cantidad_pasajeros,
+            monto_vuelos: payload.monto_vuelos,
+            fee_aereo: payload.fee_aereo,
+            fee_aereo_monto: payload.fee_aereo,
+            monto_traslados: payload.monto_traslados,
+            tipo_traslado: payload.tipo_traslado,
             redondear: payload.redondear,
-            hoteles: payload.hoteles
+            hoteles: payload.hoteles,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
         window.currentPdfBlob = blob;
         window.currentPdfUrl = url;
@@ -1625,10 +1637,6 @@ async function loadMultidestinoQuoteIntoForm(quoteId, forceEditMode = true) {
         updateEditingIndicator();
         updateRealTimeSummary();
         window.hideLoader ? window.hideLoader() : null;
-
-        if (window.showAlert) {
-            window.showAlert('info', `Editando cotización multidestino #${q.id} para ${q.nombre_pax || 'Pasajero'}`);
-        }
     } catch (err) {
         if (err.name === 'AbortError') return;
         window.hideLoader ? window.hideLoader() : null;
