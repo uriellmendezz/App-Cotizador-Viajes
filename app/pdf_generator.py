@@ -335,7 +335,10 @@ def generate_pdf(data: dict) -> bytes:
 
     for idx, hotel in enumerate(hoteles[:hotel_limit]):
         h = dict(hotel)  # don't mutate original
-        h["destino"] = h.get("destino") or h.get("ciudad") or f"Parada {idx + 1}"
+        if is_multidestino:
+            h["destino"] = h.get("destino") or h.get("ciudad") or f"Parada {idx + 1}"
+        else:
+            h["destino"] = ""
 
         # Calculate hotel nights from checkin / checkout if available
         ci_str = h.get("fecha_checkin")
