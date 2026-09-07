@@ -1104,7 +1104,7 @@
 
             <!-- Hotel Image -->
             <div class="hotel-card-img">
-                {% if hotel.destino %}
+                {% if is_multidestino and hotel.destino %}
                 <div class="hotel-dest-bookmark">
                     <span class="bookmark-icon">📍</span>
                     <span class="bookmark-city">{{ hotel.destino }}</span>
