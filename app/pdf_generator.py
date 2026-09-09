@@ -183,6 +183,8 @@ def _read_svg_content(name: str) -> str:
     """Reads local SVG file, strips style and fill attributes, and returns the raw SVG tag content."""
     import re
     path = ICONS_DIR / name
+    if not path.exists():
+        path = ASSETS_DIR / name
     if path.exists():
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -268,6 +270,7 @@ def generate_pdf(data: dict) -> bytes:
     svg_avion_despegando = _read_svg_content("avion-despegando.svg")
     svg_avion_aterrizando = _read_svg_content("avion-aterrizando.svg")
     svg_avion = _read_svg_content("avion.svg") or svg_avion_despegando
+    svg_location = _read_svg_content("location.svg")
 
     # ── Decode flight images from base64 ───────────────────────────────────
     temp_files = []  # track temp files for cleanup
@@ -500,6 +503,7 @@ def generate_pdf(data: dict) -> bytes:
         "svg_avion_despegando": svg_avion_despegando,
         "svg_avion_aterrizando": svg_avion_aterrizando,
         "svg_avion": svg_avion,
+        "svg_location": svg_location,
         # Flights
         "fecha_vuelo_ida": data.get("fecha_vuelo_ida", ""),
         "fecha_vuelo_vuelta": data.get("fecha_vuelo_vuelta", ""),

@@ -398,23 +398,35 @@
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            padding: 3.5px 8px 5px 8px;
+            padding: 3.5px 8px 4.5px 8px;
             border-radius: 0 0 5px 5px;
             box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
             display: flex;
             align-items: center;
             gap: 3.5px;
             white-space: nowrap;
-            line-height: 1.1;
+            line-height: 1;
         }
 
         .hotel-dest-bookmark .bookmark-icon {
-            font-size: 6.8pt;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            top: -2.8px;
             line-height: 1;
+        }
+
+        .hotel-dest-bookmark .bookmark-icon svg {
+            width: 9px !important;
+            height: 9px !important;
+            fill: #ffffff !important;
+            display: block !important;
         }
 
         .hotel-dest-bookmark .bookmark-city {
             font-weight: 800;
+            line-height: 1;
         }
 
         .hotel-card-img img {
@@ -869,6 +881,15 @@
             left: 6px;
         }
 
+        body.multidestino-layout.multi-3-layout .hotel-dest-bookmark .bookmark-icon {
+            top: -2.4px;
+        }
+
+        body.multidestino-layout.multi-3-layout .hotel-dest-bookmark .bookmark-icon svg {
+            width: 8.5px !important;
+            height: 8.5px !important;
+        }
+
         body.multidestino-layout.multi-3-layout .dest-stop-badge {
             font-size: 7pt;
             padding: 1.5px 5px !important;
@@ -1106,7 +1127,7 @@
             <div class="hotel-card-img">
                 {% if is_multidestino and hotel.destino %}
                 <div class="hotel-dest-bookmark">
-                    <span class="bookmark-icon">📍</span>
+                    <span class="bookmark-icon">{% if svg_location %}{{ svg_location.replace('<svg', '<svg fill="#ffffff"' )|safe }}{% else %}<img src="/assets/location.svg" style="width:9.5px;height:9.5px;" alt="Ubicación">{% endif %}</span>
                     <span class="bookmark-city">{{ hotel.destino }}</span>
                 </div>
                 {% endif %}
