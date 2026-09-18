@@ -457,7 +457,8 @@ const routeNames = {
     '/cotizacion-rapida': 'Cotización Rápida',
     '/cotizaciones-rapidas': 'Cotizaciones Rápidas',
     '/hacer-cotizacion': 'Nueva Cotización',
-    '/cotizacion-completa': 'Generar Cotización',
+    '/cotizacion-completa': 'Cotización PDF',
+    '/cotizacion-multidestino': 'Cotización PDF',
     '/editar': 'Archivos',
     '/ver-cotizacion': 'Ver Cotización',
     '/administrar': 'Administración de Franquicia',
@@ -527,7 +528,7 @@ const routes = {
     '/cotizaciones-rapidas': { html: '/static/views/cotizaciones_rapidas.html', js: '/static/js/cotizacion_rapida.js', init: 'initCotizacionesRapidas' },
     '/hacer-cotizacion': { html: '/static/views/opciones_cotizacion.html', js: '/static/js/inicio.js', init: 'initOpciones' },
     '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
-    '/cotizacion-multidestino': { html: '/static/views/cotizar_multidestino.html', js: '/static/js/cotizar_multidestino.js', init: 'initCotizarMultidestino' },
+    '/cotizacion-multidestino': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
     '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
     '/administrar': { html: '/static/views/administrar.html', js: '/static/js/administrar.js', init: 'initAdministrar' },
@@ -882,8 +883,7 @@ function updateNavActiveState(path) {
     let btnId = '';
     if (path === '/inicio' || path === '/') btnId = 'sidebar-btn-inicio';
     else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
-    else if (path === '/cotizacion-completa') btnId = 'sidebar-btn-full-quote';
-    else if (path === '/cotizacion-multidestino') btnId = 'sidebar-btn-multidestino-quote';
+    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
     else if (path === '/admin') btnId = 'sidebar-btn-admin';
 
