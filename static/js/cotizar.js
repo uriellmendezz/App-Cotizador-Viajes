@@ -4577,9 +4577,138 @@ async function saveQuoteChanges() {
 }
 window.saveQuoteChanges = saveQuoteChanges;
 
-// ── Autenticación de Usuarios y Control de Sesión ────────────────────────────
+// ── Conmutador Reactivo de Modalidad (Estándar vs Multidestino) ──────────────
+function _restoreCarriedData(data) {
+    if (!data) return;
+    if (data.nombre_pax && document.getElementById('nombre_pax')) {
+        document.getElementById('nombre_pax').value = data.nombre_pax;
+    }
+    if (data.destino && document.getElementById('destino')) {
+        document.getElementById('destino').value = data.destino;
+    }
+    if (data.cantidad_pasajeros && document.getElementById('cantidad_pasajeros')) {
+        document.getElementById('cantidad_pasajeros').value = data.cantidad_pasajeros;
+    }
+    if (data.origen && document.getElementById('origen')) {
+        document.getElementById('origen').value = data.origen;
+    }
+    if (data.validez_cotizacion && document.getElementById('validez_cotizacion')) {
+        document.getElementById('validez_cotizacion').value = data.validez_cotizacion;
+    }
+    if (data.moneda_seleccionada && document.getElementById('moneda_seleccionada')) {
+        document.getElementById('moneda_seleccionada').value = data.moneda_seleccionada;
+    }
+    if (data.aplicar_redondeo !== undefined && document.getElementById('aplicar_redondeo')) {
+        document.getElementById('aplicar_redondeo').checked = data.aplicar_redondeo;
+    }
+}
+
+export async function switchQuoteMode(targetMode, preserveData = true) {
+    const mount = document.getElementById('cotizador-mount');
+    if (!mount) return;
+
+    let carriedData = {};
+    if (preserveData) {
+        carriedData = {
+            nombre_pax: document.getElementById('nombre_pax')?.value || '',
+            destino: document.getElementById('destino')?.value || '',
+            cantidad_pasajeros: document.getElementById('cantidad_pasajeros')?.value || '',
+            origen: document.getElementById('origen')?.value || '',
+            validez_cotizacion: document.getElementById('validez_cotizacion')?.value || '',
+            moneda_seleccionada: document.getElementById('moneda_seleccionada')?.value || 'USD',
+            aplicar_redondeo: document.getElementById('aplicar_redondeo')?.checked || false,
+            fecha_vuelo_ida: document.getElementById('fecha_vuelo_ida')?.value || '',
+            fecha_vuelo_vuelta: document.getElementById('fecha_vuelo_vuelta')?.value || '',
+        };
+    }
+
+    const pill = document.getElementById('mode-pill-indicator');
+    const btnStandard = document.getElementById('btn-mode-standard');
+    const btnMultidestino = document.getElementById('btn-mode-multidestino');
+    const titleEl = document.getElementById('cotizador-main-title');
+
+    if (targetMode === 'multidestino') {
+        if (pill) pill.style.transform = 'translateX(100%)';
+        if (btnStandard) {
+            btnStandard.setAttribute('aria-checked', 'false');
+            btnStandard.classList.remove('text-brand-primary');
+            btnStandard.classList.add('text-slate-500');
+        }
+        if (btnMultidestino) {
+            btnMultidestino.setAttribute('aria-checked', 'true');
+            btnMultidestino.classList.add('text-brand-primary');
+            btnMultidestino.classList.remove('text-slate-500');
+        }
+        if (titleEl) titleEl.textContent = 'Cotización Multidestino';
+
+        const tpl = document.getElementById('template-multidestino');
+        if (tpl) {
+            mount.innerHTML = '';
+            mount.appendChild(tpl.content.cloneNode(true));
+        }
+
+        if (preserveData) {
+            _restoreCarriedData(carriedData);
+        }
+
+        if (window.location.pathname !== '/cotizacion-multidestino') {
+            history.replaceState(null, null, '/cotizacion-multidestino');
+        }
+
+        try {
+            const multiModule = await import('/static/js/cotizar_multidestino.js?v=' + Date.now());
+            if (multiModule && typeof multiModule.initCotizarMultidestino === 'function') {
+                await multiModule.initCotizarMultidestino();
+            }
+        } catch (e) {
+            console.error("Error inicializando cotizar_multidestino.js:", e);
+        }
+    } else {
+        if (pill) pill.style.transform = 'translateX(0%)';
+        if (btnStandard) {
+            btnStandard.setAttribute('aria-checked', 'true');
+            btnStandard.classList.add('text-brand-primary');
+            btnStandard.classList.remove('text-slate-500');
+        }
+        if (btnMultidestino) {
+            btnMultidestino.setAttribute('aria-checked', 'false');
+            btnMultidestino.classList.remove('text-brand-primary');
+            btnMultidestino.classList.add('text-slate-500');
+        }
+        if (titleEl) titleEl.textContent = 'Cotización Estándar';
+
+        const tpl = document.getElementById('template-estandar');
+        if (tpl) {
+            mount.innerHTML = '';
+            mount.appendChild(tpl.content.cloneNode(true));
+        }
+
+        if (preserveData) {
+            _restoreCarriedData(carriedData);
+        }
+
+        if (window.location.pathname !== '/cotizacion-completa') {
+            history.replaceState(null, null, '/cotizacion-completa');
+        }
+
+        initCotizarStandard();
+    }
+}
+window.switchQuoteMode = switchQuoteMode;
 
 export function initCotizar() {
+    window.switchQuoteMode = switchQuoteMode;
+    const isMultidestino = window.location.pathname === '/cotizacion-multidestino' || 
+                           new URLSearchParams(window.location.search).get('modo') === 'multidestino';
+    
+    if (isMultidestino) {
+        switchQuoteMode('multidestino', false);
+    } else {
+        switchQuoteMode('standard', false);
+    }
+}
+
+export function initCotizarStandard() {
     const isFromBridge = !!window.quickQuoteBridge;
     if (typeof flatpickr !== "undefined" && flatpickr.l10ns && flatpickr.l10ns.es) {
         flatpickr.localize(flatpickr.l10ns.es);
