@@ -1341,7 +1341,7 @@ function renderQuickBudgetsTable(budgetsList) {
 
     budgetsList.forEach(q => {
         const tr = document.createElement('tr');
-        tr.className = 'border-b border-slate-100 hover:bg-rose-50/30 transition-colors duration-150 cursor-pointer';
+        tr.className = 'border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150 cursor-pointer';
         tr.onclick = (e) => {
             loadQuickBudgetIntoForm(q.id);
         };
