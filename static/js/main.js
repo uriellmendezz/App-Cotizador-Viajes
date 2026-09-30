@@ -870,6 +870,9 @@ async function router() {
 
         // Update dynamic back button after content loads
         updateBackButton();
+
+        // Re-synchronize theme state across view elements
+        initTheme();
     }
 }
 window.router = router;
@@ -995,8 +998,67 @@ function updateHeaderDateTime() {
 }
 window.updateHeaderDateTime = updateHeaderDateTime;
 
-// Initialize application routing
+// ══════════════════════════════════════════════════════════════════
+// THEME MANAGEMENT (Dark / Light Mode)
+// ══════════════════════════════════════════════════════════════════
+function applyTheme(theme) {
+    const isDark = theme === 'dark';
+    const htmlEl = document.documentElement;
+
+    if (isDark) {
+        htmlEl.classList.add('dark');
+        try { localStorage.setItem('ot_theme', 'dark'); } catch (e) {}
+    } else {
+        htmlEl.classList.remove('dark');
+        try { localStorage.setItem('ot_theme', 'light'); } catch (e) {}
+    }
+
+    // Sync all switch buttons present in the DOM
+    const switchButtons = document.querySelectorAll('.theme-switch-btn');
+    switchButtons.forEach(btn => {
+        btn.setAttribute('aria-checked', isDark ? 'true' : 'false');
+        btn.setAttribute('title', isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
+
+        const thumb = btn.querySelector('.theme-toggle-thumb') || btn.querySelector('#theme-toggle-thumb');
+        if (thumb) {
+            if (isDark) {
+                thumb.classList.remove('translate-x-0');
+                thumb.classList.add('translate-x-7');
+            } else {
+                thumb.classList.remove('translate-x-7');
+                thumb.classList.add('translate-x-0');
+            }
+        }
+    });
+}
+window.applyTheme = applyTheme;
+
+function initTheme() {
+    let savedTheme = 'light';
+    try {
+        savedTheme = localStorage.getItem('ot_theme') || 'light';
+    } catch (e) {}
+    applyTheme(savedTheme);
+}
+window.initTheme = initTheme;
+
+function toggleTheme() {
+    const htmlEl = document.documentElement;
+    // Add smooth transition class for fine, subtle animated fade
+    htmlEl.classList.add('theme-transitioning');
+
+    const isCurrentDark = htmlEl.classList.contains('dark');
+    applyTheme(isCurrentDark ? 'light' : 'dark');
+
+    setTimeout(() => {
+        htmlEl.classList.remove('theme-transitioning');
+    }, 500);
+}
+window.toggleTheme = toggleTheme;
+
+// Initialize application routing & theme
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     router();
     updateHeaderDateTime();
     setInterval(updateHeaderDateTime, 1000);

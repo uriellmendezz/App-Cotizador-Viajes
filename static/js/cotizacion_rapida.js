@@ -184,9 +184,10 @@ function saveQuickQuoteFormState() {
         const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
         const label = tr.querySelector('.quick-row-label')?.value || '';
         const operador = tr.querySelector('.quick-row-operador')?.value || '';
+        const estrellas = parseInt(tr.querySelector('.quick-row-estrellas')?.value, 10) || 4;
         const montoRaw = tr.querySelector('.quick-row-monto')?.value || '';
         const monto = parseFormattedNumber(montoRaw);
-        rows.push({ tipo, label, monto, operador });
+        rows.push({ tipo, label, monto, operador, estrellas });
     });
 
     window.savedQuickQuoteState = {
@@ -243,6 +244,7 @@ function restoreQuickQuoteFormState() {
             label: r.label,
             monto: r.monto,
             operador: r.operador,
+            estrellas: r.estrellas,
             isDefault: (r.tipo === 'fee-aereo' || r.tipo === 'admin')
         });
     });
@@ -757,6 +759,7 @@ function addQuickBudgetRow(data = null) {
     tr.className = 'hover:bg-slate-50/50 transition-colors quick-row border-b border-slate-100';
 
     const selectedTipo = data ? data.tipo : 'hotel';
+    const estrellasVal = (data && data.estrellas) ? parseInt(data.estrellas, 10) : 4;
     const labelVal = data && data.label ? data.label : conceptTypes[selectedTipo].label;
     const rawMonto = (data && data.monto !== undefined) ? data.monto : '';
     const montoVal = rawMonto !== '' ? formatPriceES(parseFormattedNumber(rawMonto)) : '';
@@ -820,7 +823,7 @@ function addQuickBudgetRow(data = null) {
         `;
     } else {
         labelCellHtml = `
-            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none m-0 w-full ${cursorClass}" value="${labelVal}" ${labelTitle} style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 4px 8px !important; margin: 0 !important;" autocomplete="off">
+            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none m-0 flex-1 min-w-[120px] ${cursorClass}" value="${labelVal}" ${labelTitle} style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 4px 8px !important; margin: 0 !important;" autocomplete="off">
         `;
     }
 
@@ -829,6 +832,17 @@ function addQuickBudgetRow(data = null) {
             <span class="quick-row-icon flex items-center justify-center flex-shrink-0">${conceptTypes[selectedTipo].icon}</span>
             <div class="flex items-center gap-1.5 flex-1 min-w-0">
                 ${labelCellHtml}
+                ${selectedTipo === 'hotel' ? `
+                    <div class="quick-row-stars-wrapper relative inline-flex items-center justify-center flex-shrink-0 my-auto" title="Categoría / Estrellas del alojamiento">
+                        <select class="quick-row-estrellas text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100/90 border border-amber-200/90 rounded-lg px-2 py-0.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-400 transition-colors shadow-2xs select-none">
+                            <option value="5" ${estrellasVal === 5 ? 'selected' : ''}>⭐⭐⭐⭐⭐ (5★)</option>
+                            <option value="4" ${estrellasVal === 4 ? 'selected' : ''}>⭐⭐⭐⭐ (4★)</option>
+                            <option value="3" ${estrellasVal === 3 ? 'selected' : ''}>⭐⭐⭐ (3★)</option>
+                            <option value="2" ${estrellasVal === 2 ? 'selected' : ''}>⭐⭐ (2★)</option>
+                            <option value="1" ${estrellasVal === 1 ? 'selected' : ''}>⭐ (1★)</option>
+                        </select>
+                    </div>
+                ` : ''}
                 ${(selectedTipo !== 'admin' && selectedTipo !== 'redondeo' && selectedTipo !== 'fee-aereo') ? `
                     <div class="quick-row-operator-wrapper relative inline-flex items-center justify-center flex-shrink-0 my-auto">
                     </div>
@@ -867,6 +881,13 @@ function addQuickBudgetRow(data = null) {
     updateQuickCurrencyLabels();
 
     // Bind dynamic row elements events
+    const starsSelect = tr.querySelector('.quick-row-estrellas');
+    if (starsSelect) {
+        starsSelect.addEventListener('change', () => {
+            saveQuickQuoteFormState();
+        });
+    }
+
     const montoInput = tr.querySelector('.quick-row-monto');
     if (montoInput) {
         montoInput.addEventListener('paste', handleAmountPaste);
@@ -1162,7 +1183,8 @@ async function saveQuickQuote(andRedirect = false) {
             }
         } else if (tipo === 'hotel') {
             totalTerrestreNeto += monto;
-            hoteles.push({ nombre: label, costo: monto, operador: operador });
+            const estrellas = parseInt(tr.querySelector('.quick-row-estrellas')?.value, 10) || 4;
+            hoteles.push({ nombre: label, costo: monto, operador: operador, estrellas: estrellas });
         } else if (tipo === 'traslado') {
             totalTerrestreNeto += monto;
             traslados.push({ nombre: label, costo: monto, operador: operador });
@@ -1341,7 +1363,7 @@ function renderQuickBudgetsTable(budgetsList) {
 
     budgetsList.forEach(q => {
         const tr = document.createElement('tr');
-        tr.className = 'border-b border-slate-100 hover:bg-rose-50/30 transition-colors duration-150 cursor-pointer';
+        tr.className = 'border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150 cursor-pointer';
         tr.onclick = (e) => {
             loadQuickBudgetIntoForm(q.id);
         };
@@ -1367,12 +1389,20 @@ function renderQuickBudgetsTable(budgetsList) {
         const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
 
         const deleteButtonHtml = isOwner ? `
-            <button type="button" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" onclick="deleteQuickBudget('${q.id}', event)">
+            <button type="button" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" title="Eliminar cotización rápida" onclick="deleteQuickBudget('${q.id}', event)">
                 <svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
             </button>
-        ` : `<span class="text-slate-300 select-none">-</span>`;
+        ` : '';
+
+        const copyButtonHtml = `
+            <button type="button" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Copiar cotización como texto para WhatsApp" onclick="copySavedQuickBudgetAsText('${q.id}', event)">
+                <svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+            </button>
+        `;
 
         tr.innerHTML = `
             <td class="p-3 font-semibold text-slate-500">${dateFormatted}</td>
@@ -1381,7 +1411,10 @@ function renderQuickBudgetsTable(budgetsList) {
             <td class="p-3">${q.agente_id || '-'}</td>
             <td class="p-3 text-right font-semibold text-brand-primary">USD ${window.formatPriceES(totalUSD)}</td>
             <td class="p-3 text-center">
-                ${deleteButtonHtml}
+                <div class="flex items-center justify-center gap-1">
+                    ${copyButtonHtml}
+                    ${deleteButtonHtml}
+                </div>
             </td>
         `;
         tbody.appendChild(tr);
@@ -1510,7 +1543,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
                     return;
                 }
                 const tipo = h.nombre.toLowerCase().includes('traslado') ? 'traslado' : 'hotel';
-                addQuickBudgetRow({ tipo: tipo, label: h.nombre, monto: h.costo, operador: h.operador });
+                addQuickBudgetRow({ tipo: tipo, label: h.nombre, monto: h.costo, operador: h.operador, estrellas: h.estrellas || 4 });
             });
         }
         updateQuickCurrencyLabels();
@@ -1721,6 +1754,16 @@ export function enableQuickFormEditing(enabled) {
             }
         }
 
+        const starsSelect = tr.querySelector('.quick-row-estrellas');
+        if (starsSelect) {
+            starsSelect.disabled = !enabled;
+            if (enabled) {
+                starsSelect.classList.remove('opacity-60', 'pointer-events-none');
+            } else {
+                starsSelect.classList.add('opacity-60', 'pointer-events-none');
+            }
+        }
+
         if (btnUnlock) {
             if (enabled) {
                 btnUnlock.disabled = false;
@@ -1880,3 +1923,528 @@ function updateQuickCurrencyLabels() {
     });
 }
 window.updateQuickCurrencyLabels = updateQuickCurrencyLabels;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// COPIAR COTIZACIÓN RÁPIDA COMO TEXTO (WHATSAPP / MARKDOWN)
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Genera el texto formateado de la cotización para WhatsApp / Portapapeles
+ * siguiendo las reglas de contenido, lista con viñetas, emojis y negritas clave.
+ *
+ * @param {Object} data - Datos consolidados de la cotización
+ * @param {Object} options - Configuración de formato ({ forWhatsApp: true })
+ * @returns {string} Mensaje listo para enviar
+ */
+export function buildQuickQuoteTextMessage(data, options = { forWhatsApp: true }) {
+    const bold = (txt) => (options && options.forWhatsApp) ? `*${txt}*` : `**${txt}**`;
+
+    // 1. Base y Pasajeros
+    const pax = Math.max(1, parseInt(data.paxCount, 10) || 1);
+    const paxTexto = pax === 1 ? '1 pasajero' : `${pax} pasajeros`;
+
+    let baseHabitacion = 'Single';
+    if (pax === 2) baseHabitacion = 'Doble';
+    else if (pax === 3) baseHabitacion = 'Triple';
+    else if (pax === 4) baseHabitacion = 'Cuádruple';
+    else if (pax > 4) baseHabitacion = `Grupal (${pax} personas)`;
+
+    if (data.baseHabitacion) {
+        baseHabitacion = data.baseHabitacion;
+    }
+
+    // 2. Vuelos y Equipaje
+    let lineaVuelo = '';
+    const destinoRaw = (data.destino || '').trim();
+    if (destinoRaw || data.hasVuelo) {
+        let origen = (data.origen || '').trim() || 'Córdoba';
+        let destino = destinoRaw || 'Destino a confirmar';
+
+        // Manejar formatos "Origen a Destino" o "Origen - Destino"
+        if (destino.toLowerCase().includes(' a ')) {
+            const parts = destino.split(/\s+a\s+/i);
+            if (parts.length >= 2) {
+                origen = parts[0].trim();
+                destino = parts.slice(1).join(' a ').trim();
+            }
+        } else if (destino.includes(' - ')) {
+            const parts = destino.split(' - ');
+            if (parts.length >= 2) {
+                origen = parts[0].trim();
+                destino = parts.slice(1).join(' - ').trim();
+            }
+        }
+
+        // Equipaje
+        let baggageList = [];
+        if (Array.isArray(data.equipaje) && data.equipaje.length > 0) {
+            if (data.equipaje.includes('carry')) baggageList.push('carry-on');
+            if (data.equipaje.includes('valija')) baggageList.push('equipaje en bodega (23kg)');
+        } else if (typeof data.equipaje === 'string' && data.equipaje.trim()) {
+            baggageList.push(data.equipaje.trim());
+        } else {
+            // Predeterminado estándar
+            baggageList = ['carry-on'];
+        }
+
+        let detalleEquipaje = 'con mochila';
+        if (baggageList.length === 1) {
+            detalleEquipaje += ` y ${baggageList[0]}`;
+        } else if (baggageList.length > 1) {
+            detalleEquipaje += `, ${baggageList.slice(0, -1).join(', ')} y ${baggageList.slice(-1)}`;
+        }
+
+        lineaVuelo = `✈️ Vuelos para ${paxTexto} desde ${bold(origen)} a ${bold(destino)} ${detalleEquipaje}`;
+    }
+
+    // 3. Fechas de viaje (Salida y Regreso)
+    const formatFechaDisplay = (dStr) => {
+        if (!dStr) return '';
+        const clean = String(dStr).trim();
+        if (!clean) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+            const [y, m, d] = clean.split('-');
+            return `${d}/${m}/${y}`;
+        }
+        return clean;
+    };
+
+    const calculateNights = (fSalidaRaw, fRegresoRaw) => {
+        if (!fSalidaRaw || !fRegresoRaw) return 0;
+        try {
+            const parseDate = (str) => {
+                const clean = String(str).trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+                    return new Date(clean + 'T00:00:00');
+                }
+                if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(clean)) {
+                    const [d, m, y] = clean.split('/');
+                    return new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T00:00:00`);
+                }
+                return new Date(clean);
+            };
+            const d1 = parseDate(fSalidaRaw);
+            const d2 = parseDate(fRegresoRaw);
+            if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
+            const diffMs = d2 - d1;
+            return diffMs > 0 ? Math.round(diffMs / (1000 * 60 * 60 * 24)) : 0;
+        } catch (_) {
+            return 0;
+        }
+    };
+
+    let lineaFechas = '';
+    const fSalida = formatFechaDisplay(data.fechaSalida);
+    const fRegreso = formatFechaDisplay(data.fechaRegreso);
+
+    if (fSalida && fRegreso) {
+        lineaFechas = `🗓️ Salida: ${fSalida} | Regreso: ${fRegreso}`;
+    } else if (fSalida) {
+        lineaFechas = `🗓️ Fecha de salida: ${fSalida}`;
+    } else if (fRegreso) {
+        lineaFechas = `🗓️ Fecha de regreso: ${fRegreso}`;
+    }
+
+    // 4. Alojamientos y Noches
+    const totalNoches = calculateNights(data.fechaSalida, data.fechaRegreso);
+    let tituloAlojamiento = 'Alojamiento';
+    if (totalNoches > 0) {
+        const nochesTexto = totalNoches === 1 ? '1 noche' : `${totalNoches} noches`;
+        tituloAlojamiento = `Alojamiento (${nochesTexto})`;
+    }
+
+    const lineasHoteles = (data.hoteles || []).map(hotel => {
+        let nombre = typeof hotel === 'string' ? hotel : (hotel.nombre || hotel.label || 'Hotel');
+        nombre = nombre.trim();
+
+        if (nombre.toLowerCase() === 'alojamiento' || nombre.toLowerCase() === 'hotel') {
+            nombre = data.destino ? `Hotel en ${data.destino}` : 'Hotel seleccionado';
+        }
+
+        // Detectar estrellas si ya existen en el nombre o en el objeto
+        let starsCount = typeof hotel === 'object' && hotel.estrellas ? parseInt(hotel.estrellas, 10) : 0;
+        if (!starsCount) {
+            const starMatch = nombre.match(/([⭐★]+)/);
+            if (starMatch) {
+                starsCount = (starMatch[1].match(/[⭐★]/g) || []).length;
+                nombre = nombre.replace(/[⭐★]+/g, '').trim();
+            } else {
+                const numStarMatch = nombre.match(/(\d)\s*(?:\*|estrellas|star|stars)/i);
+                if (numStarMatch) {
+                    starsCount = parseInt(numStarMatch[1], 10);
+                    nombre = nombre.replace(/\(?\d\s*(?:\*|estrellas|star|stars)\)?/i, '').trim();
+                }
+            }
+        } else {
+            nombre = nombre.replace(/[⭐★]+/g, '').trim();
+            nombre = nombre.replace(/\(?\d\s*(?:\*|estrellas|star|stars)\)?/i, '').trim();
+        }
+
+        nombre = nombre.replace(/[-–—:]+$/, '').trim();
+
+        if (!starsCount || isNaN(starsCount) || starsCount <= 0) {
+            starsCount = 4;
+        }
+        starsCount = Math.min(5, Math.max(1, starsCount));
+        const estrellasTexto = starsCount === 1 ? '1 estrella' : `${starsCount} estrellas`;
+
+        return `🏨 ${nombre} - ${estrellasTexto}`;
+    });
+
+    // Bloque de Alojamientos con título en negrita y salto de línea
+    let bloqueAlojamientos = '';
+    if (lineasHoteles.length > 0) {
+        bloqueAlojamientos = `${bold(tituloAlojamiento)}\n${lineasHoteles.join('\n')}`;
+    }
+
+    // 5. Traslados (Opcional - solo si están incluidos)
+    let lineaTraslado = '';
+    const hasTraslado = Boolean(data.incluyeTraslado || (data.traslados && data.traslados.length > 0));
+    if (hasTraslado) {
+        lineaTraslado = '🚐 Traslados incluidos (aeropuerto > hotel > aeropuerto)';
+    }
+
+    // 6. Precios y Base
+    const moneda = data.moneda || 'USD';
+    const formatNumber = (num) => {
+        const val = parseFloat(num) || 0;
+        if (Math.round(val) === val) {
+            return val.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+        return val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    const strPrecioPersona = `${moneda} ${formatNumber(data.precioPersona || 0)}`;
+    const strPrecioTotal = `${moneda} ${formatNumber(data.total || 0)}`;
+
+    // Construcción limpia del mensaje separando cada sección con salto de línea
+    const lineasServicios = [
+        lineaFechas,
+        lineaVuelo,
+        bloqueAlojamientos,
+        lineaTraslado
+    ].filter(Boolean);
+
+    const bloquePrecios = [
+        `👤 ${bold('Precio por persona:')} ${strPrecioPersona}`,
+        `💰 ${bold(`Total (Base ${baseHabitacion}):`)} ${strPrecioTotal}`
+    ].join('\n');
+
+    const secciones = [
+        ...lineasServicios,
+        bloquePrecios
+    ].filter(Boolean);
+
+    return secciones.join('\n\n');
+}
+window.buildQuickQuoteTextMessage = buildQuickQuoteTextMessage;
+
+/**
+ * Extrae los datos actuales de la Cotización Rápida y los copia al portapapeles.
+ */
+export async function copyQuickQuoteAsText() {
+    const paxCount = parseInt(document.getElementById('rapido-pax-count')?.value, 10) || 2;
+    const destino = (document.getElementById('rapido-destino')?.value || '').trim();
+    const moneda = document.getElementById('rapido-moneda')?.value || 'USD';
+
+    const hoteles = [];
+    let incluyeTraslado = false;
+    let hasVuelo = false;
+    let equipajeCustom = null;
+
+    document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
+        const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
+        const label = (tr.querySelector('.quick-row-label')?.value || '').trim();
+        const monto = parseFormattedNumber(tr.querySelector('.quick-row-monto')?.value);
+
+        if (tipo === 'vuelo') {
+            if (monto > 0 || label) hasVuelo = true;
+            const lowerLabel = label.toLowerCase();
+            if (lowerLabel.includes('valija') || lowerLabel.includes('23kg') || lowerLabel.includes('bodega')) {
+                equipajeCustom = ['carry', 'valija'];
+            } else if (lowerLabel.includes('solo mochila')) {
+                equipajeCustom = [];
+            }
+        } else if (tipo === 'hotel') {
+            const estrellas = parseInt(tr.querySelector('.quick-row-estrellas')?.value, 10) || 4;
+            if (monto > 0 || (label && label.toLowerCase() !== 'alojamiento')) {
+                hoteles.push({ nombre: label, estrellas: estrellas });
+            }
+        } else if (tipo === 'traslado') {
+            if (monto > 0) {
+                incluyeTraslado = true;
+            }
+        }
+    });
+
+    if (hoteles.length === 0) {
+        const defEstrellas = parseInt(document.querySelector('#quick-budget-body tr.quick-row .quick-row-estrellas')?.value, 10) || 4;
+        hoteles.push({ nombre: destino ? `Hotel en ${destino}` : 'Hotel seleccionado', estrellas: defEstrellas });
+    }
+
+    // Totales respetando redondeo si está activo
+    let total = 0;
+    let precioPersona = 0;
+
+    if (isQuickRedondeoActive) {
+        total = parseFormattedNumber(document.getElementById('rapido-total-redondeado')?.innerText || '0');
+        precioPersona = parseFormattedNumber(document.getElementById('rapido-pax-redondeado')?.innerText || '0');
+    }
+
+    if (!total) {
+        total = parseFormattedNumber(document.getElementById('rapido-total-final')?.innerText || '0');
+        precioPersona = parseFormattedNumber(document.getElementById('rapido-total-pax')?.innerText || '0');
+    }
+
+    const fechaSalida = document.getElementById('rapido-fecha-salida')?.value || '';
+    const fechaRegreso = document.getElementById('rapido-fecha-regreso')?.value || '';
+
+    const payload = {
+        paxCount,
+        origen: 'Córdoba',
+        destino: destino || (document.getElementById('rapido-pasajero')?.value || ''),
+        fechaSalida,
+        fechaRegreso,
+        hasVuelo: hasVuelo || Boolean(destino),
+        equipaje: equipajeCustom || ['carry'],
+        hoteles,
+        incluyeTraslado,
+        moneda,
+        precioPersona,
+        total
+    };
+
+    const mensaje = buildQuickQuoteTextMessage(payload, { forWhatsApp: true });
+
+    // Abrir popup de vista previa con fondo desenfocado
+    openQuickQuotePreviewModal(mensaje);
+}
+window.copyQuickQuoteAsText = copyQuickQuoteAsText;
+
+/**
+ * Copia una cotización rápida guardada directamente desde el listado abriendo el popup de vista previa.
+ *
+ * @param {string} quoteId - ID de la cotización guardada
+ * @param {Event} event - Evento del clic
+ */
+export async function copySavedQuickBudgetAsText(quoteId, event) {
+    if (event) event.stopPropagation();
+
+    try {
+        const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`);
+        if (!res.ok) throw new Error("No se pudo obtener la cotización rápida.");
+        const q = await res.json();
+
+        const hoteles = (q.hoteles || []).map(h => ({
+            nombre: typeof h === 'string' ? h : (h.nombre || h.label || 'Hotel'),
+            estrellas: (typeof h === 'object' && h.estrellas) ? h.estrellas : 4
+        }));
+
+        const traslados = q.traslados || [];
+        const incluyeTraslado = traslados.length > 0;
+
+        const metadata = (q.hoteles || []).find(h => h && h.nombre === 'METADATA_PRESUPUESTO_RAPIDO') || {};
+        const fechaSalida = q.fecha_salida || metadata.fecha_salida || '';
+        const fechaRegreso = q.fecha_regreso || metadata.fecha_regreso || '';
+
+        const total = q.total_cotizacion || q.costo_total || 0;
+        const paxCount = q.cantidad_pasajeros || 2;
+        const precioPersona = paxCount > 0 ? (total / paxCount) : total;
+
+        const payload = {
+            paxCount: paxCount,
+            origen: q.origen || 'Córdoba',
+            destino: q.destino || q.pasajero_nombre || '',
+            fechaSalida,
+            fechaRegreso,
+            hasVuelo: true,
+            equipaje: ['carry'],
+            hoteles: hoteles.length > 0 ? hoteles : [{ nombre: q.destino ? `Hotel en ${q.destino}` : 'Hotel seleccionado', estrellas: 4 }],
+            incluyeTraslado: incluyeTraslado,
+            moneda: q.moneda || 'USD',
+            precioPersona: precioPersona,
+            total: total
+        };
+
+        const mensaje = buildQuickQuoteTextMessage(payload, { forWhatsApp: true });
+
+        openQuickQuotePreviewModal(mensaje);
+    } catch (err) {
+        console.error('Error al obtener cotización guardada:', err);
+        if (window.showAlert) {
+            window.showAlert('error', 'No se pudo cargar la cotización para vista previa.');
+        }
+    }
+}
+window.copySavedQuickBudgetAsText = copySavedQuickBudgetAsText;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MODAL POPUP DE VISTA PREVIA (CON FONDO DESENFOCADO)
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Garantiza que el HTML del modal exista en el DOM.
+ */
+function ensureQuickQuotePreviewModal() {
+    if (document.getElementById('quick-quote-preview-modal')) return;
+
+    const modalHtml = `
+    <div id="quick-quote-preview-modal" class="fixed inset-0 bg-slate-950/45 backdrop-blur-sm z-[6000] flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div id="quick-quote-preview-modal-box" class="bg-white border border-slate-200/90 rounded-3xl p-6 lg:p-7 shadow-2xl max-w-lg w-full transform scale-95 transition-all duration-300 flex flex-col gap-4 max-h-[90vh]">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-3">
+                    <span class="p-2.5 bg-emerald-50 rounded-2xl text-emerald-600 flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                    </span>
+                    <div>
+                        <h3 class="font-display font-black text-base text-slate-800 tracking-tight uppercase">Vista Previa para WhatsApp</h3>
+                        <p class="text-[11px] text-slate-400 font-medium">Revisa o ajusta el texto antes de enviarlo</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeQuickQuotePreviewModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer" title="Cerrar ventana">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Preview Box / Textarea -->
+            <div class="relative flex flex-col">
+                <textarea id="quick-quote-preview-textarea" rows="9"
+                    class="w-full bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 text-xs sm:text-sm font-sans text-slate-800 focus:outline-none focus:border-brand-primary leading-relaxed resize-none h-64 selection:bg-emerald-100"
+                    placeholder="Generando texto de cotización..."></textarea>
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                <button type="button" onclick="closeQuickQuotePreviewModal()"
+                    class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200/80 text-slate-600 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer">
+                    Cerrar
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="btn-modal-copy-quote" onclick="copyTextFromPreviewModal()"
+                        class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer flex items-center gap-2">
+                        <svg id="icon-modal-copy" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
+                        <span id="btn-modal-copy-text">Copiar Texto</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const modalEl = document.getElementById('quick-quote-preview-modal');
+    if (modalEl) {
+        modalEl.addEventListener('click', (e) => {
+            if (e.target === modalEl) {
+                closeQuickQuotePreviewModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modalEl && !modalEl.classList.contains('pointer-events-none')) {
+            closeQuickQuotePreviewModal();
+        }
+    });
+}
+
+/**
+ * Abre el popup en el centro de la pantalla con fondo desenfocado.
+ *
+ * @param {string} mensajeTexto - Texto listo de la cotización
+ */
+export function openQuickQuotePreviewModal(mensajeTexto) {
+    ensureQuickQuotePreviewModal();
+
+    const modal = document.getElementById('quick-quote-preview-modal');
+    const box = document.getElementById('quick-quote-preview-modal-box');
+    const textarea = document.getElementById('quick-quote-preview-textarea');
+
+    if (textarea) {
+        textarea.value = mensajeTexto || '';
+    }
+
+    if (modal && box) {
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        modal.classList.add('opacity-100', 'pointer-events-auto');
+        box.classList.remove('scale-95');
+        box.classList.add('scale-100');
+
+        if (textarea) {
+            setTimeout(() => {
+                textarea.focus();
+                textarea.select();
+            }, 50);
+        }
+    }
+}
+window.openQuickQuotePreviewModal = openQuickQuotePreviewModal;
+
+/**
+ * Cierra el popup de vista previa.
+ */
+export function closeQuickQuotePreviewModal() {
+    const modal = document.getElementById('quick-quote-preview-modal');
+    const box = document.getElementById('quick-quote-preview-modal-box');
+    if (modal && box) {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        modal.classList.remove('opacity-100', 'pointer-events-auto');
+        box.classList.add('scale-95');
+        box.classList.remove('scale-100');
+    }
+}
+window.closeQuickQuotePreviewModal = closeQuickQuotePreviewModal;
+
+/**
+ * Copia el contenido del textarea al portapapeles y ofrece feedback.
+ */
+export async function copyTextFromPreviewModal() {
+    const textarea = document.getElementById('quick-quote-preview-textarea');
+    const textToCopy = textarea ? textarea.value : '';
+
+    if (!textToCopy) return;
+
+    let copied = false;
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(textToCopy);
+            copied = true;
+        } else if (textarea) {
+            textarea.focus();
+            textarea.select();
+            copied = document.execCommand('copy');
+        }
+    } catch (err) {
+        console.error('Error al copiar desde modal:', err);
+    }
+
+    const btn = document.getElementById('btn-modal-copy-quote');
+    const btnText = document.getElementById('btn-modal-copy-text');
+
+    if (btn && btnText) {
+        const originalText = btnText.innerText;
+        btnText.innerText = '¡Copiado! ✓';
+        btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+        btn.classList.add('bg-emerald-700');
+
+        setTimeout(() => {
+            btnText.innerText = originalText;
+            btn.classList.remove('bg-emerald-700');
+            btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+        }, 2200);
+    }
+
+    if (window.showAlert) {
+        window.showAlert('success', '¡Cotización copiada en formato WhatsApp!');
+    }
+}
+window.copyTextFromPreviewModal = copyTextFromPreviewModal;
+

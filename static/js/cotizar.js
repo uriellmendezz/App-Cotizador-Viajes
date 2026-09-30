@@ -3785,7 +3785,7 @@ function renderActiveTabTable(customFilteredList = null) {
 
         displayList.forEach(q => {
             const tr = document.createElement('tr');
-            tr.className = 'border-b border-slate-100 hover:bg-rose-50/40 transition-colors duration-150 cursor-pointer';
+            tr.className = 'border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150 cursor-pointer';
             tr.setAttribute('onclick', `navigateTo('/ver-cotizacion?id=${q.id}')`);
 
             let fechaSalidaFormatted = q.fecha_salida || '';
@@ -3881,7 +3881,7 @@ function renderActiveTabTable(customFilteredList = null) {
 
         displayList.forEach(q => {
             const tr = document.createElement('tr');
-            tr.className = 'border-b border-slate-100 hover:bg-rose-50/40 transition-colors duration-150 cursor-pointer';
+            tr.className = 'border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150 cursor-pointer';
             tr.setAttribute('onclick', `navigateTo('/cotizacion-rapida?id=${q.id}')`);
 
             const totalUSD = q.total_cotizacion || 0;
