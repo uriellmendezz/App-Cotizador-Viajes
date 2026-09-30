@@ -1193,10 +1193,17 @@ html.dark #tab-rapidos:hover {
 }
 
 /* Modals */
-html.dark #confirm-modal-box {
+html.dark #confirm-modal-box,
+html.dark #quick-quote-preview-modal-box {
     background-color: #19202e !important;
     border-color: rgba(255, 255, 255, 0.09) !important;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.dark #quick-quote-preview-textarea {
+    background-color: #131926 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #e2e8f0 !important;
 }
 
 html.dark #confirm-modal-title {
