@@ -1,3 +1,4 @@
+import { HOTEL_PICKER_BUTTON_HTML } from './hotel_catalog.js';
 let hotelCount = 0;
 let agencyConfig = {};
 let importedQuotes = [];
@@ -1283,7 +1284,10 @@ function addHotelCard(data = null) {
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
             <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre del Hotel</label>
+                <div class="flex items-center justify-between gap-2">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre del Hotel</label>
+                    ${HOTEL_PICKER_BUTTON_HTML}
+                </div>
                 <input type="text" class="hotel-nombre-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Bahia Principe" value="${data ? (data.hotel_nombre || data.nombre || '') : ''}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
             </div>
             <div class="flex flex-col gap-1">
@@ -4202,7 +4206,7 @@ function enableFormEditing(enabled) {
     });
 
     // Deshabilitar botones de añadir/remover hotel
-    const actionButtons = form.querySelectorAll('.add-hotel-btn, .btn-remove-hotel, .btn-optimize-desc');
+    const actionButtons = form.querySelectorAll('.add-hotel-btn, .btn-remove-hotel, .btn-optimize-desc, .btn-hotel-picker');
     actionButtons.forEach(btn => {
         if (enabled) {
             btn.style.pointerEvents = 'auto';

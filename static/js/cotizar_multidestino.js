@@ -714,7 +714,10 @@ function addHotelStop(data = null) {
                 <input type="text" class="hotel-destino-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Madrid" value="${destinoVal}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
             </div>
             <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre del Hotel</label>
+                <div class="flex items-center justify-between gap-2">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre del Hotel</label>
+                    ${window.HOTEL_PICKER_BUTTON_HTML || ''}
+                </div>
                 <input type="text" class="hotel-nombre-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Hotel Regina" value="${hotelNombreVal}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
             </div>
             <div class="flex flex-col gap-1">

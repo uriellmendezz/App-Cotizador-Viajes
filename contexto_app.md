@@ -142,6 +142,16 @@ Dado que el backend procesa el costo del hotel calculando el total acumulado y r
 - **Extracción de Metadatos**: El sistema permite arrastrar un archivo de cotización PDF generado previamente directamente sobre la aplicación.
 - **Carga Automática**: El backend analiza los metadatos del PDF utilizando la librería `pypdf`, recupera el JSON con el payload de cotización completo y el frontend rellena de forma instantánea el formulario. Esto facilita la edición y actualización rápida de cotizaciones existentes sin recurrir a la base de datos si se tiene el archivo físico.
 
+### G. Configuración: Catálogo de Hoteles (`/configuracion`)
+- **Alta y edición de hoteles** por sucursal: nombre, destino, calificación (1 a 5 estrellas), régimen y habitación habituales, descripción (máx. 200 caracteres, mismo límite que el PDF) y hasta 6 fotos (la primera es la portada; se pueden subir, arrastrar o pegar con Ctrl+V y se comprimen a JPEG).
+- **Selector "Mis Hoteles"**: cada tarjeta de hotel de la Cotización PDF (estándar y multidestino) tiene un botón que abre el catálogo y completa nombre, categoría, régimen, habitación, descripción e imagen. Si el hotel tiene varias fotos, el agente elige cuál usar. Lógica compartida en `static/js/hotel_catalog.js`.
+
+### H. Paquetes Promocionales para Redes (`/paquetes`)
+- Se guardan en una tabla propia (`paquetes_promocionales`), **separados de las cotizaciones de pasajeros**.
+- Usan la misma fórmula de precios que las cotizaciones (vuelo + fee, terrestre + 5% de gastos administrativos, gastos + IVA), calculada sobre una base de pasajeros (single/doble/triple/cuádruple) para obtener el precio por persona, con redondeo opcional a múltiplos de 10.
+- **Financiación en cuotas**: la **entrega** es siempre el valor de los vuelos por persona (monto + fee) y el saldo (`precio por persona - entrega`) se divide en **3 y/o 6 cuotas** (redondeadas hacia arriba al centavo).
+- **Salidas para redes**: imagen 1080×1350 generada en el navegador con html2canvas (foto del hotel, logo de la agencia, qué incluye, precio y cuotas) y texto con emojis listo para copiar.
+
 ---
 
 ## 6. Endpoints de la API (`app/routers/` y `app/main.py`)
@@ -166,6 +176,14 @@ Genera el PDF en tiempo real compilando el HTML con WeasyPrint e inyectando las 
 
 ### 7. `POST /api/extraer-pdf`
 Endpoint que procesa un archivo PDF subido por el usuario, extrae la propiedad de metadatos `/CotizacionData` y devuelve el JSON original de la cotización para su reconstrucción en el frontend.
+
+### 8. `/api/hoteles` (GET / POST / PUT / DELETE)
+CRUD del catálogo de hoteles en la tabla `hoteles_catalogo`, aislado por `sucursal_id`. El listado devuelve solo la portada (`portada`, `total_fotos`); `GET /api/hoteles/{id}` devuelve todas las fotos.
+
+### 9. `/api/paquetes` (GET / POST / PUT / DELETE, `POST /{id}/duplicar`)
+CRUD de paquetes promocionales en la tabla `paquetes_promocionales`, aislado por `sucursal_id`. El formulario completo se guarda en la columna JSONB `data` (incluye `resumen` con entrega y cuotas).
+
+> Ambas tablas se crean con `scripts/003_hoteles_paquetes.sql`.
 
 ---
 
