@@ -1,0 +1,267 @@
+<div id="config-page-container" class="max-w-[95%] mx-auto space-y-8 py-6">
+    <!-- Header -->
+    <div class="space-y-3">
+        <span class="text-xs font-black uppercase tracking-widest text-brand-primary bg-rose-50 px-3 py-1 rounded-full">Configuración</span>
+        <h1 class="text-3xl md:text-4xl font-black text-slate-900 font-display tracking-tight leading-none">Configuración</h1>
+        <p class="text-slate-500 text-sm font-medium max-w-2xl">Administrá los datos que reutilizás en tus cotizaciones y descargá tu información.</p>
+    </div>
+
+    <!-- ═══════════ MENÚ DE OPCIONES ═══════════ -->
+    <div id="config-menu" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+        <button type="button" data-config-open="hoteles"
+            class="group text-left bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+                <span class="w-11 h-11 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                </span>
+                <span id="config-count-hoteles" class="text-[10px] font-black uppercase tracking-widest text-slate-400"></span>
+            </div>
+            <div class="space-y-1">
+                <h2 class="font-display font-bold text-sm text-slate-800 tracking-tight">Catálogo de Hoteles</h2>
+                <p class="text-xs text-slate-500 font-medium leading-relaxed">Alojamientos con fotos, descripción y estrellas, listos para usar en cotizaciones y paquetes.</p>
+            </div>
+        </button>
+
+        <button type="button" data-config-open="aerolineas"
+            class="group text-left bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+                <span class="w-11 h-11 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L14 19v-5.5l8 2.5z" /></svg>
+                </span>
+                <span id="config-count-aerolineas" class="text-[10px] font-black uppercase tracking-widest text-slate-400"></span>
+            </div>
+            <div class="space-y-1">
+                <h2 class="font-display font-bold text-sm text-slate-800 tracking-tight">Catálogo de Aerolíneas</h2>
+                <p class="text-xs text-slate-500 font-medium leading-relaxed">Cargá aerolíneas con su logo para identificar los vuelos en las cotizaciones rápidas.</p>
+            </div>
+        </button>
+
+        <button type="button" data-config-open="exportar"
+            class="group text-left bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+                <span class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-6m3 6v-4M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l2-4h14l2 4M3 7h18" /></svg>
+                </span>
+            </div>
+            <div class="space-y-1">
+                <h2 class="font-display font-bold text-sm text-slate-800 tracking-tight">Exportar Cotizaciones</h2>
+                <p class="text-xs text-slate-500 font-medium leading-relaxed">Descargá todas tus cotizaciones en un CSV listo para abrir en Excel.</p>
+            </div>
+        </button>
+    </div>
+
+    <!-- ═══════════ PANEL: HOTELES ═══════════ -->
+    <section id="config-panel-hoteles" class="hidden space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <button type="button" data-config-back title="Volver a Configuración"
+                    class="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-all cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-brand-primary">Configuración</span>
+                    <h2 class="text-xl font-black text-slate-900 font-display tracking-tight leading-none">Catálogo de Hoteles</h2>
+                </div>
+            </div>
+            <button type="button" id="config-btn-new-hotel"
+                class="px-5 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Nuevo Hotel
+            </button>
+        </div>
+
+        <div class="relative max-w-md">
+            <svg class="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <input type="text" id="config-hotel-search" placeholder="Buscar por nombre o destino..."
+                class="w-full border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white">
+        </div>
+
+        <div id="config-hotels-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <div class="col-span-full text-center text-xs font-semibold text-slate-400 py-16">Cargando hoteles...</div>
+        </div>
+    </section>
+
+    <!-- ═══════════ PANEL: AEROLÍNEAS ═══════════ -->
+    <section id="config-panel-aerolineas" class="hidden space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <button type="button" data-config-back title="Volver a Configuración"
+                    class="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-all cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-sky-600">Configuración</span>
+                    <h2 class="text-xl font-black text-slate-900 font-display tracking-tight leading-none">Catálogo de Aerolíneas</h2>
+                </div>
+            </div>
+            <button type="button" id="config-btn-new-airline"
+                class="px-5 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Nueva Aerolínea
+            </button>
+        </div>
+
+        <p class="text-xs text-slate-500 font-medium max-w-2xl">Las aerolíneas que cargues acá aparecen al armar una <strong class="text-slate-700">cotización rápida</strong>: en cada fila de vuelo vas a poder elegir la aerolínea y se muestra su logo.</p>
+
+        <div id="config-airlines-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <div class="col-span-full text-center text-xs font-semibold text-slate-400 py-16">Cargando aerolíneas...</div>
+        </div>
+    </section>
+
+    <!-- ═══════════ PANEL: EXPORTAR ═══════════ -->
+    <section id="config-panel-exportar" class="hidden space-y-6">
+        <div class="flex items-center gap-3">
+            <button type="button" data-config-back title="Volver a Configuración"
+                class="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-all cursor-pointer">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <div>
+                <span class="text-[10px] font-black uppercase tracking-widest text-emerald-600">Configuración</span>
+                <h2 class="text-xl font-black text-slate-900 font-display tracking-tight leading-none">Exportar Cotizaciones</h2>
+            </div>
+        </div>
+
+        <div class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 shadow-sm max-w-2xl space-y-5">
+            <p class="text-xs text-slate-500 font-medium leading-relaxed">Se descarga un archivo CSV con todas las cotizaciones de tu sucursal: pasajero, destino, fechas, montos, operadores y alojamientos. Se abre directo en Excel.</p>
+            <div class="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <p class="text-[11px] text-amber-800 font-semibold leading-relaxed">La preparación del archivo puede tardar cerca de 30 segundos. No cierres la pestaña mientras se genera.</p>
+            </div>
+            <button type="button" id="config-btn-export-csv"
+                class="w-full sm:w-auto px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Descargar CSV
+            </button>
+        </div>
+    </section>
+</div>
+
+<!-- Hotel Editor Modal -->
+<div id="config-hotel-modal"
+    class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <form id="config-hotel-form" novalidate
+        class="bg-white border border-slate-200/80 rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <h3 id="config-hotel-modal-title" class="font-display font-black text-base text-slate-800 tracking-tight uppercase">Nuevo Hotel</h3>
+            <button type="button" data-close-hotel-modal class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer" title="Cerrar">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="flex flex-col gap-1">
+                    <label for="hotel-nombre" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre del Hotel <span class="text-brand-primary">*</span></label>
+                    <input type="text" id="hotel-nombre" required placeholder="Ej. Bahia Principe Grand Punta Cana"
+                        class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white">
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label for="hotel-destino" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Destino</label>
+                    <input type="text" id="hotel-destino" placeholder="Ej. Punta Cana"
+                        class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Calificación</label>
+                    <div id="hotel-estrellas-picker" class="flex items-center gap-1 py-1.5" role="radiogroup" aria-label="Estrellas"></div>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label for="hotel-regimen" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Régimen habitual</label>
+                    <select id="hotel-regimen"
+                        class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white"></select>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label for="hotel-habitacion" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Habitación habitual</label>
+                    <input type="text" id="hotel-habitacion" list="hotel-habitacion-options" placeholder="Ej. Estándar"
+                        class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white">
+                    <datalist id="hotel-habitacion-options"></datalist>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center justify-between">
+                    <label for="hotel-descripcion" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Descripción</label>
+                    <span id="hotel-descripcion-counter" class="text-[10px] font-semibold text-slate-400">0/200</span>
+                </div>
+                <textarea id="hotel-descripcion" maxlength="200" rows="3" placeholder="Breve reseña del hotel, ubicación y comodidades..."
+                    class="border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-brand-primary transition-all bg-white resize-y"></textarea>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fotos</label>
+                    <span id="hotel-fotos-counter" class="text-[10px] font-semibold text-slate-400">0/6</span>
+                </div>
+                <div id="hotel-fotos-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+                <p class="text-[10px] text-slate-400 font-semibold">La primera foto es la portada. Hacé clic en la estrella de una foto para usarla como portada. También podés pegar imágenes con Ctrl+V.</p>
+                <input type="file" id="hotel-fotos-input" accept="image/*" multiple class="hidden">
+            </div>
+        </div>
+
+        <div class="flex gap-3 px-6 py-4 border-t border-slate-100">
+            <button type="button" data-close-hotel-modal
+                class="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200/80 text-slate-600 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer">Cancelar</button>
+            <button type="submit" id="config-hotel-save-btn"
+                class="flex-1 px-4 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer">Guardar Hotel</button>
+        </div>
+    </form>
+</div>
+
+<!-- Airline Editor Modal -->
+<div id="config-airline-modal"
+    class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <form id="config-airline-form" novalidate
+        class="bg-white border border-slate-200/80 rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <h3 id="config-airline-modal-title" class="font-display font-black text-base text-slate-800 tracking-tight uppercase">Nueva Aerolínea</h3>
+            <button type="button" data-close-airline-modal class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer" title="Cerrar">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto space-y-5">
+            <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_110px] gap-4">
+                <div class="flex flex-col gap-1">
+                    <label for="airline-nombre" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre <span class="text-brand-primary">*</span></label>
+                    <input type="text" id="airline-nombre" required placeholder="Ej. Aerolíneas Argentinas"
+                        class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white">
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label for="airline-codigo" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Código</label>
+                    <input type="text" id="airline-codigo" maxlength="4" placeholder="AR"
+                        class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium uppercase focus:outline-none focus:border-brand-primary transition-all bg-white">
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Logo</label>
+                <div class="flex items-center gap-4">
+                    <div id="airline-logo-preview" class="w-28 h-20 rounded-xl border-2 border-dashed border-slate-200 bg-white flex items-center justify-center overflow-hidden shrink-0">
+                        <span class="text-[10px] font-bold text-slate-300 uppercase">Sin logo</span>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <button type="button" id="airline-btn-upload"
+                            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer">Subir imagen</button>
+                        <button type="button" id="airline-btn-clear-logo"
+                            class="px-4 py-2 bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-500 hover:text-white font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer">Quitar logo</button>
+                    </div>
+                </div>
+                <input type="file" id="airline-logo-input" accept="image/*" class="hidden">
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">O elegí uno incluido</label>
+                <div id="airline-logos-sugeridos" class="grid grid-cols-3 sm:grid-cols-5 gap-2"></div>
+            </div>
+        </div>
+
+        <div class="flex gap-3 px-6 py-4 border-t border-slate-100">
+            <button type="button" data-close-airline-modal
+                class="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200/80 text-slate-600 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer">Cancelar</button>
+            <button type="submit" id="config-airline-save-btn"
+                class="flex-1 px-4 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer">Guardar Aerolínea</button>
+        </div>
+    </form>
+</div>

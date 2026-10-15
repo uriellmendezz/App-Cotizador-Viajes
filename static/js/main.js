@@ -460,6 +460,8 @@ const routeNames = {
     '/cotizacion-completa': 'Cotización PDF',
     '/cotizacion-multidestino': 'Cotización PDF',
     '/editar': 'Archivos',
+    '/paquetes': 'Paquetes Promocionales',
+    '/configuracion': 'Configuración',
     '/ver-cotizacion': 'Ver Cotización',
     '/administrar': 'Administración de Franquicia',
     '/admin': 'Administración',
@@ -531,6 +533,8 @@ const routes = {
     '/cotizacion-multidestino': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
     '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
+    '/paquetes': { html: '/static/views/paquetes.html', js: '/static/js/paquetes.js', init: 'initPaquetes' },
+    '/configuracion': { html: '/static/views/configuracion.html', js: '/static/js/configuracion.js', init: 'initConfiguracion' },
     '/administrar': { html: '/static/views/administrar.html', js: '/static/js/administrar.js', init: 'initAdministrar' },
     '/admin': { html: '/static/views/admin.html', js: '/static/js/admin.js', init: 'initAdmin' },
     '/admin-login': { html: '/static/views/admin_login.html', js: '/static/js/admin_login.js', init: 'initAdminLogin' }
@@ -888,6 +892,8 @@ function updateNavActiveState(path) {
     else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
     else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
+    else if (path === '/paquetes') btnId = 'sidebar-btn-paquetes';
+    else if (path === '/configuracion') btnId = 'sidebar-btn-configuracion';
     else if (path === '/admin') btnId = 'sidebar-btn-admin';
 
     const activeBtn = document.getElementById(btnId);
@@ -1064,7 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateHeaderDateTime, 1000);
 });
 
-// Global keyboard shortcuts (Ctrl + Alt + 9)
+// Global keyboard shortcuts (Ctrl + Alt + 9: cotizaciones · Ctrl + Alt + 0: paquetes)
 window.addEventListener('keydown', async (e) => {
     if (e.ctrlKey && e.altKey && (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9')) {
         const path = window.location.pathname;
@@ -1081,6 +1087,13 @@ window.addEventListener('keydown', async (e) => {
             } else {
                 await window.fillTestData();
             }
+        }
+    }
+
+    if (e.ctrlKey && e.altKey && (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0')) {
+        if (window.location.pathname === '/paquetes' && typeof window.fillPaqueteTestData === 'function') {
+            e.preventDefault();
+            await window.fillPaqueteTestData();
         }
     }
 });

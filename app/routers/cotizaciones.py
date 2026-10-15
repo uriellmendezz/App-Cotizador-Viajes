@@ -1,4 +1,5 @@
 import os, math
+import csv
 import json
 import base64
 import tempfile
@@ -12,7 +13,7 @@ from dotenv import load_dotenv
 # Import our custom modules
 from app.routers.auth import get_current_user, verify_agent_user, get_current_active_agent, verify_admin_global, resolve_agent_names
 from app.parser import parse_excel_or_csv
-from app.database import save_cotizacion, get_cotizaciones, get_cotizacion_by_id, delete_cotizacion
+from app.database import save_cotizacion, get_cotizaciones, get_cotizacion_by_id, delete_cotizacion, get_cotizaciones_full, get_operadores_usados
 from app.google_slides.mcp import create_presentation_from_template
 from app.google_slides.generator import create_quotation_presentation
 from app.pdf_generator import generate_pdf
@@ -919,6 +920,132 @@ async def api_extraer_pdf(file: UploadFile = File(...), current_user: str = Depe
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error procesando PDF: {str(e)}")
+
+@router.get("/operadores")
+def api_get_operadores(current_user: dict = Depends(get_current_active_agent)):
+    """Distinct operator names already used, for the form's autocomplete."""
+    if current_user.get("rol") == "ADMIN_GLOBAL":
+        return get_operadores_usados()
+    return get_operadores_usados(sucursal_id=current_user.get("sucursal_id"))
+
+
+def _csv_decimal(value) -> str:
+    """Formats a number with the comma decimal separator used by es-AR Excel."""
+    try:
+        return f"{float(value or 0):.2f}".replace(".", ",")
+    except (TypeError, ValueError):
+        return ""
+
+
+def _csv_date(value) -> str:
+    """Normalizes a stored date to DD/MM/YYYY."""
+    if not value:
+        return ""
+    text = str(value)
+    try:
+        if "T" in text:
+            return datetime.fromisoformat(text.replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
+        parts = text.split("-")
+        if len(parts) == 3 and len(parts[0]) == 4:
+            return f"{parts[2]}/{parts[1]}/{parts[0]}"
+    except Exception:
+        pass
+    return text
+
+
+def _real_hotels(quote: dict) -> list:
+    """Hotels of a quote, excluding the metadata pseudo-entries."""
+    return [
+        h for h in (quote.get("hoteles") or [])
+        if isinstance(h, dict) and h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")
+    ]
+
+
+@router.get("/exportar-cotizaciones-csv")
+def api_exportar_cotizaciones_csv(current_user: dict = Depends(get_current_active_agent)):
+    """Exports every detailed quote of the branch as a CSV file (no images)."""
+    if current_user.get("id") == "guest":
+        raise HTTPException(status_code=403, detail="La exportación está disponible solo para agentes.")
+
+    if current_user.get("rol") == "ADMIN_GLOBAL":
+        quotes = get_cotizaciones_full()
+    else:
+        quotes = get_cotizaciones_full(sucursal_id=current_user.get("sucursal_id"))
+
+    max_hoteles = max([len(_real_hotels(q)) for q in quotes], default=0)
+
+    encabezados = [
+        "ID", "Fecha creación", "Agente", "Pasajero", "Destino", "Origen", "Pasajeros",
+        "Tipo", "Moneda", "Fecha salida", "Vuelo ida", "Vuelo vuelta", "Validez",
+        "Noches", "Base habitación", "Tipo traslado",
+        "Monto vuelos", "Fee aéreo", "Operador vuelos",
+        "Monto traslados", "Operador traslados", "Gastos + IVA",
+        "Costo total", "Precio por persona",
+    ]
+    for i in range(1, max_hoteles + 1):
+        encabezados += [
+            f"Hotel {i}", f"Hotel {i} estrellas", f"Hotel {i} régimen", f"Hotel {i} habitación",
+            f"Hotel {i} noches", f"Hotel {i} costo", f"Hotel {i} operador",
+        ]
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";", lineterminator="\r\n", quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(encabezados)
+
+    for q in quotes:
+        hoteles = _real_hotels(q)
+        fila = [
+            q.get("id", ""),
+            _csv_date(q.get("created_at")),
+            q.get("agente_nombre") or "",
+            q.get("nombre_pax") or "",
+            q.get("destino") or "",
+            q.get("origen") or "",
+            q.get("cantidad_pasajeros") or "",
+            "Multidestino" if len(hoteles) > 1 and all(h.get("destino") for h in hoteles) else "Estándar",
+            extract_currency(q.get("hoteles") or []),
+            _csv_date(q.get("fecha_salida")),
+            _csv_date(q.get("fecha_vuelo_ida")),
+            _csv_date(q.get("fecha_vuelo_vuelta")),
+            _csv_date(q.get("validez_cotizacion")),
+            q.get("noches_alojamiento") or "",
+            q.get("base_habitacion") or "",
+            q.get("tipo_traslado") or "",
+            _csv_decimal(q.get("monto_vuelos")),
+            _csv_decimal(q.get("fee_aereo")),
+            q.get("operador_vuelos") or "",
+            _csv_decimal(q.get("monto_traslados")),
+            q.get("operador_traslados") or "",
+            _csv_decimal(q.get("gastos_iva")),
+            _csv_decimal(q.get("costo_total")),
+            _csv_decimal(q.get("precio_persona")),
+        ]
+        for i in range(max_hoteles):
+            if i >= len(hoteles):
+                fila += [""] * 7          # la cotización tiene menos hoteles que el máximo
+                continue
+            h = hoteles[i]
+            costo = h.get("costo_neto") if h.get("costo_neto") is not None else h.get("costo")
+            fila += [
+                h.get("nombre") or "",
+                h.get("estrellas") or "",
+                h.get("regimen") or "",
+                h.get("habitacion") or "",
+                h.get("noches") or "",
+                _csv_decimal(costo) if costo is not None else "",
+                h.get("operador") or "",
+            ]
+        writer.writerow(fila)
+
+    # BOM para que Excel en español reconozca el UTF-8 y los acentos
+    contenido = "\ufeff" + buffer.getvalue()
+    nombre = f"cotizaciones_{datetime.now().strftime('%Y-%m-%d')}.csv"
+    return Response(
+        content=contenido.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
+
 
 @router.get("/cotizaciones")
 def api_get_cotizaciones(current_user: dict = Depends(get_current_active_agent)):

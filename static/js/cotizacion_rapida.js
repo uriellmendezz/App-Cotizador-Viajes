@@ -187,7 +187,9 @@ function saveQuickQuoteFormState() {
         const estrellas = parseInt(tr.querySelector('.quick-row-estrellas')?.value, 10) || 4;
         const montoRaw = tr.querySelector('.quick-row-monto')?.value || '';
         const monto = parseFormattedNumber(montoRaw);
-        rows.push({ tipo, label, monto, operador, estrellas });
+        const aerolinea = tr.querySelector('.quick-row-aerolinea')?.value || '';
+        const aerolinea_logo = tr.querySelector('.quick-row-aerolinea-logo')?.value || '';
+        rows.push({ tipo, label, monto, operador, estrellas, aerolinea, aerolinea_logo });
     });
 
     window.savedQuickQuoteState = {
@@ -245,6 +247,8 @@ function restoreQuickQuoteFormState() {
             monto: r.monto,
             operador: r.operador,
             estrellas: r.estrellas,
+            aerolinea: r.aerolinea,
+            aerolinea_logo: r.aerolinea_logo,
             isDefault: (r.tipo === 'fee-aereo' || r.tipo === 'admin')
         });
     });
@@ -361,6 +365,7 @@ function updateResetButtonVisibility() {
 }
 
 export function initCotizacionRapida() {
+    loadAerolineasCatalogo();
     currentQuickQuoteId = null;
     window.currentQuickQuoteOwner = null;
     isQuickReadOnlyMode = false;
@@ -683,6 +688,87 @@ function setQuickCurrency(curr) {
 }
 window.setQuickCurrency = setQuickCurrency;
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Aerolínea de cada fila de vuelo (catálogo cargado en Configuración)
+// ──────────────────────────────────────────────────────────────────────────────
+
+let aerolineasCatalogo = [];
+
+async function loadAerolineasCatalogo() {
+    try {
+        const res = await window.authenticatedFetch('/api/aerolineas');
+        if (res.ok) aerolineasCatalogo = await res.json();
+    } catch (err) {
+        console.warn('No se pudo cargar el catálogo de aerolíneas:', err);
+    }
+    // Refrescar las filas que ya estaban en pantalla
+    document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
+        if (tr.querySelector('.quick-row-tipo')?.value === 'vuelo') {
+            updateRowAirlineUI(tr, tr.querySelector('.quick-row-aerolinea')?.value || '',
+                                   tr.querySelector('.quick-row-aerolinea-logo')?.value || '');
+        }
+    });
+}
+
+function airlineMenuHtml() {
+    if (!aerolineasCatalogo.length) {
+        return `
+            <div class="px-3 py-2 text-[10px] font-semibold text-slate-400 leading-relaxed">
+                No cargaste aerolíneas todavía.
+                <button type="button" onclick="event.stopPropagation(); window.navigateTo('/configuracion')" class="block mt-1 text-brand-primary font-bold hover:underline cursor-pointer">Ir a Configuración</button>
+            </div>`;
+    }
+    return aerolineasCatalogo.map(a => `
+        <button type="button" onclick="event.stopPropagation(); setRowAirline(this, '${a.id}')"
+            class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-sky-50 transition-colors flex items-center gap-2">
+            ${a.logo ? `<img src="${a.logo}" alt="" class="h-5 w-8 object-contain shrink-0">`
+                     : '<span class="h-5 w-8 shrink-0"></span>'}
+            <span class="text-[10px] font-bold text-slate-600 truncate">${a.nombre}</span>
+        </button>`).join('')
+        + `<button type="button" onclick="event.stopPropagation(); setRowAirline(this, '')" class="w-full text-left px-2 py-1 text-[10px] font-semibold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors border-t border-slate-100 mt-0.5">
+            Quitar aerolínea
+        </button>`;
+}
+
+function updateRowAirlineUI(tr, nombre = '', logo = '') {
+    const wrapper = tr.querySelector('.quick-row-airline-wrapper');
+    const inputNombre = tr.querySelector('.quick-row-aerolinea');
+    const inputLogo = tr.querySelector('.quick-row-aerolinea-logo');
+    if (inputNombre) inputNombre.value = nombre || '';
+    if (inputLogo) inputLogo.value = logo || '';
+    if (!wrapper) return;
+
+    const chip = nombre
+        ? `<span onclick="toggleOperatorMenu(this)" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border border-sky-200 bg-sky-50 text-sky-700 shadow-sm cursor-pointer hover:brightness-95 transition-all select-none" title="Aerolínea: ${nombre} (Clic para cambiar)">
+                ${logo ? `<img src="${logo}" alt="" class="h-5 w-11 object-contain">` : ''}
+                <span class="max-w-[90px] truncate">${nombre}</span>
+            </span>`
+        : `<button type="button" onclick="toggleOperatorMenu(this)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-all border border-slate-200/80 select-none whitespace-nowrap" title="Elegir aerolínea">
+                Agregar aerolínea
+            </button>`;
+
+    wrapper.innerHTML = `
+        <div class="relative inline-flex items-center justify-center my-auto">
+            ${chip}
+            <div class="operator-popover-menu hidden absolute left-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1 flex flex-col gap-1 max-h-56 overflow-y-auto">
+                ${airlineMenuHtml()}
+            </div>
+        </div>`;
+}
+
+function setRowAirline(el, aerolineaId) {
+    if (window.event) window.event.stopPropagation();
+    const tr = el.closest('tr.quick-row');
+    if (!tr) return;
+
+    document.querySelectorAll('.operator-popover-menu').forEach(m => m.classList.add('hidden'));
+
+    const a = aerolineasCatalogo.find(x => String(x.id) === String(aerolineaId));
+    updateRowAirlineUI(tr, a ? a.nombre : '', a ? (a.logo || '') : '');
+    saveQuickQuoteFormState();
+}
+window.setRowAirline = setRowAirline;
+
 function toggleOperatorMenu(el) {
     if (window.event) window.event.stopPropagation();
     const container = el.closest('.relative');
@@ -764,6 +850,8 @@ function addQuickBudgetRow(data = null) {
     const rawMonto = (data && data.monto !== undefined) ? data.monto : '';
     const montoVal = rawMonto !== '' ? formatPriceES(parseFormattedNumber(rawMonto)) : '';
     const operadorVal = data && data.operador ? data.operador : '';
+    const aerolineaVal = data && data.aerolinea ? data.aerolinea : '';
+    const aerolineaLogoVal = data && data.aerolinea_logo ? data.aerolinea_logo : '';
     const isDefault = data && data.isDefault;
     const isUndeletable = (selectedTipo === 'fee-aereo' || selectedTipo === 'admin' || selectedTipo === 'redondeo');
     const isLabelReadOnly = isUndeletable ? 'readonly' : '';
@@ -843,6 +931,10 @@ function addQuickBudgetRow(data = null) {
                         </select>
                     </div>
                 ` : ''}
+                ${selectedTipo === 'vuelo' ? `
+                    <div class="quick-row-airline-wrapper relative inline-flex items-center justify-center flex-shrink-0 my-auto">
+                    </div>
+                ` : ''}
                 ${(selectedTipo !== 'admin' && selectedTipo !== 'redondeo' && selectedTipo !== 'fee-aereo') ? `
                     <div class="quick-row-operator-wrapper relative inline-flex items-center justify-center flex-shrink-0 my-auto">
                     </div>
@@ -850,6 +942,8 @@ function addQuickBudgetRow(data = null) {
             </div>
             <input type="hidden" class="quick-row-tipo" value="${selectedTipo}">
             <input type="hidden" class="quick-row-operador" value="${operadorVal}">
+            <input type="hidden" class="quick-row-aerolinea" value="${aerolineaVal}">
+            <input type="hidden" class="quick-row-aerolinea-logo" value="${aerolineaLogoVal}">
         </td>
         <td class="py-3.5 text-right relative">
             <div class="flex items-center justify-end max-w-[180px] ml-auto">
@@ -878,6 +972,9 @@ function addQuickBudgetRow(data = null) {
 
     tbody.appendChild(tr);
     updateRowOperatorUI(tr, operadorVal);
+    if (selectedTipo === 'vuelo') {
+        updateRowAirlineUI(tr, aerolineaVal, aerolineaLogoVal);
+    }
     updateQuickCurrencyLabels();
 
     // Bind dynamic row elements events
@@ -1172,7 +1269,11 @@ async function saveQuickQuote(andRedirect = false) {
 
         if (tipo === 'vuelo') {
             totalAereo += monto;
-            vuelos.push({ nombre: label, monto: monto, fee: 0, operador: operador });
+            vuelos.push({
+                nombre: label, monto: monto, fee: 0, operador: operador,
+                aerolinea: tr.querySelector('.quick-row-aerolinea')?.value || '',
+                aerolinea_logo: tr.querySelector('.quick-row-aerolinea-logo')?.value || ''
+            });
         } else if (tipo === 'fee-aereo') {
             totalAereo += monto;
             if (vuelos.length > 0) {
@@ -1511,7 +1612,10 @@ async function loadQuickBudgetIntoForm(quoteId) {
                 if (v.nombre === "Fee Aéreo" && v.monto === 0) {
                     return;
                 }
-                addQuickBudgetRow({ tipo: 'vuelo', label: v.nombre, monto: v.monto, operador: v.operador });
+                addQuickBudgetRow({
+                    tipo: 'vuelo', label: v.nombre, monto: v.monto, operador: v.operador,
+                    aerolinea: v.aerolinea, aerolinea_logo: v.aerolinea_logo
+                });
             });
         }
 

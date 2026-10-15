@@ -91,6 +91,11 @@ def save_cotizacion(quote_data: dict) -> dict | None:
             
             "base_habitacion": quote_data.get("base_habitacion", ""),
             "noches_alojamiento": quote_data.get("noches_alojamiento", ""),
+
+            # Operador mayorista con el que se cotizó cada servicio
+            # (el de cada alojamiento viaja dentro de la lista `hoteles`)
+            "operador_vuelos": quote_data.get("operador_vuelos") or None,
+            "operador_traslados": quote_data.get("operador_traslados") or None,
             
             "img_vuelo_ida": quote_data.get("img_vuelo_ida", ""),
             "img_vuelo_vuelta": quote_data.get("img_vuelo_vuelta", ""),
@@ -378,3 +383,134 @@ def delete_cotizacion_rapida(quote_id) -> bool:
         print(f"Supabase Client: Failed to delete quick quote {quote_id}. Details: {e}")
         return False
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Catálogo de Hoteles y Paquetes Promocionales
+# Tablas: hoteles_catalogo y paquetes_promocionales (ver scripts/003_hoteles_paquetes.sql)
+# ──────────────────────────────────────────────────────────────────────────────
+
+TABLE_HOTELES = "hoteles_catalogo"
+TABLE_PAQUETES = "paquetes_promocionales"
+TABLE_AEROLINEAS = "aerolineas_catalogo"
+
+def _scope_query(query, sucursal_id: str = None, agente_id: str = None):
+    """Restricts a query to the branch, or to the agent when it has no branch assigned."""
+    if sucursal_id:
+        return query.eq("sucursal_id", sucursal_id)
+    if agente_id:
+        return query.eq("agente_id", agente_id)
+    return query
+
+def list_rows(table: str, sucursal_id: str = None, agente_id: str = None) -> list:
+    """Retrieves all rows of a catalog table for the given branch/agent, newest first."""
+    client = get_supabase_client()
+    if not client:
+        print(f"Supabase Client: Client not configured. Skipping list on '{table}'.")
+        return []
+    try:
+        query = _scope_query(client.table(table).select("*"), sucursal_id, agente_id)
+        response = query.order("updated_at", desc=True).execute()
+        if response and hasattr(response, 'data') and response.data:
+            return response.data
+        return []
+    except Exception as e:
+        print(f"Supabase Client: Failed to list '{table}'. Details: {e}")
+        return []
+
+def get_row_by_id(table: str, row_id) -> dict | None:
+    """Retrieves a single row of a catalog table by its ID."""
+    client = get_supabase_client()
+    if not client:
+        return None
+    try:
+        response = client.table(table).select("*").eq("id", row_id).execute()
+        if response and hasattr(response, 'data') and response.data:
+            return response.data[0]
+        return None
+    except Exception as e:
+        print(f"Supabase Client: Failed to retrieve '{table}' #{row_id}. Details: {e}")
+        return None
+
+def save_row(table: str, payload: dict, row_id=None) -> dict | None:
+    """Inserts a new row or updates an existing one (when row_id is given)."""
+    client = get_supabase_client()
+    if not client:
+        print(f"Supabase Client: Client not configured. Skipping save on '{table}'.")
+        return None
+    try:
+        payload = dict(payload)
+        payload["updated_at"] = datetime.utcnow().isoformat()
+        if row_id:
+            response = client.table(table).update(payload).eq("id", row_id).execute()
+        else:
+            response = client.table(table).insert(payload).execute()
+        if response and hasattr(response, 'data') and response.data:
+            return response.data[0]
+        print(f"Supabase Client: Save on '{table}' did not return data. Response: {response}")
+        return None
+    except Exception as e:
+        print(f"Supabase Client: Save on '{table}' failed. Error: {e}")
+        return None
+
+def delete_row(table: str, row_id) -> bool:
+    """Deletes a row of a catalog table by its ID."""
+    client = get_supabase_client()
+    if not client:
+        return False
+    try:
+        client.table(table).delete().eq("id", row_id).execute()
+        return True
+    except Exception as e:
+        print(f"Supabase Client: Failed to delete '{table}' #{row_id}. Details: {e}")
+        return False
+
+
+def get_cotizaciones_full(sucursal_id: str = None) -> list:
+    """
+    Retrieves the detailed quotes for the CSV export.
+
+    Uses the `exportar_cotizaciones` RPC instead of `select *` because the
+    `hoteles` column stores the photos as base64: the raw table is hundreds of
+    MB, while the function strips the images server-side and returns ~230 KB.
+    """
+    client = get_supabase_client()
+    if not client:
+        print("Supabase Client: Client not configured. Skipping export query.")
+        return []
+    try:
+        response = client.rpc("exportar_cotizaciones", {"suc": sucursal_id}).execute()
+        if response and hasattr(response, "data") and response.data:
+            return response.data
+        return []
+    except Exception as e:
+        print(f"Supabase Client: Failed to export quotes. Details: {e}")
+        return []
+
+def get_operadores_usados(sucursal_id: str = None) -> list:
+    """
+    Returns the distinct operator names already used in the branch's quotes,
+    so the form can offer them as autocomplete suggestions.
+    """
+    client = get_supabase_client()
+    if not client:
+        return []
+    try:
+        # Solo las columnas de texto: leer `hoteles` traería las imágenes base64
+        # y la consulta supera el timeout (la tabla pesa cientos de MB).
+        query = client.table("cotizaciones").select("operador_vuelos, operador_traslados")
+        if sucursal_id:
+            query = query.eq("sucursal_id", sucursal_id)
+        response = query.order("created_at", desc=True).limit(500).execute()
+        if not (response and hasattr(response, "data") and response.data):
+            return []
+
+        nombres = set()
+        for row in response.data:
+            for campo in ("operador_vuelos", "operador_traslados"):
+                valor = (row.get(campo) or "").strip()
+                if valor:
+                    nombres.add(valor)
+        return sorted(nombres, key=str.lower)
+    except Exception as e:
+        print(f"Supabase Client: Failed to read operators. Details: {e}")
+        return []

@@ -1,3 +1,4 @@
+import { HOTEL_PICKER_BUTTON_HTML } from './hotel_catalog.js';
 let hotelCount = 0;
 let agencyConfig = {};
 let importedQuotes = [];
@@ -192,6 +193,7 @@ function saveDetailedQuoteFormState() {
         const noches = updateHotelNights(card);
         const costo = card.querySelector('.hotel-costo-val')?.value || '';
         const descripcion = card.querySelector('.hotel-descripcion-val')?.value || '';
+        const operador = card.querySelector('.hotel-operador-val')?.value || '';
 
         const imgInput = card.querySelector('.hotel-imagen-val-1');
         const imagen = imgInput ? imgInput.value : '';
@@ -209,6 +211,7 @@ function saveDetailedQuoteFormState() {
             noches,
             costo,
             descripcion,
+            operador,
             imagen,
             recommended
         });
@@ -238,6 +241,8 @@ function saveDetailedQuoteFormState() {
         monto_vuelos: document.getElementById('monto_vuelos')?.value || '',
         fee_aereo_monto: document.getElementById('fee_aereo_monto')?.value || '',
         monto_traslados: document.getElementById('monto_traslados')?.value || '',
+        operador_vuelos: document.getElementById('operador_vuelos')?.value || '',
+        operador_traslados: document.getElementById('operador_traslados')?.value || '',
         tipo_traslado: document.getElementById('tipo_traslado')?.value || 'tradicional',
         fee_aereo_tipo: document.getElementById('fee_aereo_tipo')?.value || '',
         selectedBaggage: selectedBaggage,
@@ -340,6 +345,10 @@ function restoreDetailedQuoteFormState() {
         document.getElementById('monto_vuelos').value = state.monto_vuelos || '';
         document.getElementById('fee_aereo_monto').value = state.fee_aereo_monto || '';
         document.getElementById('monto_traslados').value = state.monto_traslados || '';
+        const opV = document.getElementById('operador_vuelos');
+        if (opV) opV.value = state.operador_vuelos || '';
+        const opT = document.getElementById('operador_traslados');
+        if (opT) opT.value = state.operador_traslados || '';
         updateTransferTypeUI(state.tipo_traslado || 'tradicional');
 
         const feeTypeEl = document.getElementById('fee_aereo_tipo');
@@ -1283,7 +1292,10 @@ function addHotelCard(data = null) {
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
             <div class="flex flex-col gap-1">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre del Hotel</label>
+                <div class="flex items-center justify-between gap-2">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre del Hotel</label>
+                    ${HOTEL_PICKER_BUTTON_HTML}
+                </div>
                 <input type="text" class="hotel-nombre-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Bahia Principe" value="${data ? (data.hotel_nombre || data.nombre || '') : ''}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
             </div>
             <div class="flex flex-col gap-1">
@@ -1317,7 +1329,7 @@ function addHotelCard(data = null) {
             </div>
         </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div class="flex flex-col gap-1">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                     <span>Habitación</span>
@@ -1344,6 +1356,10 @@ function addHotelCard(data = null) {
                     <span class="absolute left-3 text-xs font-bold text-slate-400 pointer-events-none currency-label">${document.getElementById('moneda_seleccionada')?.value || 'USD'}</span>
                     <input type="number" class="hotel-costo-val w-full border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary transition-all bg-white" min="0" step="0.01" required value="${costVal}" placeholder="0.00" oninput="updateRealTimeSummary()">
                 </div>
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Operador</label>
+                <input type="text" class="hotel-operador-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" list="operadores-list" placeholder="Ej. Ola Mayorista" value="${data ? (data.operador || '') : ''}" oninput="updateRealTimeSummary(); saveDetailedQuoteFormState();" onblur="handleCapitalizationBlur(this)">
             </div>
         </div>
         
@@ -1726,8 +1742,25 @@ function checkIfFormHasData() {
 }
 
 // Helper to render summary table HTML into any container element
+// Tag compacto de operador para la tabla resumen (mismos colores que getOperatorBadge)
+function getOperatorTag(operatorName, { compact = false } = {}) {
+    const clean = (operatorName || '').trim();
+    if (!clean) return '';
+    const lower = clean.toLowerCase();
+
+    let color = 'border-slate-200 bg-slate-50 text-slate-600';
+    if (lower === 'delfos') color = 'border-orange-200 bg-orange-50 text-orange-600';
+    else if (lower === 'ola') color = 'border-rose-200 bg-rose-50 text-rose-600';
+
+    const size = compact ? 'px-1.5 py-0 text-[8px]' : 'px-2 py-0.5 text-[9px]';
+    return `<span class="inline-flex items-center ${size} rounded-full font-bold border ${color} select-none whitespace-nowrap" title="Cotizado con: ${clean}">${clean}</span>`;
+}
+window.getOperatorTag = getOperatorTag;
+
 function renderSummaryTableHTML(config, container) {
     const { currency, cantPax, flightsCost, flightsFee, transfersCost, aplicarRedondeo, hotelList } = config;
+    const operadorVuelos = config.operadorVuelos || '';
+    const operadorTraslados = config.operadorTraslados || '';
 
     if (!container) return;
 
@@ -1784,8 +1817,14 @@ function renderSummaryTableHTML(config, container) {
             <td class="py-2 px-2 text-right font-semibold text-slate-700">${flightsFee > 0 ? currency + ' ' + formatPriceES(flightsFee) : '<span class="text-slate-300">—</span>'}</td>
         `;
 
+        const hotelOperadorTag = getOperatorTag(h.operador, { compact: true });
         hotelCostsHtml += `
-            <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(hotelCost)}</td>
+            <td class="py-2 px-2 text-right font-semibold text-slate-700">
+                <div class="flex flex-col items-end gap-0.5">
+                    <span>${currency} ${formatPriceES(hotelCost)}</span>
+                    ${hotelOperadorTag}
+                </div>
+            </td>
         `;
 
         transfersHtml += `
@@ -1814,7 +1853,7 @@ function renderSummaryTableHTML(config, container) {
             <table class="w-full min-w-max text-left border-collapse text-[10px] font-medium">
                 <thead>
                     <tr class="border-b border-slate-200 text-slate-500 font-bold">
-                        <th class="py-2 pr-2 text-[9px] uppercase tracking-wider text-slate-400 w-[95px]">Concepto</th>
+                        <th class="py-2 pr-2 text-[9px] uppercase tracking-wider text-slate-400 w-[130px]">Concepto</th>
                         ${columnsHtml}
                     </tr>
                     <tr class="border-b border-slate-100 text-slate-700">
@@ -1827,6 +1866,7 @@ function renderSummaryTableHTML(config, container) {
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                             <img src="/assets/iconos/avion.svg" class="w-3.5 h-3.5 icon-slate" alt="Vuelos">
                             <span class="truncate">Vuelos</span>
+                            ${getOperatorTag(operadorVuelos, { compact: true })}
                         </td>
                         ${flightsHtml}
                     </tr>
@@ -1849,6 +1889,7 @@ function renderSummaryTableHTML(config, container) {
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                             <img src="/assets/iconos/traslados.svg" class="w-3.5 h-3.5 icon-slate" alt="Traslados">
                             <span class="truncate">Traslados</span>
+                            ${getOperatorTag(operadorTraslados, { compact: true })}
                         </td>
                         ${transfersHtml}
                     </tr>
@@ -1889,6 +1930,8 @@ function renderSummaryTableHTML(config, container) {
 
 function renderMultidestinoSummaryHTML(config, container) {
     const { currency, cantPax, flightsCost, flightsFee, transfersCost, aplicarRedondeo, hotelList } = config;
+    const operadorVuelos = config.operadorVuelos || '';
+    const operadorTraslados = config.operadorTraslados || '';
     if (!container) return;
 
     if (!hotelList || hotelList.length === 0) {
@@ -1922,6 +1965,7 @@ function renderMultidestinoSummaryHTML(config, container) {
                 <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                     <img src="/assets/iconos/cama.svg" class="w-3.5 h-3.5 icon-slate" alt="Alojamiento">
                     <span class="truncate" title="${hDest}${hName}${hNoches}">Alojamiento: ${hDest}${hName}${hNoches}</span>
+                    ${getOperatorTag(h.operador, { compact: true })}
                 </td>
                 <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(hCost)}</td>
             </tr>
@@ -1937,6 +1981,7 @@ function renderMultidestinoSummaryHTML(config, container) {
                     <td class="py-1.5 pr-2 font-medium text-slate-500 flex items-center gap-1">
                         <img src="/assets/iconos/cama.svg" class="w-3.5 h-3.5 icon-slate" alt="Alojamiento">
                         <span class="truncate" title="Parada ${idx + 1}: ${hDest}${hName}${hNoches}">Parada ${idx + 1}: ${hDest}${hName}${hNoches}</span>
+                        ${getOperatorTag(h.operador, { compact: true })}
                     </td>
                     <td class="py-1.5 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(hCost)}</td>
                 </tr>
@@ -1957,7 +2002,7 @@ function renderMultidestinoSummaryHTML(config, container) {
             <table class="w-full min-w-max text-left border-collapse text-[10px] font-medium">
                 <thead>
                     <tr class="border-b border-slate-200 text-slate-500 font-bold">
-                        <th class="py-2 pr-2 text-[9px] uppercase tracking-wider text-slate-400 w-[95px]">Concepto</th>
+                        <th class="py-2 pr-2 text-[9px] uppercase tracking-wider text-slate-400 w-[130px]">Concepto</th>
                         <th class="py-2 px-2 text-right text-[9px] uppercase tracking-wider text-brand-primary font-extrabold min-w-[80px]">Itinerario</th>
                     </tr>
                     <tr class="border-b border-slate-100 text-slate-700">
@@ -1970,6 +2015,7 @@ function renderMultidestinoSummaryHTML(config, container) {
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                             <img src="/assets/iconos/avion.svg" class="w-3.5 h-3.5 icon-slate" alt="Vuelos">
                             <span class="truncate">Vuelos</span>
+                            ${getOperatorTag(operadorVuelos, { compact: true })}
                         </td>
                         <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(flightsCost)}</td>
                     </tr>
@@ -1986,6 +2032,7 @@ function renderMultidestinoSummaryHTML(config, container) {
                         <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
                             <img src="/assets/iconos/traslados.svg" class="w-3.5 h-3.5 icon-slate" alt="Traslados">
                             <span class="truncate">Traslados</span>
+                            ${getOperatorTag(operadorTraslados, { compact: true })}
                         </td>
                         <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(transfersCost)}</td>
                     </tr>
@@ -2082,7 +2129,8 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
                 hotelName,
                 destino: h.destino || '',
                 noches: h.noches || (h.noches_alojamiento ? parseInt(h.noches_alojamiento) : 0),
-                hotelCost
+                hotelCost,
+                operador: h.operador || ''
             };
         });
 
@@ -2093,6 +2141,8 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
             flightsFee,
             transfersCost,
             aplicarRedondeo,
+            operadorVuelos: quote.operador_vuelos || '',
+            operadorTraslados: quote.operador_traslados || '',
             hotelList
         }, container);
         return;
@@ -2125,6 +2175,7 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
         return {
             hotelName,
             hotelCost,
+            operador: h.operador || '',
             isRecomendado: idx === 0
         };
     });
@@ -2136,12 +2187,34 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
         flightsFee,
         transfersCost,
         aplicarRedondeo,
+        operadorVuelos: quote.operador_vuelos || '',
+        operadorTraslados: quote.operador_traslados || '',
         hotelList
     }, container);
 }
 window.renderSummaryFromQuoteObject = renderSummaryFromQuoteObject;
 
 // Real-time Cost Calculation and Sidebar Updates
+// Rellena el datalist de operadores con los habituales y los ya usados en la sucursal
+async function loadOperadoresDatalist() {
+    const datalist = document.getElementById('operadores-list');
+    if (!datalist) return;
+    const nombres = new Set(['Delfos', 'Ola']);
+    try {
+        const res = await authenticatedFetch('/api/operadores');
+        if (res.ok) {
+            (await res.json()).forEach(n => { if (n) nombres.add(n); });
+        }
+    } catch (err) {
+        console.warn('No se pudieron cargar los operadores usados:', err);
+    }
+    datalist.innerHTML = Array.from(nombres)
+        .sort((a, b) => a.localeCompare(b, 'es'))
+        .map(n => `<option value="${n}"></option>`)
+        .join('');
+}
+window.loadOperadoresDatalist = loadOperadoresDatalist;
+
 function updateRealTimeSummary() {
     const currency = document.getElementById('moneda_seleccionada')?.value || 'USD';
     const cantPax = parseInt(document.getElementById('cantidad_pasajeros')?.value) || 1;
@@ -2190,6 +2263,7 @@ function updateRealTimeSummary() {
     const hotelList = orderedCards.map((card, idx) => ({
         hotelName: card.querySelector('.hotel-nombre-val')?.value.trim() || `Opción ${idx + 1}`,
         hotelCost: parseFloat(card.querySelector('.hotel-costo-val')?.value) || 0,
+        operador: card.querySelector('.hotel-operador-val')?.value.trim() || '',
         isRecomendado: idx === 0
     }));
 
@@ -2202,6 +2276,8 @@ function updateRealTimeSummary() {
         flightsFee,
         transfersCost,
         aplicarRedondeo,
+        operadorVuelos: document.getElementById('operador_vuelos')?.value.trim() || '',
+        operadorTraslados: document.getElementById('operador_traslados')?.value.trim() || '',
         hotelList
     }, container);
 
@@ -2369,6 +2445,8 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
             fee_aereo: payload.fee_aereo,
             fee_aereo_monto: payload.fee_aereo,
             monto_traslados: payload.monto_traslados,
+            operador_vuelos: payload.operador_vuelos,
+            operador_traslados: payload.operador_traslados,
             tipo_traslado: payload.tipo_traslado,
             redondear: payload.redondear,
             hoteles: payload.hoteles,
@@ -2454,6 +2532,8 @@ function _buildPayload() {
         monto_vuelos: parseFloat(document.getElementById('monto_vuelos').value),
         fee_aereo: parseFloat(document.getElementById('fee_aereo_monto').value),
         monto_traslados: parseFloat(document.getElementById('monto_traslados').value),
+        operador_vuelos: document.getElementById('operador_vuelos')?.value.trim() || '',
+        operador_traslados: document.getElementById('operador_traslados')?.value.trim() || '',
         tipo_traslado: document.getElementById('tipo_traslado')?.value || 'tradicional',
         gastos_iva: 0.0,
         equipaje: selectedBaggage,
@@ -2509,6 +2589,7 @@ function _buildPayload() {
             costo_neto: hotelCostVal,
             costo: hotelCostVal,
             descripcion: card.querySelector('.hotel-descripcion-val').value,
+            operador: card.querySelector('.hotel-operador-val')?.value.trim() || '',
             imagen1: card.querySelector('.hotel-imagen-val-1').value,
             imagen2: "",
             imagen3: "",
@@ -2656,6 +2737,10 @@ function loadImportedQuoteIntoForm(idx) {
     // Pricing
     document.getElementById('monto_vuelos').value = q.monto_vuelos;
     document.getElementById('monto_traslados').value = q.monto_traslados;
+    const opV = document.getElementById('operador_vuelos');
+    if (opV) opV.value = q.operador_vuelos || '';
+    const opT = document.getElementById('operador_traslados');
+    if (opT) opT.value = q.operador_traslados || '';
     updateTransferTypeUI(q.tipo_traslado || 'tradicional');
 
     // Determine fee
@@ -2905,6 +2990,10 @@ function resetForm() {
     document.getElementById('monto_vuelos').value = '';
     document.getElementById('fee_aereo_monto').value = '';
     document.getElementById('monto_traslados').value = '';
+    const opVClear = document.getElementById('operador_vuelos');
+    if (opVClear) opVClear.value = '';
+    const opTClear = document.getElementById('operador_traslados');
+    if (opTClear) opTClear.value = '';
     updateTransferTypeUI('tradicional');
 
     // Clear and reset hotels
@@ -3239,6 +3328,10 @@ async function handlePDFEditImport(inputEl) {
         document.getElementById('monto_vuelos').value = data.monto_vuelos || '';
         document.getElementById('fee_aereo_monto').value = data.fee_aereo || '';
         document.getElementById('monto_traslados').value = data.monto_traslados || '';
+        const opV = document.getElementById('operador_vuelos');
+        if (opV) opV.value = data.operador_vuelos || '';
+        const opT = document.getElementById('operador_traslados');
+        if (opT) opT.value = data.operador_traslados || '';
         updateTransferTypeUI(data.tipo_traslado || 'tradicional');
 
         if (data.fee_aereo) {
@@ -4202,7 +4295,7 @@ function enableFormEditing(enabled) {
     });
 
     // Deshabilitar botones de añadir/remover hotel
-    const actionButtons = form.querySelectorAll('.add-hotel-btn, .btn-remove-hotel, .btn-optimize-desc');
+    const actionButtons = form.querySelectorAll('.add-hotel-btn, .btn-remove-hotel, .btn-optimize-desc, .btn-hotel-picker');
     actionButtons.forEach(btn => {
         if (enabled) {
             btn.style.pointerEvents = 'auto';
@@ -4291,6 +4384,10 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
         document.getElementById('monto_vuelos').value = q.monto_vuelos || '';
         document.getElementById('fee_aereo_monto').value = q.fee_aereo || '';
         document.getElementById('monto_traslados').value = q.monto_traslados || '';
+        const opV = document.getElementById('operador_vuelos');
+        if (opV) opV.value = q.operador_vuelos || '';
+        const opT = document.getElementById('operador_traslados');
+        if (opT) opT.value = q.operador_traslados || '';
         updateTransferTypeUI(q.tipo_traslado || 'tradicional');
 
         if (q.fee_aereo) {
@@ -4698,6 +4795,7 @@ window.switchQuoteMode = switchQuoteMode;
 
 export function initCotizar() {
     window.switchQuoteMode = switchQuoteMode;
+    loadOperadoresDatalist();
     const isMultidestino = window.location.pathname === '/cotizacion-multidestino' || 
                            new URLSearchParams(window.location.search).get('modo') === 'multidestino';
     
