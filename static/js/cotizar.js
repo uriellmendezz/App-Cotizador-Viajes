@@ -1,4 +1,4 @@
-import { HOTEL_PICKER_BUTTON_HTML } from './hotel_catalog.js';
+import { HOTEL_PICKER_BUTTON_HTML, starsToString } from './hotel_catalog.js';
 let hotelCount = 0;
 let agencyConfig = {};
 let importedQuotes = [];
@@ -4949,7 +4949,11 @@ export function initCotizarStandard() {
         const trasladosTotal = bridge.trasladosTotal || 0;
         document.getElementById("monto_traslados").value = trasladosTotal > 0 ? trasladosTotal.toFixed(2) : "";
 
-        // Pre-fill destination and dates if available
+        // Pre-fill origin, destination and dates if available
+        if (bridge.origen) {
+            const origenEl = document.getElementById("origen");
+            if (origenEl) origenEl.value = bridge.origen;
+        }
         if (bridge.destino) {
             const destinoEl = document.getElementById("destino");
             if (destinoEl) destinoEl.value = bridge.destino;
@@ -4974,7 +4978,9 @@ export function initCotizarStandard() {
             realHoteles.forEach(h => {
                 addHotelCard({
                     nombre: h.nombre,
-                    costo: h.costo
+                    costo: h.costo,
+                    estrellas: h.estrellas ? starsToString(parseInt(h.estrellas, 10) || 4) : undefined,
+                    regimen: h.regimen || undefined
                 });
             });
         } else {

@@ -28,7 +28,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
             </span>
-            <div class="flex-1">
+            <div class="flex-1 min-w-0">
                 <input type="text" id="rapido-pasajero"
                     class="w-full text-2xl font-medium text-slate-800 border-none bg-transparent focus:ring-0 focus:outline-none placeholder-slate-300 p-0 font-display tracking-tight transition-all shadow-none"
                     placeholder="Título de la Cotización Rápida" alt="Título Presupuesto" value=""
@@ -39,10 +39,10 @@
 
         <!-- Clean Open Toolbar Card (Title Top, Value Below Left Aligned) -->
         <div class="w-full bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm">
-            <div class="flex items-center justify-between gap-6 md:gap-10 overflow-x-auto no-scrollbar whitespace-nowrap">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-x-5 gap-y-5 items-start">
                 
                 <!-- PASAJEROS -->
-                <div class="flex flex-col items-start gap-1.5 flex-shrink-0">
+                <div class="flex flex-col items-start gap-1.5 min-w-0 w-full">
                     <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400 select-none flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -57,8 +57,19 @@
                     <input type="number" id="rapido-pax-count" min="1" max="50" value="2" class="hidden">
                 </div>
 
+                <!-- ORIGEN -->
+                <div class="flex flex-col items-start gap-1.5 min-w-0 w-full">
+                    <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400 select-none flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                        </svg>
+                        Origen
+                    </span>
+                    <input type="text" id="rapido-origen" placeholder="Córdoba" autocomplete="off" class="w-full min-w-0 bg-transparent border-b border-slate-200 focus:border-brand-primary text-sm font-bold text-slate-800 placeholder-slate-300 focus:outline-none py-0.5 px-1 transition-colors">
+                </div>
+
                 <!-- DESTINO -->
-                <div class="flex flex-col items-start gap-1.5 flex-shrink-0">
+                <div class="flex flex-col items-start gap-1.5 min-w-0 w-full">
                     <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400 select-none flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -66,28 +77,28 @@
                         </svg>
                         Destino
                     </span>
-                    <input type="text" id="rapido-destino" placeholder="Opcional" autocomplete="off" class="w-36 md:w-52 bg-transparent border-b border-slate-200 focus:border-brand-primary text-sm font-bold text-slate-800 placeholder-slate-300 focus:outline-none py-0.5 px-1 transition-colors">
+                    <input type="text" id="rapido-destino" placeholder="Opcional" autocomplete="off" class="w-full min-w-0 bg-transparent border-b border-slate-200 focus:border-brand-primary text-sm font-bold text-slate-800 placeholder-slate-300 focus:outline-none py-0.5 px-1 transition-colors">
                 </div>
 
                 <!-- FECHAS (Salida / Regreso abiertas y conectadas) -->
-                <div class="flex flex-col items-start gap-1.5 flex-shrink-0">
+                <div class="flex flex-col items-start gap-1.5 min-w-0 w-full col-span-2">
                     <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400 select-none flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         Fechas
                     </span>
-                    <div class="inline-flex items-center gap-2.5 py-1">
-                        <input type="text" id="rapido-fecha-salida" placeholder="Salida" readonly class="w-28 bg-transparent border-b border-slate-200 focus:border-brand-primary text-sm font-bold text-slate-800 placeholder-slate-400 cursor-pointer focus:outline-none py-0.5 px-1 text-center transition-colors">
-                        <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <div class="flex items-center gap-1.5 py-1 w-full min-w-0">
+                        <input type="text" id="rapido-fecha-salida" placeholder="Salida" readonly class="w-full min-w-0 bg-transparent border-b border-slate-200 focus:border-brand-primary text-sm font-bold text-slate-800 placeholder-slate-400 cursor-pointer focus:outline-none py-0.5 px-1 text-center transition-colors">
+                        <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                         </svg>
-                        <input type="text" id="rapido-fecha-regreso" placeholder="Regreso" readonly class="w-28 bg-transparent border-b border-slate-200 focus:border-brand-primary text-sm font-bold text-slate-800 placeholder-slate-400 cursor-pointer focus:outline-none py-0.5 px-1 text-center transition-colors">
+                        <input type="text" id="rapido-fecha-regreso" placeholder="Regreso" readonly class="w-full min-w-0 bg-transparent border-b border-slate-200 focus:border-brand-primary text-sm font-bold text-slate-800 placeholder-slate-400 cursor-pointer focus:outline-none py-0.5 px-1 text-center transition-colors">
                     </div>
                 </div>
 
                 <!-- MONEDA -->
-                <div class="flex flex-col items-start gap-1.5 flex-shrink-0">
+                <div class="flex flex-col items-start gap-1.5 min-w-0 w-full">
                     <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400 select-none flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -105,7 +116,7 @@
                 </div>
 
                 <!-- REDONDEAR -->
-                <div class="flex flex-col items-start gap-1.5 flex-shrink-0">
+                <div class="flex flex-col items-start gap-1.5 min-w-0 w-full">
                     <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400 select-none">Redondear</span>
                     <div class="py-1 cursor-pointer select-none" onclick="toggleQuickQuoteRedondeo()">
                         <button type="button" id="rapido-redondeo-toggle" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-slate-200" role="switch" aria-checked="false" title="Activar/Desactivar redondeo de totales">
@@ -124,7 +135,7 @@
     <div class="w-full space-y-6 mt-10">
         <!-- Single Clean Table -->
         <div class="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm overflow-hidden">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
                 <h3 class="text-sm font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                     <svg class="w-4 h-4 text-brand-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"
                         stroke-width="2.5">
@@ -191,19 +202,19 @@
                 </div>
             </div>
 
-            <div class="overflow-x-auto max-h-[500px] overflow-y-auto relative">
-                <table class="w-full text-left border-collapse text-sm select-none relative">
+            <div class="max-h-[500px] overflow-y-auto relative">
+                <table class="w-full table-fixed text-left border-collapse text-sm select-none relative">
                     <thead>
                         <tr class="border-b border-slate-200 text-slate-400 bg-white sticky top-0 z-10">
                             <th class="py-3 font-bold uppercase tracking-wider text-[10px] bg-white">Concepto</th>
                             <th id="hdr-total"
-                                class="py-3 font-bold uppercase tracking-wider text-[10px] w-[160px] text-right bg-white">
+                                class="py-3 font-bold uppercase tracking-wider text-[10px] w-[26%] text-right bg-white">
                                 Total (USD)</th>
                             <th id="hdr-pax"
-                                class="py-3 font-bold uppercase tracking-wider text-[10px] w-[140px] text-right bg-white">
+                                class="py-3 font-bold uppercase tracking-wider text-[10px] w-[22%] text-right bg-white">
                                 Por Persona (USD)</th>
                             <th
-                                class="py-3 font-bold uppercase tracking-wider text-[10px] w-[50px] text-center bg-white">
+                                class="py-3 font-bold uppercase tracking-wider text-[10px] w-[44px] text-center bg-white">
                             </th>
                         </tr>
                     </thead>
@@ -245,6 +256,23 @@
                     </tfoot>
                 </table>
             </div>
+        </div>
+
+        <!-- Financiación en cuotas -->
+        <div id="quick-cuotas-card" class="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                <h3 class="text-sm font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                    <svg class="w-4 h-4 text-brand-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    Financiación en cuotas
+                </h3>
+                <div class="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200/80 gap-1 shadow-2xs flex-shrink-0">
+                    <button type="button" id="btn-cuotas-por-persona" onclick="setQuickCuotasScope('persona')" class="px-3.5 py-1 rounded-lg text-xs font-black transition-all bg-white text-brand-primary shadow-2xs select-none cursor-pointer">Por persona</button>
+                    <button type="button" id="btn-cuotas-total" onclick="setQuickCuotasScope('total')" class="px-3.5 py-1 rounded-lg text-xs font-bold transition-all text-slate-500 hover:text-slate-800 select-none cursor-pointer">Total</button>
+                </div>
+            </div>
+            <div id="quick-cuotas-content"></div>
         </div>
 
         <!-- Footer Actions -->
