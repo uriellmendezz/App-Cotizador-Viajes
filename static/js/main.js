@@ -841,11 +841,13 @@ async function router() {
             // La vista nueva entra siempre desde arriba de todo
             window.scrollTo(0, 0);
 
-            // Entrada: se quitan las clases y el reflow reinicia la animación,
-            // así cada navegación vuelve a animar aunque sea la misma clase.
             appEl.classList.remove('view-leave', 'view-enter-active');
             void appEl.offsetHeight;
             appEl.classList.add('view-enter-active');
+            appEl.addEventListener('animationend', function onDone() {
+                appEl.removeEventListener('animationend', onDone);
+                appEl.classList.remove('view-enter-active');
+            });
 
             // Update document title dynamically based on section
             if (path !== '/ver-cotizacion') {
@@ -877,13 +879,15 @@ async function router() {
             appEl.classList.remove('view-leave');
             void appEl.offsetHeight;
             appEl.classList.add('view-enter-active');
+            appEl.addEventListener('animationend', function onDone() {
+                appEl.removeEventListener('animationend', onDone);
+                appEl.classList.remove('view-enter-active');
+            });
         }
 
         // Update dynamic back button after content loads
         updateBackButton();
 
-        // Re-synchronize theme state across view elements
-        initTheme();
     }
 }
 window.router = router;
@@ -1011,67 +1015,10 @@ function updateHeaderDateTime() {
 }
 window.updateHeaderDateTime = updateHeaderDateTime;
 
-// ══════════════════════════════════════════════════════════════════
-// THEME MANAGEMENT (Dark / Light Mode)
-// ══════════════════════════════════════════════════════════════════
-function applyTheme(theme) {
-    const isDark = theme === 'dark';
-    const htmlEl = document.documentElement;
-
-    if (isDark) {
-        htmlEl.classList.add('dark');
-        try { localStorage.setItem('ot_theme', 'dark'); } catch (e) {}
-    } else {
-        htmlEl.classList.remove('dark');
-        try { localStorage.setItem('ot_theme', 'light'); } catch (e) {}
-    }
-
-    // Sync all switch buttons present in the DOM
-    const switchButtons = document.querySelectorAll('.theme-switch-btn');
-    switchButtons.forEach(btn => {
-        btn.setAttribute('aria-checked', isDark ? 'true' : 'false');
-        btn.setAttribute('title', isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
-
-        const thumb = btn.querySelector('.theme-toggle-thumb') || btn.querySelector('#theme-toggle-thumb');
-        if (thumb) {
-            if (isDark) {
-                thumb.classList.remove('translate-x-0');
-                thumb.classList.add('translate-x-7');
-            } else {
-                thumb.classList.remove('translate-x-7');
-                thumb.classList.add('translate-x-0');
-            }
-        }
-    });
-}
-window.applyTheme = applyTheme;
-
-function initTheme() {
-    let savedTheme = 'light';
-    try {
-        savedTheme = localStorage.getItem('ot_theme') || 'light';
-    } catch (e) {}
-    applyTheme(savedTheme);
-}
-window.initTheme = initTheme;
-
-function toggleTheme() {
-    const htmlEl = document.documentElement;
-    // Add smooth transition class for fine, subtle animated fade
-    htmlEl.classList.add('theme-transitioning');
-
-    const isCurrentDark = htmlEl.classList.contains('dark');
-    applyTheme(isCurrentDark ? 'light' : 'dark');
-
-    setTimeout(() => {
-        htmlEl.classList.remove('theme-transitioning');
-    }, 500);
-}
-window.toggleTheme = toggleTheme;
-
-// Initialize application routing & theme
+// Initialize application routing
 document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
+    document.documentElement.classList.remove('dark');
+    try { localStorage.removeItem('ot_theme'); } catch (e) {}
     router();
     updateHeaderDateTime();
     setInterval(updateHeaderDateTime, 1000);
