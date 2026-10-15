@@ -1,7 +1,93 @@
+// ────────────────────────────────────────────────────────────────────────────
+// HERO DEL INICIO
+// Paisajes de fondo: se cruzan de a uno con opacidad baja detr\u00e1s del texto.
+// Para usar fotos propias, reemplaz\u00e1 estas rutas por archivos de /assets.
+// ────────────────────────────────────────────────────────────────────────────
+
+const HERO_PAISAJES = [
+    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1920&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1506929562872-bb421503ef21?q=80&w=1920&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=1920&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1533105079780-92b9be482077?q=80&w=1920&auto=format&fit=crop'
+];
+
+const HERO_INTERVALO_MS = 9000;
+
+let heroSlideTimer = null;
+
+/**
+ * Monta las capas de paisaje y las va cruzando.
+ * Si una imagen no carga, el hero queda con su degradado: nunca se ve vac\u00edo.
+ */
+function initHeroBackgrounds() {
+    const stack = document.getElementById('hero-bg-stack');
+    if (!stack) return;
+
+    clearInterval(heroSlideTimer);
+    stack.innerHTML = '';
+
+    const capas = HERO_PAISAJES.map((url, i) => {
+        const capa = document.createElement('div');
+        capa.className = 'hero-bg-layer';
+        capa.style.backgroundImage = `url('${url}')`;
+        if (i === 0) capa.classList.add('active');
+        stack.appendChild(capa);
+        return capa;
+    });
+
+    if (capas.length < 2) return;
+
+    let actual = 0;
+    heroSlideTimer = setInterval(() => {
+        capas[actual].classList.remove('active');
+        actual = (actual + 1) % capas.length;
+        capas[actual].classList.add('active');
+    }, HERO_INTERVALO_MS);
+}
+
+/**
+ * Pastillas de actividad del agente, calculadas con las cotizaciones ya tra\u00eddas.
+ */
+function renderHeroStats({ total, esteMes, ultimoDestino }) {
+    const cont = document.getElementById('hero-stats');
+    if (!cont) return;
+
+    const pills = [
+        {
+            label: total === 1 ? 'cotizaci\u00f3n armada' : 'cotizaciones armadas',
+            value: String(total),
+            icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+        },
+        {
+            label: 'este mes',
+            value: String(esteMes),
+            icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'
+        }
+    ];
+
+    if (ultimoDestino) {
+        pills.push({
+            label: '\u00faltimo destino',
+            value: ultimoDestino,
+            icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z'
+        });
+    }
+
+    cont.innerHTML = pills.map(p => `
+        <div class="hero-stat inline-flex items-center gap-2.5 pl-3 pr-4 py-2 rounded-xl bg-white/[0.07] border border-white/10 backdrop-blur-sm">
+            <svg class="w-3.5 h-3.5 text-white/40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="${p.icon}" />
+            </svg>
+            <span class="text-sm font-black text-white max-w-[180px] truncate">${p.value}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-white/40">${p.label}</span>
+        </div>`).join('');
+}
+
 export async function initInicio() {
-    const pageContainer = document.getElementById('inicio-page-container');
     const titleEl = document.getElementById('welcome-title');
     if (!titleEl) return;
+
+    initHeroBackgrounds();
 
     // Capitalize Agent Name
     let rawUser = window.loggedInUser || localStorage.getItem('otg_agent_user');
@@ -45,12 +131,6 @@ export async function initInicio() {
     // Wait for both calculations to finish
     await Promise.all([quotesPromise, configPromise]);
 
-    // Now reveal the page container smoothly
-    if (pageContainer) {
-        pageContainer.classList.remove('opacity-0');
-        pageContainer.classList.add('opacity-100');
-    }
-
     // Start Typewriter
     const text1 = `Hola, ${agentName} - `;
     const text2 = franchiseName;
@@ -59,11 +139,11 @@ export async function initInicio() {
 
     // Create inner span for the second part (finer font)
     const span = document.createElement('span');
-    span.className = 'font-light text-slate-500';
+    span.className = 'font-light text-white/50';
 
     let i = 0;
     let j = 0;
-    const speed = 40; // ms per letter
+    const speed = 28; // ms per letter
 
     function typePart1() {
         if (i < text1.length) {
@@ -127,6 +207,21 @@ async function loadRecentQuotes() {
         const latestQuote = userQuotes[0] || null;
         const latestBudget = userBudgets[0] || null;
 
+        // Resumen del hero con lo que ya tenemos en memoria
+        const todas = [...userQuotes, ...userBudgets];
+        const inicioDelMes = new Date();
+        inicioDelMes.setDate(1);
+        inicioDelMes.setHours(0, 0, 0, 0);
+        const esteMes = todas.filter(q => new Date(q.created_at || 0) >= inicioDelMes).length;
+
+        const masReciente = todas
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
+        renderHeroStats({
+            total: todas.length,
+            esteMes,
+            ultimoDestino: masReciente ? getDestino(masReciente) : ''
+        });
+
         container.innerHTML = '';
 
         // Left Column: Latest Detailed Quote
@@ -148,9 +243,16 @@ async function loadRecentQuotes() {
     }
 }
 
+/** Destino de una cotizaci\u00f3n, sea completa o r\u00e1pida (va en su metadata). */
+function getDestino(item) {
+    if (item.destino) return item.destino;
+    const meta = (item.hoteles || []).find(h => h && h.nombre === 'METADATA_PRESUPUESTO_RAPIDO');
+    return (meta && meta.destino) ? meta.destino : '';
+}
+
 function createQuoteCard(item, isQuick) {
     const card = document.createElement('div');
-    card.className = "group cursor-pointer relative bg-white border border-slate-200/60 rounded-3xl p-6 shadow-sm hover:shadow-[0_15px_30px_-10px_rgba(0,0,0,0.08)] hover:border-slate-350 hover:-translate-y-1 transition-all duration-300 ease-out flex items-center justify-between gap-6";
+    card.className = "inicio-card group cursor-pointer relative bg-white border border-slate-200/60 rounded-3xl p-6 shadow-sm hover:border-slate-300 flex items-center justify-between gap-6";
 
     if (isQuick) {
         card.onclick = () => {
@@ -181,14 +283,7 @@ function createQuoteCard(item, isQuick) {
 
     const title = isQuick ? item.pasajero_nombre : item.nombre_pax;
 
-    // Extract destination from quick quote metadata if applicable
-    let destination = item.destino || 'Sin Destino';
-    if (isQuick && item.hoteles) {
-        const meta = item.hoteles.find(h => h.nombre === "METADATA_PRESUPUESTO_RAPIDO");
-        if (meta && meta.destino) {
-            destination = meta.destino;
-        }
-    }
+    const destination = getDestino(item) || 'Sin Destino';
 
     const total = isQuick ? item.total_cotizacion : item.costo_total;
 
@@ -219,7 +314,7 @@ function createQuoteCard(item, isQuick) {
 
 function createPlaceholderCard(type) {
     const card = document.createElement('div');
-    card.className = "group cursor-pointer bg-white/60 border border-dashed border-slate-200 rounded-3xl p-6 hover:border-slate-350 hover:bg-white transition-all duration-300 flex flex-col items-center justify-center text-center gap-2 h-full min-h-[110px]";
+    card.className = "inicio-card group cursor-pointer bg-white/60 border border-dashed border-slate-200 rounded-3xl p-6 hover:border-slate-300 hover:bg-white flex flex-col items-center justify-center text-center gap-2 h-full min-h-[110px]";
 
     if (type === 'quick') {
         card.onclick = () => window.navigateTo('/cotizacion-rapida');

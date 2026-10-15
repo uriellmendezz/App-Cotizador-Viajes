@@ -523,6 +523,9 @@ function confirmLogout() {
 }
 window.confirmLogout = confirmLogout;
 
+// Duración de la salida de vista. Debe coincidir con --view-leave-ms en styles.css
+const VIEW_LEAVE_MS = 120;
+
 const routes = {
     '/login': { html: '/static/views/login.html', js: '/static/js/login.js', init: 'initLogin' },
     '/inicio': { html: '/static/views/inicio.html', js: '/static/js/inicio.js', init: 'initInicio' },
@@ -817,15 +820,16 @@ async function router() {
     const appEl = document.getElementById('app');
     if (appEl) {
         try {
-            // Start exit transition
-            appEl.classList.remove('opacity-100');
-            appEl.classList.add('opacity-0');
+            // Salida: se va hacia arriba apenas, corta y acelerada
+            appEl.classList.remove('view-enter-active');
+            void appEl.offsetHeight;
+            appEl.classList.add('view-leave');
 
             // Fetch content concurrently
             const fetchPromise = fetch(route.html + '?v=' + Date.now());
 
-            // Wait for exit transition to complete (150ms)
-            await new Promise(resolve => setTimeout(resolve, 150));
+            // Se espera exactamente lo que dura la salida (ver --view-leave-ms)
+            await new Promise(resolve => setTimeout(resolve, VIEW_LEAVE_MS));
 
             const response = await fetchPromise;
             if (!response.ok) throw new Error(`Failed to load view ${route.html}`);
@@ -834,12 +838,14 @@ async function router() {
             // Inject new HTML content
             appEl.innerHTML = html;
 
-            // Force browser reflow to register new element states
-            appEl.offsetHeight;
+            // La vista nueva entra siempre desde arriba de todo
+            window.scrollTo(0, 0);
 
-            // Start entry transition
-            appEl.classList.remove('opacity-0');
-            appEl.classList.add('opacity-100');
+            // Entrada: se quitan las clases y el reflow reinicia la animación,
+            // así cada navegación vuelve a animar aunque sea la misma clase.
+            appEl.classList.remove('view-leave', 'view-enter-active');
+            void appEl.offsetHeight;
+            appEl.classList.add('view-enter-active');
 
             // Update document title dynamically based on section
             if (path !== '/ver-cotizacion') {
@@ -868,8 +874,9 @@ async function router() {
         } catch (err) {
             console.error("SPA Routing error:", err);
             appEl.innerHTML = `<div class="p-8 text-center text-rose-500 font-bold">Error al cargar la página: ${err.message}</div>`;
-            appEl.classList.remove('opacity-0');
-            appEl.classList.add('opacity-100');
+            appEl.classList.remove('view-leave');
+            void appEl.offsetHeight;
+            appEl.classList.add('view-enter-active');
         }
 
         // Update dynamic back button after content loads

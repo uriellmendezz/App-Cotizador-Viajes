@@ -1279,3 +1279,245 @@ iframe#ver-pdf-iframe {
         background-image: none !important;
     }
 }
+/* ══════════════════════════════════════════════════════════════════
+   TRANSICIONES DE VISTA (todas las páginas usan el mismo movimiento)
+   Salida corta y entrada suave con easing expo: rápido pero fluido.
+   ══════════════════════════════════════════════════════════════════ */
+:root {
+    --view-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --view-ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --view-leave-ms: 120ms;
+    --view-enter-ms: 300ms;
+}
+
+#app {
+    transform-origin: 50% 0;
+    backface-visibility: hidden;
+}
+
+/* Salida: se va hacia arriba apenas, corta y acelerada.
+   Se usan animaciones (no transiciones) porque arrancan siempre,
+   incluso cuando la clase se agrega en el mismo frame que el reflow. */
+@keyframes view-leave {
+    from { opacity: 1; transform: translate3d(0, 0, 0); }
+    to   { opacity: 0; transform: translate3d(0, -6px, 0); }
+}
+
+@keyframes view-enter {
+    from { opacity: 0; transform: translate3d(0, 10px, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+#app.view-leave {
+    animation: view-leave var(--view-leave-ms) var(--view-ease-in) both;
+    will-change: opacity, transform;
+}
+
+#app.view-enter-active {
+    animation: view-enter var(--view-enter-ms) var(--view-ease-out) both;
+    will-change: opacity, transform;
+}
+
+/* Aparición escalonada de bloques dentro de una vista */
+@keyframes view-rise {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 14px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.stagger-in > * {
+    animation: view-rise 460ms var(--view-ease-out) both;
+}
+
+.stagger-in > *:nth-child(1) { animation-delay: 40ms; }
+.stagger-in > *:nth-child(2) { animation-delay: 90ms; }
+.stagger-in > *:nth-child(3) { animation-delay: 140ms; }
+.stagger-in > *:nth-child(4) { animation-delay: 190ms; }
+.stagger-in > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-in > *:nth-child(n+6) { animation-delay: 280ms; }
+
+/* ══════════════════════════════════════════════════════════════════
+   INICIO — HERO con paisajes de fondo y vuelo animado
+   ══════════════════════════════════════════════════════════════════ */
+.hero-inicio {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-radius: 2rem;
+    background: linear-gradient(135deg, #111827 0%, #1e293b 55%, #0f172a 100%);
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        0 24px 48px -24px rgba(15, 23, 42, 0.35);
+}
+
+/* Capas de paisaje que se van cruzando */
+.hero-bg-layer {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transform: scale(1.06);
+    transition: opacity 2000ms var(--view-ease-out);
+    z-index: 0;
+}
+
+.hero-bg-layer.active {
+    opacity: 0.3;
+    animation: hero-kenburns 26s ease-in-out infinite alternate;
+}
+
+@keyframes hero-kenburns {
+    0% { transform: scale(1.05) translate3d(0, 0, 0); }
+    100% { transform: scale(1.14) translate3d(-1.5%, -1%, 0); }
+}
+
+/* Velo de color para que el texto siempre tenga contraste */
+.hero-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+        linear-gradient(100deg, rgba(10, 15, 28, 0.92) 0%, rgba(14, 21, 38, 0.72) 42%, rgba(17, 25, 44, 0.38) 100%),
+        radial-gradient(120% 140% at 88% 8%, rgba(255, 84, 93, 0.22) 0%, transparent 55%);
+}
+
+/* Grano sutil: evita el banding de los degradados */
+.hero-grain {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    opacity: 0.035;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.hero-flight {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 4;
+}
+
+/* Botones del hero */
+.hero-cta {
+    position: relative;
+    overflow: hidden;
+    transition:
+        transform 220ms var(--view-ease-out),
+        box-shadow 220ms var(--view-ease-out),
+        background-color 220ms var(--view-ease-out);
+}
+
+.hero-cta:hover {
+    transform: translateY(-2px);
+}
+
+.hero-cta:active {
+    transform: translateY(0);
+}
+
+/* Brillo que cruza el botón al pasar el mouse */
+.hero-cta::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -60%;
+    width: 40%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    transform: skewX(-18deg);
+    opacity: 0;
+    transition: none;
+}
+
+.hero-cta:hover::after {
+    animation: hero-sheen 750ms var(--view-ease-out) forwards;
+}
+
+@keyframes hero-sheen {
+    from { left: -60%; opacity: 0.9; }
+    to { left: 130%; opacity: 0; }
+}
+
+/* Píldora de estadística del hero */
+.hero-stat {
+    transition: background-color 260ms var(--view-ease-out), border-color 260ms var(--view-ease-out);
+}
+
+.hero-stat:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Tarjetas del inicio ── */
+.inicio-card {
+    transition:
+        transform 260ms var(--view-ease-out),
+        box-shadow 260ms var(--view-ease-out),
+        border-color 260ms var(--view-ease-out);
+}
+
+.inicio-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 36px -18px rgba(15, 23, 42, 0.22);
+}
+
+.inicio-card:active {
+    transform: translateY(-1px);
+}
+
+html.dark .inicio-card:hover {
+    box-shadow: 0 18px 36px -18px rgba(0, 0, 0, 0.75);
+}
+
+/* El hero ya es oscuro: en modo oscuro sólo se ajusta el borde */
+html.dark .hero-inicio {
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.4),
+        0 24px 48px -24px rgba(0, 0, 0, 0.8);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ACCESIBILIDAD: sin movimiento si el sistema lo pide
+   ══════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+    #app.view-leave,
+    #app.view-enter-active {
+        animation-duration: 80ms !important;
+        animation-name: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .stagger-in > * {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .hero-bg-layer.active {
+        animation: none !important;
+    }
+
+    .hero-flight {
+        display: none !important;
+    }
+
+    .inicio-card:hover,
+    .hero-cta:hover {
+        transform: none !important;
+    }
+}
