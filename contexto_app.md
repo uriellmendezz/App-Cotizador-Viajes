@@ -146,6 +146,17 @@ Dado que el backend procesa el costo del hotel calculando el total acumulado y r
 - **Alta y edición de hoteles** por sucursal: nombre, destino, calificación (1 a 5 estrellas), régimen y habitación habituales, descripción (máx. 200 caracteres, mismo límite que el PDF) y hasta 6 fotos (la primera es la portada; se pueden subir, arrastrar o pegar con Ctrl+V y se comprimen a JPEG).
 - **Selector "Mis Hoteles"**: cada tarjeta de hotel de la Cotización PDF (estándar y multidestino) tiene un botón que abre el catálogo y completa nombre, categoría, régimen, habitación, descripción e imagen. Si el hotel tiene varias fotos, el agente elige cuál usar. Lógica compartida en `static/js/hotel_catalog.js`.
 
+### G.2. Exportación de Cotizaciones a CSV (Configuración)
+- Botón **Descargar CSV** en `/configuracion`: exporta todas las cotizaciones detalladas de la sucursal con una fila por cotización (datos del pasaje, montos, operadores y hasta N columnas de hotel según el máximo encontrado).
+- Formato pensado para Excel en español: separador `;`, decimales con coma, fechas `DD/MM/AAAA` y BOM UTF-8 para los acentos.
+- **No incluye las fotos**: la columna `hoteles` guarda imágenes en base64 y la tabla pesa cientos de MB, por lo que la extracción se hace en el servidor con la función `exportar_cotizaciones` (ver `scripts/005_exportar_cotizaciones.sql`). Sin ella, un `select *` supera el timeout.
+
+### I. Operador por Servicio (Cotización Completa)
+- Cada servicio cotizado registra con qué **operador mayorista** se consiguió: vuelos, traslados y cada alojamiento por separado.
+- Los campos son de texto libre con autocompletado (`<datalist id="operadores-list">`) alimentado por `GET /api/operadores` más los habituales de la agencia (Delfos y Ola).
+- La **tabla resumen en tiempo real** muestra un tag de color junto a cada servicio, con la misma paleta que los badges de `getOperatorBadge()` usados en Archivos (Delfos naranja, Ola rosa, resto gris).
+- Persistencia: `operador_vuelos` y `operador_traslados` son columnas de `cotizaciones`; el operador de cada hotel viaja dentro del objeto correspondiente de la columna JSONB `hoteles`.
+
 ### H. Paquetes Promocionales para Redes (`/paquetes`)
 - Se guardan en una tabla propia (`paquetes_promocionales`), **separados de las cotizaciones de pasajeros**.
 - Usan la misma fórmula de precios que las cotizaciones (vuelo + fee, terrestre + 5% de gastos administrativos, gastos + IVA), calculada sobre una base de pasajeros (single/doble/triple/cuádruple) para obtener el precio por persona, con redondeo opcional a múltiplos de 10.
@@ -183,7 +194,15 @@ CRUD del catálogo de hoteles en la tabla `hoteles_catalogo`, aislado por `sucur
 ### 9. `/api/paquetes` (GET / POST / PUT / DELETE, `POST /{id}/duplicar`)
 CRUD de paquetes promocionales en la tabla `paquetes_promocionales`, aislado por `sucursal_id`. El formulario completo se guarda en la columna JSONB `data` (incluye `resumen` con entrega y cuotas).
 
-> Ambas tablas se crean con `scripts/003_hoteles_paquetes.sql`.
+### 10. `GET /api/exportar-cotizaciones-csv`
+Devuelve un CSV con todas las cotizaciones detalladas de la sucursal (sin imágenes). Internamente usa la función de Postgres `exportar_cotizaciones`.
+
+### 11. `GET /api/operadores`
+Lista los operadores ya usados en la sucursal (columnas `operador_vuelos` y `operador_traslados`) para el autocompletado del formulario.
+
+> Las tablas de hoteles y paquetes se crean con `scripts/003_hoteles_paquetes.sql`;
+> las columnas de operador con `scripts/004_operadores.sql`;
+> la función de exportación con `scripts/005_exportar_cotizaciones.sql`.
 
 ---
 

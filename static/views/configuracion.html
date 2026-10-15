@@ -13,6 +13,30 @@
         </button>
     </div>
 
+    <!-- Exportación de datos -->
+    <section class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-start gap-3">
+                <span class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-6m3 6v-4M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l2-4h14l2 4M3 7h18" />
+                    </svg>
+                </span>
+                <div class="space-y-1">
+                    <h2 class="font-display font-bold text-sm text-slate-800 tracking-tight uppercase">Exportar Cotizaciones</h2>
+                    <p class="text-xs text-slate-500 font-medium max-w-xl">Descargá todas las cotizaciones generadas en un archivo CSV con la información completa: pasajero, destino, fechas, montos, operadores y alojamientos. Se abre directo en Excel.</p>
+                </div>
+            </div>
+            <button type="button" id="config-btn-export-csv"
+                class="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Descargar CSV
+            </button>
+        </div>
+    </section>
+
     <!-- Search -->
     <div class="relative max-w-md">
         <svg class="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>

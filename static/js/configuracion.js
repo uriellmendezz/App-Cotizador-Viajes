@@ -14,10 +14,12 @@ export async function initConfiguracion() {
         document.getElementById('config-hotels-grid').innerHTML =
             '<div class="col-span-full text-center text-xs font-semibold text-slate-500 py-16">La configuración está disponible solo para agentes.</div>';
         document.getElementById('config-btn-new-hotel')?.classList.add('hidden');
+        document.getElementById('config-btn-export-csv')?.classList.add('hidden');
         return;
     }
 
     setupEditor();
+    document.getElementById('config-btn-export-csv').addEventListener('click', exportarCotizacionesCsv);
     document.getElementById('config-btn-new-hotel').addEventListener('click', () => openEditor());
     document.getElementById('config-hotel-search').addEventListener('input', renderGrid);
     await loadHotels();
@@ -95,6 +97,49 @@ function confirmDelete(id) {
             }
         }
     });
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Exportación de cotizaciones a CSV
+// ──────────────────────────────────────────────────────────────────────────────
+
+async function exportarCotizacionesCsv() {
+    const btn = document.getElementById('config-btn-export-csv');
+    btn.disabled = true;
+    window.showLoader('Generando archivo CSV...');
+    try {
+        const res = await window.authenticatedFetch('/api/exportar-cotizaciones-csv');
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'No se pudo generar el archivo.');
+        }
+        const blob = await res.blob();
+        if (blob.size <= 3) {
+            window.showAlert('warning', 'Todavía no hay cotizaciones para exportar.');
+            return;
+        }
+
+        // El backend propone el nombre en Content-Disposition
+        const disp = res.headers.get('Content-Disposition') || '';
+        const match = disp.match(/filename="?([^"]+)"?/);
+        const nombre = match ? match[1] : `cotizaciones_${new Date().toISOString().slice(0, 10)}.csv`;
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombre;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+        window.showAlert('success', 'Archivo descargado con todas tus cotizaciones.');
+    } catch (err) {
+        window.showAlert('error', err.message);
+    } finally {
+        btn.disabled = false;
+        window.hideLoader();
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

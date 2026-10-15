@@ -91,6 +91,11 @@ def save_cotizacion(quote_data: dict) -> dict | None:
             
             "base_habitacion": quote_data.get("base_habitacion", ""),
             "noches_alojamiento": quote_data.get("noches_alojamiento", ""),
+
+            # Operador mayorista con el que se cotizó cada servicio
+            # (el de cada alojamiento viaja dentro de la lista `hoteles`)
+            "operador_vuelos": quote_data.get("operador_vuelos") or None,
+            "operador_traslados": quote_data.get("operador_traslados") or None,
             
             "img_vuelo_ida": quote_data.get("img_vuelo_ida", ""),
             "img_vuelo_vuelta": quote_data.get("img_vuelo_vuelta", ""),
@@ -423,3 +428,54 @@ def delete_row(table: str, row_id) -> bool:
     except Exception as e:
         print(f"Supabase Client: Failed to delete '{table}' #{row_id}. Details: {e}")
         return False
+
+
+def get_cotizaciones_full(sucursal_id: str = None) -> list:
+    """
+    Retrieves the detailed quotes for the CSV export.
+
+    Uses the `exportar_cotizaciones` RPC instead of `select *` because the
+    `hoteles` column stores the photos as base64: the raw table is hundreds of
+    MB, while the function strips the images server-side and returns ~230 KB.
+    """
+    client = get_supabase_client()
+    if not client:
+        print("Supabase Client: Client not configured. Skipping export query.")
+        return []
+    try:
+        response = client.rpc("exportar_cotizaciones", {"suc": sucursal_id}).execute()
+        if response and hasattr(response, "data") and response.data:
+            return response.data
+        return []
+    except Exception as e:
+        print(f"Supabase Client: Failed to export quotes. Details: {e}")
+        return []
+
+def get_operadores_usados(sucursal_id: str = None) -> list:
+    """
+    Returns the distinct operator names already used in the branch's quotes,
+    so the form can offer them as autocomplete suggestions.
+    """
+    client = get_supabase_client()
+    if not client:
+        return []
+    try:
+        # Solo las columnas de texto: leer `hoteles` traería las imágenes base64
+        # y la consulta supera el timeout (la tabla pesa cientos de MB).
+        query = client.table("cotizaciones").select("operador_vuelos, operador_traslados")
+        if sucursal_id:
+            query = query.eq("sucursal_id", sucursal_id)
+        response = query.order("created_at", desc=True).limit(500).execute()
+        if not (response and hasattr(response, "data") and response.data):
+            return []
+
+        nombres = set()
+        for row in response.data:
+            for campo in ("operador_vuelos", "operador_traslados"):
+                valor = (row.get(campo) or "").strip()
+                if valor:
+                    nombres.add(valor)
+        return sorted(nombres, key=str.lower)
+    except Exception as e:
+        print(f"Supabase Client: Failed to read operators. Details: {e}")
+        return []

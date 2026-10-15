@@ -395,7 +395,7 @@
                         <input type="hidden" id="equipaje_seleccionado" value="[]">
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-100">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mt-6 pt-6 border-t border-slate-100">
                         <div class="flex flex-col gap-2">
                             <label for="monto_vuelos"
                                 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Vuelo</label>
@@ -426,6 +426,13 @@
                                     placeholder="0.00" required oninput="updateRealTimeSummary();"
                                     class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                             </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="operador_vuelos"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Operador</label>
+                            <input type="text" id="operador_vuelos" list="operadores-list" placeholder="Ej. Ola Mayorista"
+                                oninput="updateRealTimeSummary(); saveDetailedQuoteFormState();" onblur="handleCapitalizationBlur(this)"
+                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                         </div>
                     </div>
                 </section>
@@ -505,16 +512,25 @@
                     </div>
 
                     <!-- Monto Input -->
-                    <div class="flex flex-col gap-2 max-w-sm">
-                        <label for="monto_traslados" id="label_monto_traslados"
-                            class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Traslados
-                            In/Out</label>
-                        <div class="relative flex items-center">
-                            <span
-                                class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none currency-label">USD</span>
-                            <input type="number" id="monto_traslados" min="0" step="0.01" value="" placeholder="0.00"
-                                required oninput="updateRealTimeSummary();"
-                                class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
+                        <div class="flex flex-col gap-2">
+                            <label for="monto_traslados" id="label_monto_traslados"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Traslados
+                                In/Out</label>
+                            <div class="relative flex items-center">
+                                <span
+                                    class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none currency-label">USD</span>
+                                <input type="number" id="monto_traslados" min="0" step="0.01" value="" placeholder="0.00"
+                                    required oninput="updateRealTimeSummary();"
+                                    class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="operador_traslados"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Operador</label>
+                            <input type="text" id="operador_traslados" list="operadores-list" placeholder="Ej. Civitatis"
+                                oninput="updateRealTimeSummary(); saveDetailedQuoteFormState();" onblur="handleCapitalizationBlur(this)"
+                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                         </div>
                     </div>
                 </section>
@@ -997,7 +1013,7 @@
                         <input type="hidden" id="equipaje_seleccionado" value="[]">
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-100">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mt-6 pt-6 border-t border-slate-100">
                         <div class="flex flex-col gap-2">
                             <label for="monto_vuelos"
                                 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Total Vuelos</label>
@@ -1026,6 +1042,13 @@
                                     placeholder="0.00" required oninput="updateRealTimeSummary();"
                                     class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                             </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="operador_vuelos"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Operador</label>
+                            <input type="text" id="operador_vuelos" list="operadores-list" placeholder="Ej. Ola Mayorista"
+                                oninput="updateRealTimeSummary(); saveDetailedQuoteFormState();" onblur="handleCapitalizationBlur(this)"
+                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                         </div>
                     </div>
                 </section>
@@ -1099,14 +1122,23 @@
                         <input type="hidden" id="tipo_traslado" value="tradicional">
                     </div>
 
-                    <div class="flex flex-col gap-2 max-w-sm">
-                        <label for="monto_traslados" id="label_monto_traslados"
-                            class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Traslados</label>
-                        <div class="relative flex items-center">
-                            <span class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none currency-label">USD</span>
-                            <input type="number" id="monto_traslados" min="0" step="0.01" value="" placeholder="0.00"
-                                required oninput="updateRealTimeSummary();"
-                                class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
+                        <div class="flex flex-col gap-2">
+                            <label for="monto_traslados" id="label_monto_traslados"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Monto Traslados</label>
+                            <div class="relative flex items-center">
+                                <span class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none currency-label">USD</span>
+                                <input type="number" id="monto_traslados" min="0" step="0.01" value="" placeholder="0.00"
+                                    required oninput="updateRealTimeSummary();"
+                                    class="w-full border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="operador_traslados"
+                                class="text-xs font-bold text-slate-500 uppercase tracking-wider">Operador</label>
+                            <input type="text" id="operador_traslados" list="operadores-list" placeholder="Ej. Civitatis"
+                                oninput="updateRealTimeSummary(); saveDetailedQuoteFormState();" onblur="handleCapitalizationBlur(this)"
+                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white/60">
                         </div>
                     </div>
                 </section>
