@@ -1,201 +1,197 @@
-<div id="inicio-page-container" class="max-w-[95%] mx-auto space-y-10 py-4">
+<div id="inicio-page-container" class="dash max-w-[1400px] mx-auto">
 
-    <!-- ══ HERO ══════════════════════════════════════════════════════════ -->
-    <section class="hero-inicio px-7 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14">
+    <!-- Fondo: paisaje tenue que se funde con la página + vuelo en línea fina.
+         El SVG se ancla arriba (YMin) para que la altura del vuelo no cambie con el ancho. -->
+    <div class="dash-backdrop" aria-hidden="true">
+        <div id="dash-wash-stack" class="absolute inset-0"></div>
 
-        <!-- Paisajes de fondo (se van cruzando con opacidad baja) -->
-        <div id="hero-bg-stack" class="absolute inset-0 z-0"></div>
-        <div class="hero-veil"></div>
-        <div class="hero-grain"></div>
-
-        <!-- Vuelo: estela curva y avión siguiendo el recorrido -->
-        <svg class="hero-flight" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <svg class="dash-flight" viewBox="0 0 1200 440" preserveAspectRatio="xMidYMin slice">
             <defs>
-                <linearGradient id="hero-trail-grad" x1="0" y1="1" x2="1" y2="0">
-                    <stop offset="0%" stop-color="#ff545d" stop-opacity="0.15" />
-                    <stop offset="55%" stop-color="#ff9196" stop-opacity="0.75" />
-                    <stop offset="100%" stop-color="#ffffff" stop-opacity="0.95" />
-                </linearGradient>
-
-                <filter id="hero-plane-glow" x="-80%" y="-80%" width="260%" height="260%">
-                    <feGaussianBlur stdDeviation="5" result="blur" />
-                    <feMerge>
-                        <feMergeNode in="blur" />
-                        <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                </filter>
-
-                <!-- Recorrido: entra abajo a la izquierda y sale arriba a la derecha.
-                     Vive en defs para que no se dibuje solo; lo usan la estela y el avion. -->
-                <path id="hero-route" pathLength="1000"
-                    d="M -80 356 C 180 338, 330 262, 520 232 S 880 194, 1060 112 S 1210 44, 1290 -14" />
+                <!-- Recorrido: despega en la franja libre junto al saludo, se nivela
+                     por encima de los botones y sale por la derecha -->
+                <path id="dash-route" pathLength="1000"
+                    d="M 420 104 C 540 94, 620 72, 740 60 S 970 44, 1085 40 S 1240 36, 1320 34" />
             </defs>
 
-            <!-- Ruta tenue, siempre presente, como en un mapa de vuelos -->
-            <use href="#hero-route" xlink:href="#hero-route" fill="none" stroke="rgba(255,255,255,0.09)"
-                stroke-width="1.5" stroke-linecap="round" stroke-dasharray="5 15" />
+            <use href="#dash-route" xlink:href="#dash-route" class="route" />
 
-            <!-- Estela: tramo luminoso cuyo extremo acompaña al avion -->
-            <use href="#hero-route" xlink:href="#hero-route" fill="none" stroke="url(#hero-trail-grad)"
-                stroke-width="2.5" stroke-linecap="round" stroke-dasharray="165 1000" stroke-dashoffset="165">
-                <animate attributeName="stroke-dashoffset" values="165;-835;-835" keyTimes="0;0.44;1" dur="18s"
+            <!-- Estela: tramo cuyo extremo acompaña al avión -->
+            <use href="#dash-route" xlink:href="#dash-route" class="trail" stroke-dasharray="120 1000"
+                stroke-dashoffset="120">
+                <animate attributeName="stroke-dashoffset" values="120;-880;-880" keyTimes="0;0.5;1" dur="20s"
                     calcMode="spline" keySplines="0.45 0.05 0.3 1;0 0 1 1" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.05;0.44;0.56;1" dur="18s"
+                <animate attributeName="opacity" values="0;0.9;0.9;0;0" keyTimes="0;0.06;0.48;0.58;1" dur="20s"
                     repeatCount="indefinite" />
             </use>
 
-            <!-- Avioncito: sigue la curva y gira con ella -->
-            <g filter="url(#hero-plane-glow)">
-                <animateMotion dur="18s" repeatCount="indefinite" rotate="auto" keyPoints="0;1;1"
-                    keyTimes="0;0.44;1" calcMode="spline" keySplines="0.45 0.05 0.3 1;0 0 1 1">
-                    <mpath href="#hero-route" xlink:href="#hero-route" />
+            <g class="plane">
+                <animateMotion dur="20s" repeatCount="indefinite" rotate="auto" keyPoints="0;1;1"
+                    keyTimes="0;0.5;1" calcMode="spline" keySplines="0.45 0.05 0.3 1;0 0 1 1">
+                    <mpath href="#dash-route" xlink:href="#dash-route" />
                 </animateMotion>
-                <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.04;0.4;0.46;1" dur="18s"
+                <animate attributeName="opacity" values="0;0.85;0.85;0;0" keyTimes="0;0.05;0.46;0.52;1" dur="20s"
                     repeatCount="indefinite" />
-                <!-- El icono apunta hacia arriba: rotado 90 grados mira en el sentido de avance -->
-                <path fill="#ffffff" transform="rotate(90) scale(1.25) translate(-12,-12)"
+                <!-- El ícono apunta hacia arriba: rotado 90° mira en el sentido de avance -->
+                <path transform="rotate(90) scale(0.85) translate(-12,-12)"
                     d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L14 19v-5.5l8 2.5z" />
             </g>
         </svg>
+    </div>
 
-        <!-- Contenido -->
-        <div class="hero-content max-w-3xl">
-            <span
-                class="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/80 bg-white/10 border border-white/15 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                <span class="w-1.5 h-1.5 rounded-full bg-brand-primary"></span>
-                Panel del agente
-            </span>
+    <!-- ══ Encabezado ══════════════════════════════════════════════════ -->
+    <header class="dash-header stagger-in">
+        <div class="min-w-0">
+            <p id="dash-eyebrow" class="dash-eyebrow">&nbsp;</p>
+            <h1 id="welcome-title" class="dash-title">&nbsp;</h1>
+            <p class="dash-sub">Resumen de tu actividad comercial.</p>
+        </div>
 
-            <h1 id="welcome-title"
-                class="mt-5 text-3xl sm:text-4xl lg:text-[2.75rem] font-black text-white font-display tracking-tight leading-[1.1] min-h-[48px] lg:min-h-[58px]">
-                &nbsp;</h1>
+        <div class="dash-actions">
+            <button type="button" class="dash-btn dash-btn-secondary" onclick="window.navigateTo('/hacer-cotizacion')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Cotización completa
+            </button>
+            <button type="button" class="dash-btn dash-btn-primary" onclick="window.navigateTo('/cotizacion-rapida')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5" />
+                </svg>
+                Nueva cotización rápida
+            </button>
+        </div>
+    </header>
 
-            <p class="mt-3 text-sm sm:text-base font-medium text-white/60 max-w-xl leading-relaxed">
-                Armá presupuestos, cerrá ventas y tené todo tu trabajo a mano.
-            </p>
-
-            <!-- Accesos principales -->
-            <div class="mt-8 flex flex-wrap items-center gap-3">
-                <button type="button" onclick="window.navigateTo('/cotizacion-rapida')"
-                    class="hero-cta inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-brand-primary text-white text-xs font-extrabold uppercase tracking-wider shadow-lg shadow-brand-primary/30 hover:bg-[#ff6b73] cursor-pointer">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    Cotización rápida
-                </button>
-
-                <button type="button" onclick="window.navigateTo('/hacer-cotizacion')"
-                    class="hero-cta inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-extrabold uppercase tracking-wider backdrop-blur-sm cursor-pointer">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                    Cotización completa
-                </button>
-            </div>
-
-            <!-- Resumen de actividad (se completa con las cotizaciones del agente) -->
-            <div id="hero-stats" class="mt-9 flex flex-wrap gap-2.5"></div>
+    <!-- ══ Indicadores ═════════════════════════════════════════════════ -->
+    <section id="dash-kpis" class="dash-kpis stagger-in" aria-label="Indicadores del mes">
+        <div class="dash-kpi">
+            <p class="dash-kpi-label">Cotizaciones del mes</p>
+            <p class="dash-kpi-value"><span class="dash-skeleton"></span></p>
+            <p class="dash-kpi-foot">&nbsp;</p>
+        </div>
+        <div class="dash-kpi">
+            <p class="dash-kpi-label">Monto cotizado</p>
+            <p class="dash-kpi-value"><span class="dash-skeleton"></span></p>
+            <p class="dash-kpi-foot">&nbsp;</p>
+        </div>
+        <div class="dash-kpi">
+            <p class="dash-kpi-label">Ticket promedio</p>
+            <p class="dash-kpi-value"><span class="dash-skeleton"></span></p>
+            <p class="dash-kpi-foot">&nbsp;</p>
+        </div>
+        <div class="dash-kpi">
+            <p class="dash-kpi-label">Salidas próximas</p>
+            <p class="dash-kpi-value"><span class="dash-skeleton"></span></p>
+            <p class="dash-kpi-foot">&nbsp;</p>
         </div>
     </section>
 
-    <!-- ══ ACCESOS RÁPIDOS ═══════════════════════════════════════════════ -->
-    <div class="space-y-5">
-        <div class="flex items-center gap-3">
-            <span
-                class="text-[10px] font-black uppercase tracking-widest text-slate-450 bg-slate-100 px-2.5 py-1 rounded-full">Accesos
-                Rápidos</span>
-            <div class="h-[1px] flex-grow bg-slate-100"></div>
+    <!-- ══ Cuerpo ══════════════════════════════════════════════════════ -->
+    <div class="dash-main">
+
+        <div class="dash-primary min-w-0">
+            <!-- Actividad diaria -->
+            <section class="dash-section">
+                <div class="dash-section-head">
+                    <h2 class="dash-section-title">Cotizaciones por día<span id="dash-chart-meta"
+                            class="dash-section-meta">Últimos 30 días</span></h2>
+                </div>
+                <div id="dash-chart" class="dash-chart" role="img" aria-label="Cotizaciones por día, últimos 30 días">
+                </div>
+            </section>
+
+            <!-- Actividad reciente -->
+            <section class="dash-section">
+                <div class="dash-section-head">
+                    <h2 class="dash-section-title">Actividad reciente</h2>
+                    <a class="dash-link" tabindex="0" onclick="window.navigateTo('/editar')"
+                        onkeydown="if(event.key==='Enter')window.navigateTo('/editar')">
+                        Ver archivo
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </a>
+                </div>
+                <div id="dash-activity">
+                    <p class="dash-empty">Cargando actividad…</p>
+                </div>
+            </section>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-in">
-            <!-- Cotización Rápida -->
-            <div onclick="window.navigateTo('/cotizacion-rapida')"
-                class="inicio-card group cursor-pointer bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:border-slate-300 flex flex-col gap-3 min-w-0">
-                <div
-                    class="w-11 h-11 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0 shadow-sm shadow-brand-primary/5">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
+        <aside class="dash-aside min-w-0">
+            <!-- Próximas salidas -->
+            <section class="dash-section">
+                <div class="dash-section-head">
+                    <h2 class="dash-section-title">Próximas salidas</h2>
+                    <span class="dash-section-meta">30 días</span>
                 </div>
-                <div class="min-w-0">
-                    <span
-                        class="block text-sm font-extrabold text-slate-800 group-hover:text-brand-primary transition-colors duration-200 truncate">Cotización
-                        Rápida</span>
-                    <span class="block text-[11px] font-semibold text-slate-400 mt-0.5 truncate">Precio al
-                        instante</span>
+                <div id="dash-departures" class="dash-list">
+                    <p class="dash-empty">Cargando…</p>
                 </div>
-            </div>
+            </section>
 
-            <!-- Cotización Completa -->
-            <div onclick="window.navigateTo('/hacer-cotizacion')"
-                class="inicio-card group cursor-pointer bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:border-slate-300 flex flex-col gap-3 min-w-0">
-                <div
-                    class="w-11 h-11 bg-brand-accent/10 rounded-xl flex items-center justify-center text-brand-accent shrink-0 shadow-sm shadow-brand-accent/5">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
+            <!-- Destinos más cotizados -->
+            <section class="dash-section">
+                <div class="dash-section-head">
+                    <h2 class="dash-section-title">Destinos más cotizados</h2>
                 </div>
-                <div class="min-w-0">
-                    <span
-                        class="block text-sm font-extrabold text-slate-800 group-hover:text-brand-accent transition-colors duration-200 truncate">Cotización
-                        Completa</span>
-                    <span class="block text-[11px] font-semibold text-slate-400 mt-0.5 truncate">Con PDF e
-                        itinerario</span>
+                <div id="dash-destinations" class="dash-list">
+                    <p class="dash-empty">Cargando…</p>
                 </div>
-            </div>
+            </section>
 
-            <!-- Archivos -->
-            <div onclick="window.navigateTo('/editar')"
-                class="inicio-card group cursor-pointer bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:border-slate-300 flex flex-col gap-3 min-w-0">
-                <div
-                    class="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500 shrink-0 shadow-sm shadow-blue-500/5">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                    </svg>
+            <!-- Accesos -->
+            <section class="dash-section">
+                <div class="dash-section-head">
+                    <h2 class="dash-section-title">Accesos</h2>
                 </div>
-                <div class="min-w-0">
-                    <span
-                        class="block text-sm font-extrabold text-slate-800 group-hover:text-blue-500 transition-colors duration-200 truncate">Archivos</span>
-                    <span class="block text-[11px] font-semibold text-slate-400 mt-0.5 truncate">Cotizaciones
-                        guardadas</span>
+                <div class="dash-list" role="navigation" aria-label="Accesos">
+                    <div class="dash-nav-item" tabindex="0" onclick="window.navigateTo('/editar')"
+                        onkeydown="if(event.key==='Enter')window.navigateTo('/editar')">
+                        <svg class="dash-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        </svg>
+                        <span class="dash-list-main">
+                            <span class="dash-list-title">Archivo de cotizaciones</span>
+                            <span class="dash-list-sub">Buscar, editar y descargar</span>
+                        </span>
+                        <svg class="dash-nav-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </div>
+                    <div class="dash-nav-item" tabindex="0" onclick="window.navigateTo('/paquetes')"
+                        onkeydown="if(event.key==='Enter')window.navigateTo('/paquetes')">
+                        <svg class="dash-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                        </svg>
+                        <span class="dash-list-main">
+                            <span class="dash-list-title">Paquetes promocionales</span>
+                            <span class="dash-list-sub">Flyers para redes sociales</span>
+                        </span>
+                        <svg class="dash-nav-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </div>
+                    <div class="dash-nav-item" tabindex="0" onclick="window.navigateTo('/configuracion')"
+                        onkeydown="if(event.key==='Enter')window.navigateTo('/configuracion')">
+                        <svg class="dash-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span class="dash-list-main">
+                            <span class="dash-list-title">Configuración</span>
+                            <span class="dash-list-sub">Hoteles, aerolíneas y agencia</span>
+                        </span>
+                        <svg class="dash-nav-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </div>
                 </div>
-            </div>
-
-            <!-- Paquetes Promocionales -->
-            <div onclick="window.navigateTo('/paquetes')"
-                class="inicio-card group cursor-pointer bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:border-slate-300 flex flex-col gap-3 min-w-0">
-                <div
-                    class="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500 shrink-0 shadow-sm shadow-emerald-500/5">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                    </svg>
-                </div>
-                <div class="min-w-0">
-                    <span
-                        class="block text-sm font-extrabold text-slate-800 group-hover:text-emerald-500 transition-colors duration-200 truncate">Paquetes
-                        Promo</span>
-                    <span class="block text-[11px] font-semibold text-slate-400 mt-0.5 truncate">Flyers para
-                        redes</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ══ ÚLTIMAS COTIZACIONES ══════════════════════════════════════════ -->
-    <div id="inicio-recent-section" class="space-y-5">
-        <div class="flex items-center gap-3">
-            <span
-                class="text-[10px] font-black uppercase tracking-widest text-brand-primary bg-rose-50 px-2.5 py-1 rounded-full">Últimas
-                Cotizaciones</span>
-            <div class="h-[1px] flex-grow bg-slate-100"></div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 stagger-in" id="recent-quotes-container">
-            <!-- Tarjetas generadas dinámicamente -->
-        </div>
+            </section>
+        </aside>
     </div>
 </div>
