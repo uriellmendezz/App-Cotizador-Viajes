@@ -1,16 +1,23 @@
+import os
 import re
 from fastapi import APIRouter, Depends, HTTPException
 from app.routers.auth import get_current_active_agent
 from app.database import (
-    TABLE_HOTELES, TABLE_PAQUETES,
+    TABLE_HOTELES, TABLE_PAQUETES, TABLE_AEROLINEAS,
     list_rows, get_row_by_id, save_row, delete_row
 )
 
 router = APIRouter(prefix="/api", tags=["catalogo"])
 
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
 MAX_FOTOS_HOTEL = 6
 MAX_DESCRIPCION_HOTEL = 200
 DATA_IMAGE_RE = re.compile(r"^data:image/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$")
+
+# Logos incluidos en el repositorio, que el agente puede elegir en vez de subir uno
+LOGOS_DIR = os.path.join(BASE_DIR, "assets", "logos_aerolineas")
+LOGO_PATH_RE = re.compile(r"^/assets/logos_aerolineas/[A-Za-z0-9_.-]+$")
 
 def _is_data_image(value) -> bool:
     return isinstance(value, str) and bool(DATA_IMAGE_RE.match(value))
@@ -210,3 +217,79 @@ def api_duplicate_paquete(paquete_id: str, current_user: dict = Depends(get_curr
     if not saved:
         raise HTTPException(status_code=500, detail="No se pudo duplicar el paquete.")
     return saved
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# AEROLÍNEAS (Configuración > Catálogo de Aerolíneas)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _is_logo(value) -> bool:
+    """Accepts an uploaded data URL or a path to one of the bundled logos."""
+    if not isinstance(value, str) or not value:
+        return False
+    return bool(DATA_IMAGE_RE.match(value) or LOGO_PATH_RE.match(value))
+
+def _normalize_aerolinea(payload: dict) -> dict:
+    nombre = str(payload.get("nombre") or "").strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="El nombre de la aerolínea es obligatorio.")
+    logo = payload.get("logo") or ""
+    return {
+        "nombre": nombre,
+        "codigo": str(payload.get("codigo") or "").strip()[:4].upper(),
+        "logo": logo if _is_logo(logo) else "",
+    }
+
+@router.get("/aerolineas/logos-sugeridos")
+def api_logos_sugeridos(current_user: dict = Depends(get_current_active_agent)):
+    """Logos de aerolíneas incluidos en el proyecto (assets/logos_aerolineas)."""
+    _require_agent(current_user)
+    if not os.path.isdir(LOGOS_DIR):
+        return []
+    sugeridos = []
+    for archivo in sorted(os.listdir(LOGOS_DIR)):
+        if not archivo.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")):
+            continue
+        base = os.path.splitext(archivo)[0]
+        sugeridos.append({
+            "nombre": base.replace("_", " ").replace("-", " ").title(),
+            "ruta": f"/assets/logos_aerolineas/{archivo}",
+        })
+    return sugeridos
+
+@router.get("/aerolineas")
+def api_list_aerolineas(current_user: dict = Depends(get_current_active_agent)):
+    _require_agent(current_user)
+    return list_rows(TABLE_AEROLINEAS, current_user.get("sucursal_id"), current_user.get("id"))
+
+@router.get("/aerolineas/{aerolinea_id}")
+def api_get_aerolinea(aerolinea_id: str, current_user: dict = Depends(get_current_active_agent)):
+    _require_agent(current_user)
+    return _get_scoped_row(TABLE_AEROLINEAS, aerolinea_id, current_user, "aerolínea")
+
+@router.post("/aerolineas")
+def api_create_aerolinea(payload: dict, current_user: dict = Depends(get_current_active_agent)):
+    _require_agent(current_user)
+    data = _normalize_aerolinea(payload)
+    data.update(_ownership_fields(current_user))
+    saved = save_row(TABLE_AEROLINEAS, data)
+    if not saved:
+        raise HTTPException(status_code=500, detail="No se pudo guardar la aerolínea. Verifique que la tabla 'aerolineas_catalogo' exista en la base de datos.")
+    return saved
+
+@router.put("/aerolineas/{aerolinea_id}")
+def api_update_aerolinea(aerolinea_id: str, payload: dict, current_user: dict = Depends(get_current_active_agent)):
+    _require_agent(current_user)
+    existing = _get_scoped_row(TABLE_AEROLINEAS, aerolinea_id, current_user, "aerolínea")
+    saved = save_row(TABLE_AEROLINEAS, _normalize_aerolinea(payload), existing["id"])
+    if not saved:
+        raise HTTPException(status_code=500, detail="No se pudo actualizar la aerolínea.")
+    return saved
+
+@router.delete("/aerolineas/{aerolinea_id}")
+def api_delete_aerolinea(aerolinea_id: str, current_user: dict = Depends(get_current_active_agent)):
+    _require_agent(current_user)
+    existing = _get_scoped_row(TABLE_AEROLINEAS, aerolinea_id, current_user, "aerolínea")
+    if not delete_row(TABLE_AEROLINEAS, existing["id"]):
+        raise HTTPException(status_code=500, detail="No se pudo eliminar la aerolínea.")
+    return {"status": "success", "message": "Aerolínea eliminada con éxito."}

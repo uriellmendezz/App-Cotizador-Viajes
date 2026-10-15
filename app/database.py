@@ -357,6 +357,7 @@ def delete_cotizacion_rapida(quote_id) -> bool:
 
 TABLE_HOTELES = "hoteles_catalogo"
 TABLE_PAQUETES = "paquetes_promocionales"
+TABLE_AEROLINEAS = "aerolineas_catalogo"
 
 def _scope_query(query, sucursal_id: str = None, agente_id: str = None):
     """Restricts a query to the branch, or to the agent when it has no branch assigned."""

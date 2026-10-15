@@ -146,10 +146,21 @@ Dado que el backend procesa el costo del hotel calculando el total acumulado y r
 - **Alta y edición de hoteles** por sucursal: nombre, destino, calificación (1 a 5 estrellas), régimen y habitación habituales, descripción (máx. 200 caracteres, mismo límite que el PDF) y hasta 6 fotos (la primera es la portada; se pueden subir, arrastrar o pegar con Ctrl+V y se comprimen a JPEG).
 - **Selector "Mis Hoteles"**: cada tarjeta de hotel de la Cotización PDF (estándar y multidestino) tiene un botón que abre el catálogo y completa nombre, categoría, régimen, habitación, descripción e imagen. Si el hotel tiene varias fotos, el agente elige cuál usar. Lógica compartida en `static/js/hotel_catalog.js`.
 
+### G.1. Sección Configuración (`/configuracion`)
+Es un panel con opciones, no una única pantalla. El menú muestra una tarjeta por cada herramienta (con el conteo de registros) y al elegir una se abre su panel con un botón para volver:
+1. **Catálogo de Hoteles** (ver G).
+2. **Catálogo de Aerolíneas** (ver G.3).
+3. **Exportar Cotizaciones** (ver G.2).
+
 ### G.2. Exportación de Cotizaciones a CSV (Configuración)
 - Botón **Descargar CSV** en `/configuracion`: exporta todas las cotizaciones detalladas de la sucursal con una fila por cotización (datos del pasaje, montos, operadores y hasta N columnas de hotel según el máximo encontrado).
 - Formato pensado para Excel en español: separador `;`, decimales con coma, fechas `DD/MM/AAAA` y BOM UTF-8 para los acentos.
 - **No incluye las fotos**: la columna `hoteles` guarda imágenes en base64 y la tabla pesa cientos de MB, por lo que la extracción se hace en el servidor con la función `exportar_cotizaciones` (ver `scripts/005_exportar_cotizaciones.sql`). Sin ella, un `select *` supera el timeout.
+
+### G.3. Catálogo de Aerolíneas (Configuración)
+- Cada aerolínea guarda nombre, código opcional (ej. `AR`) y logo.
+- El logo se sube como imagen o se elige entre los incluidos en `assets/logos_aerolineas`, que el backend lista en `GET /api/aerolineas/logos-sugeridos`. Al elegir uno incluido se autocompleta el nombre si está vacío.
+- **Uso en Cotizaciones Rápidas**: cada fila de tipo *Vuelo* muestra un chip para elegir la aerolínea; una vez elegida se ve su logo junto al nombre. El dato se guarda en la fila (`aerolinea` y `aerolinea_logo`) y viaja dentro del arreglo `vuelos` de la cotización rápida, por lo que no requiere columnas nuevas.
 
 ### I. Operador por Servicio (Cotización Completa)
 - Cada servicio cotizado registra con qué **operador mayorista** se consiguió: vuelos, traslados y cada alojamiento por separado.
@@ -200,9 +211,13 @@ Devuelve un CSV con todas las cotizaciones detalladas de la sucursal (sin imáge
 ### 11. `GET /api/operadores`
 Lista los operadores ya usados en la sucursal (columnas `operador_vuelos` y `operador_traslados`) para el autocompletado del formulario.
 
+### 12. `/api/aerolineas` (GET / POST / PUT / DELETE) y `GET /api/aerolineas/logos-sugeridos`
+CRUD del catálogo de aerolíneas en la tabla `aerolineas_catalogo`, aislado por `sucursal_id`. El endpoint de logos sugeridos lista los archivos de `assets/logos_aerolineas`.
+
 > Las tablas de hoteles y paquetes se crean con `scripts/003_hoteles_paquetes.sql`;
 > las columnas de operador con `scripts/004_operadores.sql`;
-> la función de exportación con `scripts/005_exportar_cotizaciones.sql`.
+> la función de exportación con `scripts/005_exportar_cotizaciones.sql`;
+> la tabla de aerolíneas con `scripts/006_aerolineas.sql`.
 
 ---
 
