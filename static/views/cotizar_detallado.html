@@ -23,14 +23,14 @@
         <!-- Segmented Control Accesible -->
         <div class="flex items-center gap-2">
             <div role="radiogroup" aria-label="Modalidad de Cotización" id="segmented-quote-mode"
-                class="relative bg-slate-100 p-1 rounded-2xl flex items-center border border-slate-200 shadow-inner select-none w-full sm:w-80">
+                class="relative bg-slate-100 p-1 rounded-2xl flex items-center border border-slate-200 shadow-inner select-none w-full sm:w-[27rem]">
                 <!-- Pill animada -->
                 <div id="mode-pill-indicator"
-                    class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-white rounded-xl shadow-sm transition-transform duration-300 ease-out pointer-events-none border border-slate-200/50">
+                    class="absolute top-1 bottom-1 left-1 w-[calc(33.333%-3px)] bg-white rounded-xl shadow-sm transition-transform duration-300 ease-out pointer-events-none border border-slate-200/50">
                 </div>
 
                 <button type="button" role="radio" aria-checked="true" id="btn-mode-standard" onclick="switchQuoteMode('standard')"
-                    class="relative z-10 w-1/2 py-2 text-xs font-bold transition-colors duration-200 text-center text-brand-primary flex items-center justify-center gap-1.5 focus:outline-none rounded-xl cursor-pointer">
+                    class="relative z-10 w-1/3 py-2 text-xs font-bold transition-colors duration-200 text-center text-brand-primary flex items-center justify-center gap-1.5 focus:outline-none rounded-xl cursor-pointer">
                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                     </svg>
@@ -38,11 +38,19 @@
                 </button>
 
                 <button type="button" role="radio" aria-checked="false" id="btn-mode-multidestino" onclick="switchQuoteMode('multidestino')"
-                    class="relative z-10 w-1/2 py-2 text-xs font-bold transition-colors duration-200 text-center text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1.5 focus:outline-none rounded-xl cursor-pointer">
+                    class="relative z-10 w-1/3 py-2 text-xs font-bold transition-colors duration-200 text-center text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1.5 focus:outline-none rounded-xl cursor-pointer">
                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A2 2 0 013 15.485V5.122a2 2 0 011.03-1.755L9 1.5m0 18.5V1.5m0 18.5l6-3m0-14V16.5m0 0l5.447 2.724A2 2 0 0021 17.485V7.122a2 2 0 00-1.03-1.755L15 1.5m-6 3.5l6-3" />
                     </svg>
                     Multidestino
+                </button>
+
+                <button type="button" role="radio" aria-checked="false" id="btn-mode-vuelos" onclick="switchQuoteMode('vuelos')"
+                    class="relative z-10 w-1/3 py-2 text-xs font-bold transition-colors duration-200 text-center text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1.5 focus:outline-none rounded-xl cursor-pointer">
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.5 19h-11a2 2 0 01-2-2v-1h15v1a2 2 0 01-2 2zM2 12l4-6h3l-1.5 6M22 12H2m20 0l-3.2-4.8A2 2 0 0017.2 6h-2.4l1.6 6" />
+                    </svg>
+                    Solo Vuelos
                 </button>
             </div>
         </div>
@@ -438,7 +446,7 @@
                 </section>
 
                 <!-- Section 3: Opciones de Alojamiento -->
-                <section
+                <section id="section-alojamiento"
                     class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
                         <div class="flex items-center gap-3">
@@ -457,7 +465,7 @@
                 </section>
 
                 <!-- Section 4: Traslados -->
-                <section
+                <section id="section-traslados"
                     class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
                     <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                         <span
@@ -536,7 +544,7 @@
                 </section>
 
                 <!-- Section 5: Gtos Administrativos (Solo lectura) -->
-                <section class="bg-slate-100/80 border border-slate-200/60 rounded-xl p-4 text-slate-500">
+                <section id="section-gastos-admin" class="bg-slate-100/80 border border-slate-200/60 rounded-xl p-4 text-slate-500">
                     <h3
                         class="font-display font-bold text-xs text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"

@@ -321,8 +321,17 @@ def generate_pdf(data: dict) -> bytes:
     if not moneda:
         moneda = "USD"
 
+    # Detect if this is an air-only quotation (no hotels, no transfers)
+    is_solo_vuelos = (
+        str(data.get("tipo_cotizacion", "")).strip().lower() == "solo_vuelos"
+        or any(
+            isinstance(h, dict) and str(h.get("tipo_cotizacion", "")).strip().lower() == "solo_vuelos"
+            for h in hoteles_raw
+        )
+    )
+
     # Detect if this is a multi-destination quotation
-    is_multidestino = (
+    is_multidestino = not is_solo_vuelos and (
         str(data.get("tipo_cotizacion", "")).strip().lower() == "multidestino"
         or any(
             isinstance(h, dict) and str(h.get("tipo_cotizacion", "")).strip().lower() == "multidestino"
@@ -331,7 +340,7 @@ def generate_pdf(data: dict) -> bytes:
     )
 
     # ── Process hotel data ─────────────────────────────────────────────────
-    hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
+    hoteles = [] if is_solo_vuelos else [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     processed_hotels = []
     primary_hotel_noches = None
     hotel_limit = 5 if is_multidestino else 3
@@ -465,6 +474,21 @@ def generate_pdf(data: dict) -> bytes:
         costo_total_general = tot_calc
         precio_persona_general = pp_calc
 
+    if is_solo_vuelos:
+        # Air-only quote: the grand total card shows just flights + air fee
+        if costo_total_general == 0.0 or precio_persona_general == 0.0:
+            import math
+            m_vuelos = float(data.get("monto_vuelos", 0.0))
+            m_fee = float(data.get("fee_aereo", 0.0))
+            cant_p = int(data.get("cantidad_pasajeros", 1) or 1)
+            tot_calc = m_vuelos + m_fee + float(data.get("gastos_iva", 0.0))
+            pp_calc = tot_calc / cant_p if cant_p > 0 else tot_calc
+            if data.get("redondear", True):
+                pp_calc = math.ceil(pp_calc / 10.0) * 10
+                tot_calc = pp_calc * cant_p
+            costo_total_general = tot_calc
+            precio_persona_general = pp_calc
+
     context = {
         # Fonts
         **font_uris,
@@ -486,8 +510,9 @@ def generate_pdf(data: dict) -> bytes:
         "noches_alojamiento": noches_alojamiento_final,
         "tipo_traslado": data.get("tipo_traslado", "tradicional"),
         "cantidad_dias_viaje": cantidad_dias_viaje,
-        # Multidestino flag and unified pricing
+        # Multidestino / solo vuelos flags and unified pricing
         "is_multidestino": is_multidestino,
+        "is_solo_vuelos": is_solo_vuelos,
         "costo_total_general": costo_total_general,
         "precio_persona_general": precio_persona_general,
         # SVGs for dynamic inlining and styling

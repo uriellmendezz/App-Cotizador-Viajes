@@ -459,6 +459,7 @@ const routeNames = {
     '/hacer-cotizacion': 'Nueva Cotización',
     '/cotizacion-completa': 'Cotización PDF',
     '/cotizacion-multidestino': 'Cotización PDF',
+    '/cotizacion-vuelos': 'Cotización PDF',
     '/editar': 'Archivos',
     '/paquetes': 'Paquetes Promocionales',
     '/configuracion': 'Configuración',
@@ -523,6 +524,9 @@ function confirmLogout() {
 }
 window.confirmLogout = confirmLogout;
 
+// Duración de la salida de vista. Debe coincidir con --view-leave-ms en styles.css
+const VIEW_LEAVE_MS = 120;
+
 const routes = {
     '/login': { html: '/static/views/login.html', js: '/static/js/login.js', init: 'initLogin' },
     '/inicio': { html: '/static/views/inicio.html', js: '/static/js/inicio.js', init: 'initInicio' },
@@ -531,6 +535,7 @@ const routes = {
     '/hacer-cotizacion': { html: '/static/views/opciones_cotizacion.html', js: '/static/js/inicio.js', init: 'initOpciones' },
     '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/cotizacion-multidestino': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
+    '/cotizacion-vuelos': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
     '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
     '/paquetes': { html: '/static/views/paquetes.html', js: '/static/js/paquetes.js', init: 'initPaquetes' },
@@ -817,15 +822,16 @@ async function router() {
     const appEl = document.getElementById('app');
     if (appEl) {
         try {
-            // Start exit transition
-            appEl.classList.remove('opacity-100');
-            appEl.classList.add('opacity-0');
+            // Salida: se va hacia arriba apenas, corta y acelerada
+            appEl.classList.remove('view-enter-active');
+            void appEl.offsetHeight;
+            appEl.classList.add('view-leave');
 
             // Fetch content concurrently
             const fetchPromise = fetch(route.html + '?v=' + Date.now());
 
-            // Wait for exit transition to complete (150ms)
-            await new Promise(resolve => setTimeout(resolve, 150));
+            // Se espera exactamente lo que dura la salida (ver --view-leave-ms)
+            await new Promise(resolve => setTimeout(resolve, VIEW_LEAVE_MS));
 
             const response = await fetchPromise;
             if (!response.ok) throw new Error(`Failed to load view ${route.html}`);
@@ -834,12 +840,16 @@ async function router() {
             // Inject new HTML content
             appEl.innerHTML = html;
 
-            // Force browser reflow to register new element states
-            appEl.offsetHeight;
+            // La vista nueva entra siempre desde arriba de todo
+            window.scrollTo(0, 0);
 
-            // Start entry transition
-            appEl.classList.remove('opacity-0');
-            appEl.classList.add('opacity-100');
+            appEl.classList.remove('view-leave', 'view-enter-active');
+            void appEl.offsetHeight;
+            appEl.classList.add('view-enter-active');
+            appEl.addEventListener('animationend', function onDone() {
+                appEl.removeEventListener('animationend', onDone);
+                appEl.classList.remove('view-enter-active');
+            });
 
             // Update document title dynamically based on section
             if (path !== '/ver-cotizacion') {
@@ -868,15 +878,18 @@ async function router() {
         } catch (err) {
             console.error("SPA Routing error:", err);
             appEl.innerHTML = `<div class="p-8 text-center text-rose-500 font-bold">Error al cargar la página: ${err.message}</div>`;
-            appEl.classList.remove('opacity-0');
-            appEl.classList.add('opacity-100');
+            appEl.classList.remove('view-leave');
+            void appEl.offsetHeight;
+            appEl.classList.add('view-enter-active');
+            appEl.addEventListener('animationend', function onDone() {
+                appEl.removeEventListener('animationend', onDone);
+                appEl.classList.remove('view-enter-active');
+            });
         }
 
         // Update dynamic back button after content loads
         updateBackButton();
 
-        // Re-synchronize theme state across view elements
-        initTheme();
     }
 }
 window.router = router;
@@ -890,7 +903,7 @@ function updateNavActiveState(path) {
     let btnId = '';
     if (path === '/inicio' || path === '/') btnId = 'sidebar-btn-inicio';
     else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
-    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino') btnId = 'sidebar-btn-full-quote';
+    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino' || path === '/cotizacion-vuelos') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
     else if (path === '/paquetes') btnId = 'sidebar-btn-paquetes';
     else if (path === '/configuracion') btnId = 'sidebar-btn-configuracion';
@@ -1004,67 +1017,10 @@ function updateHeaderDateTime() {
 }
 window.updateHeaderDateTime = updateHeaderDateTime;
 
-// ══════════════════════════════════════════════════════════════════
-// THEME MANAGEMENT (Dark / Light Mode)
-// ══════════════════════════════════════════════════════════════════
-function applyTheme(theme) {
-    const isDark = theme === 'dark';
-    const htmlEl = document.documentElement;
-
-    if (isDark) {
-        htmlEl.classList.add('dark');
-        try { localStorage.setItem('ot_theme', 'dark'); } catch (e) {}
-    } else {
-        htmlEl.classList.remove('dark');
-        try { localStorage.setItem('ot_theme', 'light'); } catch (e) {}
-    }
-
-    // Sync all switch buttons present in the DOM
-    const switchButtons = document.querySelectorAll('.theme-switch-btn');
-    switchButtons.forEach(btn => {
-        btn.setAttribute('aria-checked', isDark ? 'true' : 'false');
-        btn.setAttribute('title', isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
-
-        const thumb = btn.querySelector('.theme-toggle-thumb') || btn.querySelector('#theme-toggle-thumb');
-        if (thumb) {
-            if (isDark) {
-                thumb.classList.remove('translate-x-0');
-                thumb.classList.add('translate-x-7');
-            } else {
-                thumb.classList.remove('translate-x-7');
-                thumb.classList.add('translate-x-0');
-            }
-        }
-    });
-}
-window.applyTheme = applyTheme;
-
-function initTheme() {
-    let savedTheme = 'light';
-    try {
-        savedTheme = localStorage.getItem('ot_theme') || 'light';
-    } catch (e) {}
-    applyTheme(savedTheme);
-}
-window.initTheme = initTheme;
-
-function toggleTheme() {
-    const htmlEl = document.documentElement;
-    // Add smooth transition class for fine, subtle animated fade
-    htmlEl.classList.add('theme-transitioning');
-
-    const isCurrentDark = htmlEl.classList.contains('dark');
-    applyTheme(isCurrentDark ? 'light' : 'dark');
-
-    setTimeout(() => {
-        htmlEl.classList.remove('theme-transitioning');
-    }, 500);
-}
-window.toggleTheme = toggleTheme;
-
-// Initialize application routing & theme
+// Initialize application routing
 document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
+    document.documentElement.classList.remove('dark');
+    try { localStorage.removeItem('ot_theme'); } catch (e) {}
     router();
     updateHeaderDateTime();
     setInterval(updateHeaderDateTime, 1000);
@@ -1074,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('keydown', async (e) => {
     if (e.ctrlKey && e.altKey && (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9')) {
         const path = window.location.pathname;
-        if (path === '/cotizacion-completa' && typeof window.fillTestData === 'function') {
+        if ((path === '/cotizacion-completa' || path === '/cotizacion-vuelos') && typeof window.fillTestData === 'function') {
             e.preventDefault();
             await window.fillTestData();
         } else if (path === '/cotizacion-rapida' && typeof window.fillQuickTestData === 'function') {

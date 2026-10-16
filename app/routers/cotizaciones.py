@@ -195,6 +195,43 @@ def is_multidestino_quote(data: dict) -> bool:
                     return True
     return False
 
+def is_solo_vuelos_quote(data: dict) -> bool:
+    """
+    Checks if a quote only covers air services ('solo_vuelos'): neither
+    accommodation nor transfers are taken into account.
+    """
+    if not isinstance(data, dict):
+        return False
+    if str(data.get("tipo_cotizacion", "")).strip().lower() == "solo_vuelos":
+        return True
+    hoteles_raw = data.get("hoteles", [])
+    if isinstance(hoteles_raw, list):
+        for h in hoteles_raw:
+            if isinstance(h, dict) and str(h.get("tipo_cotizacion", "")).strip().lower() == "solo_vuelos":
+                return True
+    return False
+
+
+def quote_type_label(data: dict) -> str:
+    """Modality label exposed to the frontend: multidestino / solo_vuelos / estandar."""
+    if is_multidestino_quote(data):
+        return "multidestino"
+    if is_solo_vuelos_quote(data):
+        return "solo_vuelos"
+    return "estandar"
+
+
+def _solo_vuelos_totals(monto_vuelos: float, fee_aereo: float, gastos_iva: float,
+                        cant_pax: int, redondear: bool) -> tuple:
+    """Total and per-person price of an air-only quote (no hotels, no transfers)."""
+    costo_total = monto_vuelos + fee_aereo + gastos_iva
+    precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
+    if redondear:
+        rounded_pp = math.ceil(precio_persona / 10.0) * 10
+        return rounded_pp * cant_pax, rounded_pp
+    return round(costo_total, 2), round(precio_persona, 2)
+
+
 def _calculate_noches_and_format_hotels(quote: dict) -> str:
     hoteles_list = quote.get("hoteles", [])
     primary_hotel_noches = None
@@ -774,16 +811,28 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
     quote["moneda"] = moneda
     
     hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
-    if not hoteles:
+
+    is_solo_vuelos = is_solo_vuelos_quote(quote)
+    if is_solo_vuelos:
+        # Solo servicios aéreos: alojamientos y traslados quedan fuera del cálculo
+        quote["tipo_cotizacion"] = "solo_vuelos"
+        hoteles = []
+        monto_traslados = 0.0
+        quote["monto_traslados"] = 0.0
+    elif not hoteles:
         raise HTTPException(status_code=400, detail="Se requiere al menos una opción de hotel.")
-        
+
     redondear = extract_redondear(quote)
     quote["redondear"] = redondear
-    is_multidestino = is_multidestino_quote(quote)
+    is_multidestino = False if is_solo_vuelos else is_multidestino_quote(quote)
     if is_multidestino:
         quote["tipo_cotizacion"] = "multidestino"
-    
-    if is_multidestino:
+
+    if is_solo_vuelos:
+        quote["costo_total"], quote["precio_persona"] = _solo_vuelos_totals(
+            monto_vuelos, fee_aereo, gastos_iva, cant_pax, redondear
+        )
+    elif is_multidestino:
         # AND operator: Sum all hotel stops for a single unified itinerary cost
         suma_costo_hoteles = sum(
             safe_float(h.get("costo_neto")) if "costo_neto" in h else safe_float(h.get("costo", 0.0))
@@ -839,7 +888,9 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
             h["redondear"] = redondear
             if is_multidestino:
                 h["tipo_cotizacion"] = "multidestino"
-    
+            elif is_solo_vuelos:
+                h["tipo_cotizacion"] = "solo_vuelos"
+
     base_habitacion = "Single"
     if cant_pax == 2: base_habitacion = "Doble"
     elif cant_pax == 3: base_habitacion = "Triple"
@@ -1002,7 +1053,8 @@ def api_exportar_cotizaciones_csv(current_user: dict = Depends(get_current_activ
             q.get("destino") or "",
             q.get("origen") or "",
             q.get("cantidad_pasajeros") or "",
-            "Multidestino" if len(hoteles) > 1 and all(h.get("destino") for h in hoteles) else "Estándar",
+            "Solo vuelos" if is_solo_vuelos_quote(q)
+            else ("Multidestino" if len(hoteles) > 1 and all(h.get("destino") for h in hoteles) else "Estándar"),
             extract_currency(q.get("hoteles") or []),
             _csv_date(q.get("fecha_salida")),
             _csv_date(q.get("fecha_vuelo_ida")),
@@ -1060,7 +1112,7 @@ def api_get_cotizaciones(current_user: dict = Depends(get_current_active_agent))
     for q in quotes:
         if isinstance(q, dict):
             q["redondear"] = extract_redondear(q)
-            q["tipo_cotizacion"] = "multidestino" if is_multidestino_quote(q) else "estandar"
+            q["tipo_cotizacion"] = quote_type_label(q)
             q["moneda"] = extract_currency(q.get("hoteles", []))
     return quotes
 
@@ -1085,7 +1137,7 @@ def api_get_cotizacion(quote_id: str, current_user: dict = Depends(get_current_a
     resolved = resolve_agent_names([quote], current_user)
     quote_res = resolved[0]
     quote_res["redondear"] = extract_redondear(quote_res)
-    quote_res["tipo_cotizacion"] = "multidestino" if is_multidestino_quote(quote_res) else "estandar"
+    quote_res["tipo_cotizacion"] = quote_type_label(quote_res)
     quote_res["moneda"] = extract_currency(quote_res.get("hoteles", []))
     quote_res["fee_aereo"] = safe_float(quote_res.get("fee_aereo", 0.0))
     quote_res["monto_vuelos"] = safe_float(quote_res.get("monto_vuelos", 0.0))
@@ -1129,13 +1181,26 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
     payload["moneda"] = moneda
     
     hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
+
+    is_solo_vuelos = is_solo_vuelos_quote(payload)
+    if is_solo_vuelos:
+        # Solo servicios aéreos: alojamientos y traslados quedan fuera del cálculo
+        payload["tipo_cotizacion"] = "solo_vuelos"
+        hoteles = []
+        monto_traslados = 0.0
+        payload["monto_traslados"] = 0.0
+
     redondear = extract_redondear(payload)
     payload["redondear"] = redondear
-    is_multidestino = is_multidestino_quote(payload)
+    is_multidestino = False if is_solo_vuelos else is_multidestino_quote(payload)
     if is_multidestino:
         payload["tipo_cotizacion"] = "multidestino"
-    
-    if is_multidestino:
+
+    if is_solo_vuelos:
+        payload["costo_total"], payload["precio_persona"] = _solo_vuelos_totals(
+            monto_vuelos, fee_aereo, gastos_iva, cant_pax, redondear
+        )
+    elif is_multidestino:
         # AND operator: Sum all hotel stops for a single unified itinerary cost
         suma_costo_hoteles = sum(
             safe_float(h.get("costo_neto")) if "costo_neto" in h else safe_float(h.get("costo", 0.0))
@@ -1193,6 +1258,8 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
             h["redondear"] = redondear
             if is_multidestino:
                 h["tipo_cotizacion"] = "multidestino"
+            elif is_solo_vuelos:
+                h["tipo_cotizacion"] = "solo_vuelos"
             meta_found = True
             break
     if not meta_found:
@@ -1203,6 +1270,8 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
         }
         if is_multidestino:
             meta_dict["tipo_cotizacion"] = "multidestino"
+        elif is_solo_vuelos:
+            meta_dict["tipo_cotizacion"] = "solo_vuelos"
         hoteles_raw.append(meta_dict)
         
     base_habitacion = "Single"
@@ -1291,6 +1360,6 @@ def api_duplicate_cotizacion(quote_id: str, current_user: dict = Depends(get_cur
     saved = save_cotizacion(cloned_payload)
     if not saved:
         raise HTTPException(status_code=500, detail="No se pudo duplicar la cotización en la base de datos.")
-    saved["tipo_cotizacion"] = "multidestino" if is_multidestino_quote(saved) else "estandar"
+    saved["tipo_cotizacion"] = quote_type_label(saved)
     return saved
 

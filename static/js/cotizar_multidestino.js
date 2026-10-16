@@ -1500,10 +1500,11 @@ async function loadMultidestinoQuoteIntoForm(quoteId, forceEditMode = true) {
             (Array.isArray(q.hoteles) && q.hoteles.some(h => h.tipo_cotizacion === 'multidestino'));
 
         if (!isMultidestino) {
+            const esSoloVuelos = window.isSoloVuelosQuote ? window.isSoloVuelosQuote(q) : false;
             window.pendingEditQuoteId = quoteId;
             window.pendingEditQuoteEditable = forceEditMode;
             window.hideLoader ? window.hideLoader() : null;
-            navigateTo('/cotizacion-completa?id=' + quoteId);
+            navigateTo((esSoloVuelos ? '/cotizacion-vuelos?id=' : '/cotizacion-completa?id=') + quoteId);
             return;
         }
 

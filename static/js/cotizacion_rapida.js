@@ -1,8 +1,14 @@
+import { openHotelPicker, REGIMENES, escapeHtml } from './hotel_catalog.js';
+
 let isQuickFeeLocked = true;
 let currentQuickQuoteId = null;
 let isRestoringState = false;
 let isQuickReadOnlyMode = false;
 let isQuickRedondeoActive = false;
+
+// Planes de financiación disponibles: entrega (valor de los vuelos) + saldo en 3 o 6 cuotas
+const PLANES_CUOTAS_RAPIDA = [3, 6];
+let quickCuotasScope = 'persona'; // 'persona' | 'total'
 
 function ensureQuickRedondeoRowExists() {
     const tbody = document.getElementById('quick-budget-body');
@@ -189,7 +195,9 @@ function saveQuickQuoteFormState() {
         const monto = parseFormattedNumber(montoRaw);
         const aerolinea = tr.querySelector('.quick-row-aerolinea')?.value || '';
         const aerolinea_logo = tr.querySelector('.quick-row-aerolinea-logo')?.value || '';
-        rows.push({ tipo, label, monto, operador, estrellas, aerolinea, aerolinea_logo });
+        const regimen = tr.querySelector('.quick-row-regimen')?.value || '';
+        const hotel_id = tr.querySelector('.quick-row-hotel-id')?.value || '';
+        rows.push({ tipo, label, monto, operador, estrellas, aerolinea, aerolinea_logo, regimen, hotel_id });
     });
 
     window.savedQuickQuoteState = {
@@ -198,6 +206,7 @@ function saveQuickQuoteFormState() {
         isQuickRedondeoActive,
         passengerName: passengerInput.value,
         paxCount: document.getElementById('rapido-pax-count')?.value || 2,
+        origen: document.getElementById('rapido-origen')?.value || '',
         destino: document.getElementById('rapido-destino')?.value || '',
         fechaSalida: document.getElementById('rapido-fecha-salida')?.value || '',
         fechaRegreso: document.getElementById('rapido-fecha-regreso')?.value || '',
@@ -224,6 +233,9 @@ function restoreQuickQuoteFormState() {
     const savedPax = window.savedQuickQuoteState.paxCount || 2;
     updatePaxStepperUI(savedPax);
 
+    const origenInput = document.getElementById('rapido-origen');
+    if (origenInput) origenInput.value = window.savedQuickQuoteState.origen || '';
+
     const destInput = document.getElementById('rapido-destino');
     if (destInput) destInput.value = window.savedQuickQuoteState.destino;
 
@@ -249,6 +261,8 @@ function restoreQuickQuoteFormState() {
             estrellas: r.estrellas,
             aerolinea: r.aerolinea,
             aerolinea_logo: r.aerolinea_logo,
+            regimen: r.regimen,
+            hotel_id: r.hotel_id,
             isDefault: (r.tipo === 'fee-aereo' || r.tipo === 'admin')
         });
     });
@@ -318,18 +332,208 @@ const typeOrder = {
     'iva': 7
 };
 
+// ────────────────────────────────────────────────────────────────────────────
+// FORMATO DE TEXTO: Mayuscula En Cada Palabra (Origen / Destino)
+// ────────────────────────────────────────────────────────────────────────────
+
+// Conectores que se mantienen en minuscula cuando no abren el texto
+const TITLE_CASE_MINUSCULAS = new Set([
+    'de', 'del', 'la', 'las', 'lo', 'los', 'y', 'e', 'da', 'das', 'do', 'dos',
+    'el', 'al', 'en', 'of', 'the', 'van', 'von'
+]);
+
+/**
+ * Pone en mayuscula la primera letra de cada palabra, respetando conectores
+ * y separadores internos ("rio de janeiro" -> "Rio de Janeiro").
+ */
+export function toTitleCaseES(str) {
+    const texto = String(str == null ? '' : str);
+    if (!texto.trim()) return texto;
+
+    let esPrimeraPalabra = true;
+
+    return texto.replace(/[^\s\-\/]+/g, (palabra, offset) => {
+        const lower = palabra.toLocaleLowerCase('es-AR');
+        const abrePalabra = esPrimeraPalabra;
+        esPrimeraPalabra = false;
+
+        // Siglas ya escritas en mayuscula (EZE, CBA, USA) se dejan como estan
+        if (palabra.length <= 3 && palabra === palabra.toLocaleUpperCase('es-AR') && /^[A-Z\u00c0-\u00dc]+$/.test(palabra)) {
+            return palabra;
+        }
+
+        // Un conector detras de una coma vuelve a comportarse como inicio
+        const textoPrevio = texto.slice(0, offset);
+        const trasSeparador = /[,(\u00b7|]\s*$/.test(textoPrevio);
+
+        if (!abrePalabra && !trasSeparador && TITLE_CASE_MINUSCULAS.has(lower)) {
+            return lower;
+        }
+
+        return lower.charAt(0).toLocaleUpperCase('es-AR') + lower.slice(1);
+    });
+}
+window.toTitleCaseES = toTitleCaseES;
+
+/**
+ * Aplica title case al input conservando la posicion del cursor.
+ */
+function applyTitleCaseToInput(input) {
+    if (!input) return;
+    const caret = input.selectionStart;
+    const formateado = toTitleCaseES(input.value);
+    if (formateado === input.value) return;
+    input.value = formateado;
+    if (typeof caret === 'number' && input === document.activeElement) {
+        try { input.setSelectionRange(caret, caret); } catch (_) { /* input sin soporte */ }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// FILAS: identificacion y panel de detalles desplegable
+// ────────────────────────────────────────────────────────────────────────────
+
+let quickRowSeq = 0;
+
+const REGIMENES_RAPIDA = ['', ...REGIMENES];
+
+/** Fila de detalles asociada a una fila de concepto. */
+function getQuickRowDetails(tr) {
+    const id = tr && tr.dataset ? tr.dataset.rowId : '';
+    if (!id) return null;
+    return document.querySelector(`#quick-budget-body tr.quick-row-details[data-details-for="${id}"]`);
+}
+
+/** Fila de concepto a la que pertenece un elemento (este o su panel de detalles). */
+function getQuickMainRow(el) {
+    const tr = el ? el.closest('tr') : null;
+    if (!tr) return null;
+    if (tr.classList.contains('quick-row')) return tr;
+    const id = tr.dataset ? tr.dataset.detailsFor : '';
+    return id ? document.querySelector(`#quick-budget-body tr.quick-row[data-row-id="${id}"]`) : null;
+}
+window.getQuickMainRow = getQuickMainRow;
+
+/** Abre o cierra el panel de detalles de una fila. */
+function toggleQuickRowDetails(el) {
+    const tr = getQuickMainRow(el);
+    const details = tr ? getQuickRowDetails(tr) : null;
+    if (!tr || !details) return;
+
+    const abrir = details.classList.contains('hidden');
+    details.classList.toggle('hidden', !abrir);
+
+    const chevron = tr.querySelector('.quick-row-chevron');
+    if (chevron) chevron.classList.toggle('rotate-90', abrir);
+
+    const btn = tr.querySelector('.quick-row-details-toggle');
+    if (btn) {
+        btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+        btn.title = abrir ? 'Ocultar detalles' : 'Ver detalles';
+    }
+}
+window.toggleQuickRowDetails = toggleQuickRowDetails;
+
+/**
+ * Resumen compacto de los detalles cargados, visible con el panel cerrado.
+ */
+function renderQuickRowSummary(tr) {
+    if (!tr) return;
+    const contenedor = tr.querySelector('.quick-row-summary');
+    if (!contenedor) return;
+
+    const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
+    const chips = [];
+
+    if (tipo === 'hotel') {
+        const estrellas = parseInt(tr.querySelector('.quick-row-estrellas')?.value, 10) || 4;
+        chips.push(`<span class="text-amber-600">${'\u2605'.repeat(Math.min(5, Math.max(1, estrellas)))}</span>`);
+        const regimen = tr.querySelector('.quick-row-regimen')?.value || '';
+        if (regimen) chips.push(escapeHtml(regimen));
+    }
+
+    if (tipo === 'vuelo') {
+        const aerolinea = tr.querySelector('.quick-row-aerolinea')?.value || '';
+        if (aerolinea) chips.push(escapeHtml(aerolinea));
+    }
+
+    const operador = tr.querySelector('.quick-row-operador')?.value || '';
+    if (operador) chips.push(escapeHtml(operador));
+
+    contenedor.innerHTML = chips.length
+        ? chips.join('<span class="text-slate-300 mx-1">\u00b7</span>')
+        : '<span class="text-slate-300 font-medium">Sin detalles</span>';
+}
+window.renderQuickRowSummary = renderQuickRowSummary;
+
+/** Campo con etiqueta dentro del panel de detalles. */
+function detailsFieldHtml(label, contenido) {
+    return `
+        <div class="flex flex-col gap-1.5 min-w-0">
+            <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 select-none">${label}</span>
+            ${contenido}
+        </div>`;
+}
+
+/** Contenido del panel de detalles segun el tipo de concepto. */
+function detailsPanelHtml(tipo, estrellasVal, regimenVal) {
+    const campos = [];
+
+    if (tipo === 'vuelo') {
+        campos.push(detailsFieldHtml('Aerol\u00ednea',
+            '<div class="quick-row-airline-wrapper relative flex items-center"></div>'));
+    }
+
+    if (tipo === 'hotel') {
+        campos.push(detailsFieldHtml('Hotel del cat\u00e1logo', `
+            <button type="button" onclick="openQuickHotelPicker(this)" title="Elegir un hotel de tu cat\u00e1logo"
+                class="quick-row-hotel-picker inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary/10 text-brand-primary hover:bg-brand-primary hover:text-white text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                Mis Hoteles
+            </button>`));
+
+        campos.push(detailsFieldHtml('Categor\u00eda', `
+            <select class="quick-row-estrellas-select w-full text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100/90 border border-amber-200/90 rounded-xl px-2.5 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-400 transition-colors"
+                onchange="setQuickRowEstrellas(this)" title="Categor\u00eda / Estrellas del alojamiento">
+                ${[5, 4, 3, 2, 1].map(n => `<option value="${n}" ${estrellasVal === n ? 'selected' : ''}>${'\u2b50'.repeat(n)} (${n}\u2605)</option>`).join('')}
+            </select>`));
+
+        campos.push(detailsFieldHtml('R\u00e9gimen', `
+            <select class="quick-row-regimen-select w-full text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 cursor-pointer focus:outline-none focus:border-brand-primary transition-colors"
+                onchange="setQuickRowRegimen(this)" title="R\u00e9gimen de comidas">
+                ${REGIMENES_RAPIDA.map(r => `<option value="${escapeHtml(r)}" ${regimenVal === r ? 'selected' : ''}>${r ? escapeHtml(r) : 'Sin especificar'}</option>`).join('')}
+            </select>`));
+    }
+
+    if (tipo === 'vuelo' || tipo === 'hotel' || tipo === 'traslado') {
+        campos.push(detailsFieldHtml('Operador',
+            '<div class="quick-row-operator-wrapper relative flex items-center"></div>'));
+    }
+
+    if (!campos.length) return '';
+
+    return `
+        <div class="quick-row-details-panel bg-slate-50/80 border-y border-slate-100 px-4 py-4">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                ${campos.join('')}
+            </div>
+        </div>`;
+}
+
 function updateResetButtonVisibility() {
     const btnReset = document.getElementById('btn-reset-quick-budget');
     if (!btnReset) return;
 
     const passengerInput = document.getElementById('rapido-pasajero');
     const paxCountInput = document.getElementById('rapido-pax-count');
+    const origenInput = document.getElementById('rapido-origen');
     const destInput = document.getElementById('rapido-destino');
     const depPickerInput = document.getElementById('rapido-fecha-salida');
     const retPickerInput = document.getElementById('rapido-fecha-regreso');
 
     const hasPassenger = passengerInput && passengerInput.value.trim() !== '';
     const hasCustomPaxCount = paxCountInput && paxCountInput.value !== '2' && paxCountInput.value !== '';
+    const hasOrigen = origenInput && origenInput.value.trim() !== '';
     const hasDestino = destInput && destInput.value.trim() !== '';
     const hasFechaSalida = depPickerInput && depPickerInput.value !== '';
     const hasFechaRegreso = retPickerInput && retPickerInput.value !== '';
@@ -353,7 +557,7 @@ function updateResetButtonVisibility() {
         }
     });
 
-    const isDirty = hasPassenger || hasCustomPaxCount || hasDestino || hasFechaSalida || hasFechaRegreso || hasCustomRowsCount || hasAnyMonto || hasCustomLabels;
+    const isDirty = hasPassenger || hasCustomPaxCount || hasOrigen || hasDestino || hasFechaSalida || hasFechaRegreso || hasCustomRowsCount || hasAnyMonto || hasCustomLabels;
 
     if (isDirty) {
         btnReset.classList.remove('hidden');
@@ -490,6 +694,8 @@ export function initCotizacionRapida() {
                     if (passengerInput) passengerInput.value = '';
                     const paxCountInput = document.getElementById('rapido-pax-count');
                     if (paxCountInput) paxCountInput.value = 2;
+                    const origenInput = document.getElementById('rapido-origen');
+                    if (origenInput) origenInput.value = '';
                     const destInput = document.getElementById('rapido-destino');
                     if (destInput) destInput.value = '';
                     const depPickerInput = document.getElementById('rapido-fecha-salida');
@@ -506,12 +712,23 @@ export function initCotizacionRapida() {
     }
 
     // Watch text inputs
-    const inputsToWatch = ['rapido-pasajero', 'rapido-destino'];
+    const inputsToWatch = ['rapido-pasajero', 'rapido-origen', 'rapido-destino'];
     inputsToWatch.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('input', () => saveQuickQuoteFormState());
         }
+    });
+
+    // Origen y Destino se escriben con may\u00fascula en cada palabra
+    ['rapido-origen', 'rapido-destino'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => applyTitleCaseToInput(el));
+        el.addEventListener('blur', () => {
+            applyTitleCaseToInput(el);
+            saveQuickQuoteFormState();
+        });
     });
 
     // Extract quote ID from query string, path parameter, or pending variable
@@ -557,9 +774,10 @@ function getNextLabelForType(tipo) {
 }
 
 function updateRowOperatorUI(tr, operadorVal = '') {
-    const wrapper = tr.querySelector('.quick-row-operator-wrapper');
+    const wrapper = getQuickRowDetails(tr)?.querySelector('.quick-row-operator-wrapper');
     const inputHidden = tr.querySelector('.quick-row-operador');
     if (inputHidden) inputHidden.value = operadorVal || '';
+    renderQuickRowSummary(tr);
 
     if (!wrapper) return;
 
@@ -731,11 +949,12 @@ function airlineMenuHtml() {
 }
 
 function updateRowAirlineUI(tr, nombre = '', logo = '') {
-    const wrapper = tr.querySelector('.quick-row-airline-wrapper');
+    const wrapper = getQuickRowDetails(tr)?.querySelector('.quick-row-airline-wrapper');
     const inputNombre = tr.querySelector('.quick-row-aerolinea');
     const inputLogo = tr.querySelector('.quick-row-aerolinea-logo');
     if (inputNombre) inputNombre.value = nombre || '';
     if (inputLogo) inputLogo.value = logo || '';
+    renderQuickRowSummary(tr);
     if (!wrapper) return;
 
     const chip = nombre
@@ -758,7 +977,7 @@ function updateRowAirlineUI(tr, nombre = '', logo = '') {
 
 function setRowAirline(el, aerolineaId) {
     if (window.event) window.event.stopPropagation();
-    const tr = el.closest('tr.quick-row');
+    const tr = getQuickMainRow(el);
     if (!tr) return;
 
     document.querySelectorAll('.operator-popover-menu').forEach(m => m.classList.add('hidden'));
@@ -786,7 +1005,7 @@ window.toggleOperatorMenu = toggleOperatorMenu;
 
 function setRowOperator(el, operatorName) {
     if (window.event) window.event.stopPropagation();
-    const tr = el.closest('tr.quick-row');
+    const tr = getQuickMainRow(el);
     if (!tr) return;
 
     document.querySelectorAll('.operator-popover-menu').forEach(m => m.classList.add('hidden'));
@@ -802,6 +1021,78 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// DETALLES DE ALOJAMIENTO: categoria, regimen y carga desde el catalogo
+// ────────────────────────────────────────────────────────────────────────────
+
+function setQuickRowEstrellas(el) {
+    const tr = getQuickMainRow(el);
+    if (!tr) return;
+    const hidden = tr.querySelector('.quick-row-estrellas');
+    if (hidden) hidden.value = parseInt(el.value, 10) || 4;
+    renderQuickRowSummary(tr);
+    saveQuickQuoteFormState();
+}
+window.setQuickRowEstrellas = setQuickRowEstrellas;
+
+function setQuickRowRegimen(el) {
+    const tr = getQuickMainRow(el);
+    if (!tr) return;
+    const hidden = tr.querySelector('.quick-row-regimen');
+    if (hidden) hidden.value = el.value || '';
+    renderQuickRowSummary(tr);
+    saveQuickQuoteFormState();
+}
+window.setQuickRowRegimen = setQuickRowRegimen;
+
+/**
+ * Carga en la fila los datos de un hotel del catalogo (nombre, categoria y
+ * regimen) y completa el destino de la cotizacion si estaba vacio.
+ */
+function applyHotelToQuickRow(tr, hotel) {
+    if (!tr || !hotel) return;
+
+    const labelInput = tr.querySelector('.quick-row-label');
+    if (labelInput && hotel.nombre) labelInput.value = hotel.nombre;
+
+    const estrellas = Math.min(5, Math.max(1, parseInt(hotel.estrellas, 10) || 4));
+    const hiddenEstrellas = tr.querySelector('.quick-row-estrellas');
+    if (hiddenEstrellas) hiddenEstrellas.value = estrellas;
+    const selectEstrellas = getQuickRowDetails(tr)?.querySelector('.quick-row-estrellas-select');
+    if (selectEstrellas) selectEstrellas.value = String(estrellas);
+
+    const regimen = REGIMENES.includes(hotel.regimen) ? hotel.regimen : '';
+    const hiddenRegimen = tr.querySelector('.quick-row-regimen');
+    if (hiddenRegimen) hiddenRegimen.value = regimen;
+    const selectRegimen = getQuickRowDetails(tr)?.querySelector('.quick-row-regimen-select');
+    if (selectRegimen) selectRegimen.value = regimen;
+
+    const hiddenId = tr.querySelector('.quick-row-hotel-id');
+    if (hiddenId) hiddenId.value = hotel.id || '';
+
+    // El destino del hotel completa el de la cotizacion solo si no se carg\u00f3 uno
+    const destInput = document.getElementById('rapido-destino');
+    if (destInput && !destInput.value.trim() && hotel.destino) {
+        destInput.value = toTitleCaseES(hotel.destino);
+    }
+
+    renderQuickRowSummary(tr);
+    calculateQuickQuote();
+    saveQuickQuoteFormState();
+}
+
+/** Abre el catalogo de hoteles para la fila del boton. */
+function openQuickHotelPicker(el) {
+    const tr = getQuickMainRow(el);
+    if (!tr || isQuickReadOnlyMode) return;
+
+    openHotelPicker((hotel) => {
+        applyHotelToQuickRow(tr, hotel);
+        window.showAlert?.('success', `Se cargaron los datos de "${hotel.nombre}" desde tu cat\u00e1logo.`, true);
+    });
+}
+window.openQuickHotelPicker = openQuickHotelPicker;
+
 function loadDefaultQuickQuoteRows() {
     currentQuickQuoteId = null;
     window.currentQuickQuoteOwner = null;
@@ -815,6 +1106,9 @@ function loadDefaultQuickQuoteRows() {
 
     updatePaxStepperUI(2);
     setQuickCurrency('USD');
+
+    const origenInput = document.getElementById('rapido-origen');
+    if (origenInput) origenInput.value = '';
 
     const destInput = document.getElementById('rapido-destino');
     if (destInput) destInput.value = '';
@@ -850,6 +1144,8 @@ function addQuickBudgetRow(data = null) {
     const rawMonto = (data && data.monto !== undefined) ? data.monto : '';
     const montoVal = rawMonto !== '' ? formatPriceES(parseFormattedNumber(rawMonto)) : '';
     const operadorVal = data && data.operador ? data.operador : '';
+    const regimenVal = data && data.regimen ? data.regimen : '';
+    const hotelIdVal = (data && data.hotel_id) ? data.hotel_id : '';
     const aerolineaVal = data && data.aerolinea ? data.aerolinea : '';
     const aerolineaLogoVal = data && data.aerolinea_logo ? data.aerolinea_logo : '';
     const isDefault = data && data.isDefault;
@@ -905,48 +1201,51 @@ function addQuickBudgetRow(data = null) {
     let labelCellHtml = '';
     if (isUndeletable) {
         labelCellHtml = `
-            <span class="text-sm font-semibold text-slate-700 bg-transparent py-1 pl-2 select-none">${labelVal}</span>
+            <span class="text-sm font-semibold text-slate-700 bg-transparent py-1 select-none truncate">${labelVal}</span>
             ${helpIconHtml}
             <input type="hidden" class="quick-row-label" value="${labelVal}">
         `;
     } else {
         labelCellHtml = `
-            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none m-0 flex-1 min-w-[120px] ${cursorClass}" value="${labelVal}" ${labelTitle} style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 4px 8px !important; margin: 0 !important;" autocomplete="off">
+            <input type="text" class="quick-row-label text-sm font-semibold text-slate-700 border-none bg-transparent focus:ring-0 focus:outline-none m-0 flex-1 min-w-0 ${cursorClass}" value="${labelVal}" ${labelTitle} style="border: none !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 4px 4px !important; margin: 0 !important;" autocomplete="off">
         `;
     }
 
+    // Solo los conceptos cargados por el usuario tienen detalles para desplegar
+    const tieneDetalles = (selectedTipo === 'vuelo' || selectedTipo === 'hotel' || selectedTipo === 'traslado');
+    const rowId = `qr-${++quickRowSeq}`;
+    tr.dataset.rowId = rowId;
+
+    const toggleHtml = tieneDetalles ? `
+        <button type="button" onclick="toggleQuickRowDetails(this)" aria-expanded="false" title="Ver detalles"
+            class="quick-row-details-toggle flex items-center justify-center w-5 h-5 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-slate-100 transition-all cursor-pointer flex-shrink-0">
+            <svg class="quick-row-chevron w-3.5 h-3.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+        </button>` : '<span class="w-5 flex-shrink-0"></span>';
+
     tr.innerHTML = `
-        <td class="py-3.5 font-bold text-slate-700 flex items-center gap-1.5 pl-3 bg-white relative">
-            <span class="quick-row-icon flex items-center justify-center flex-shrink-0">${conceptTypes[selectedTipo].icon}</span>
-            <div class="flex items-center gap-1.5 flex-1 min-w-0">
-                ${labelCellHtml}
-                ${selectedTipo === 'hotel' ? `
-                    <div class="quick-row-stars-wrapper relative inline-flex items-center justify-center flex-shrink-0 my-auto" title="Categoría / Estrellas del alojamiento">
-                        <select class="quick-row-estrellas text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100/90 border border-amber-200/90 rounded-lg px-2 py-0.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-400 transition-colors shadow-2xs select-none">
-                            <option value="5" ${estrellasVal === 5 ? 'selected' : ''}>⭐⭐⭐⭐⭐ (5★)</option>
-                            <option value="4" ${estrellasVal === 4 ? 'selected' : ''}>⭐⭐⭐⭐ (4★)</option>
-                            <option value="3" ${estrellasVal === 3 ? 'selected' : ''}>⭐⭐⭐ (3★)</option>
-                            <option value="2" ${estrellasVal === 2 ? 'selected' : ''}>⭐⭐ (2★)</option>
-                            <option value="1" ${estrellasVal === 1 ? 'selected' : ''}>⭐ (1★)</option>
-                        </select>
+        <td class="py-3 font-bold text-slate-700 pl-2 bg-white align-middle">
+            <div class="flex items-center gap-1 min-w-0">
+                ${toggleHtml}
+                <span class="quick-row-icon flex items-center justify-center flex-shrink-0">${conceptTypes[selectedTipo].icon}</span>
+                <div class="flex flex-col min-w-0 flex-1">
+                    <div class="flex items-center gap-1 min-w-0">
+                        ${labelCellHtml}
                     </div>
-                ` : ''}
-                ${selectedTipo === 'vuelo' ? `
-                    <div class="quick-row-airline-wrapper relative inline-flex items-center justify-center flex-shrink-0 my-auto">
-                    </div>
-                ` : ''}
-                ${(selectedTipo !== 'admin' && selectedTipo !== 'redondeo' && selectedTipo !== 'fee-aereo') ? `
-                    <div class="quick-row-operator-wrapper relative inline-flex items-center justify-center flex-shrink-0 my-auto">
-                    </div>
-                ` : ''}
+                    ${tieneDetalles ? '<div class="quick-row-summary text-[10px] font-bold text-slate-500 truncate pl-1"></div>' : ''}
+                </div>
             </div>
             <input type="hidden" class="quick-row-tipo" value="${selectedTipo}">
             <input type="hidden" class="quick-row-operador" value="${operadorVal}">
             <input type="hidden" class="quick-row-aerolinea" value="${aerolineaVal}">
             <input type="hidden" class="quick-row-aerolinea-logo" value="${aerolineaLogoVal}">
+            <input type="hidden" class="quick-row-estrellas" value="${estrellasVal}">
+            <input type="hidden" class="quick-row-regimen" value="${regimenVal}">
+            <input type="hidden" class="quick-row-hotel-id" value="${hotelIdVal}">
         </td>
         <td class="py-3.5 text-right relative">
-            <div class="flex items-center justify-end max-w-[180px] ml-auto">
+            <div class="flex items-center justify-end w-full">
                 <span class="quick-fee-unlock-container absolute right-full top-1/2 -translate-y-1/2 mr-2 flex items-center ${selectedTipo === 'fee-aereo' ? 'block' : 'hidden'}">
                     <button type="button" class="quick-row-fee-unlock flex items-center justify-center text-slate-400 hover:text-brand-primary bg-slate-100 hover:bg-slate-200 transition-all duration-300 p-1.5 cursor-pointer rounded-full" title="Activar/Desactivar edición manual">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -960,7 +1259,7 @@ function addQuickBudgetRow(data = null) {
                 </div>
             </div>
         </td>
-        <td class="quick-row-pax py-3.5 text-right font-semibold text-slate-500 pr-3">${currency} 0,00</td>
+        <td class="quick-row-pax py-3.5 text-right font-semibold text-slate-500 pr-2 truncate">${currency} 0,00</td>
         <td class="py-3.5 text-center">
             <button type="button" class="btn-delete-row text-rose-500 hover:text-rose-700 focus:outline-none cursor-pointer p-1 ${isUndeletable ? 'invisible pointer-events-none' : ''}">
                 <svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -971,19 +1270,22 @@ function addQuickBudgetRow(data = null) {
     `;
 
     tbody.appendChild(tr);
+
+    // Fila hermana con el panel de detalles (oculta hasta que se despliega)
+    if (tieneDetalles) {
+        const detailsTr = document.createElement('tr');
+        detailsTr.className = 'quick-row-details hidden';
+        detailsTr.dataset.detailsFor = rowId;
+        detailsTr.innerHTML = `<td colspan="4" class="p-0 border-0">${detailsPanelHtml(selectedTipo, estrellasVal, regimenVal)}</td>`;
+        tbody.appendChild(detailsTr);
+    }
+
     updateRowOperatorUI(tr, operadorVal);
     if (selectedTipo === 'vuelo') {
         updateRowAirlineUI(tr, aerolineaVal, aerolineaLogoVal);
     }
+    renderQuickRowSummary(tr);
     updateQuickCurrencyLabels();
-
-    // Bind dynamic row elements events
-    const starsSelect = tr.querySelector('.quick-row-estrellas');
-    if (starsSelect) {
-        starsSelect.addEventListener('change', () => {
-            saveQuickQuoteFormState();
-        });
-    }
 
     const montoInput = tr.querySelector('.quick-row-monto');
     if (montoInput) {
@@ -1015,6 +1317,7 @@ function addQuickBudgetRow(data = null) {
     const btnDelete = tr.querySelector('.btn-delete-row');
     if (btnDelete) {
         btnDelete.onclick = () => {
+            getQuickRowDetails(tr)?.remove();
             tr.remove();
             calculateQuickQuote();
             saveQuickQuoteFormState();
@@ -1052,7 +1355,11 @@ function sortQuickBudgetRows() {
         return orderA - orderB;
     });
 
-    rows.forEach(row => tbody.appendChild(row));
+    rows.forEach(row => {
+        const details = getQuickRowDetails(row);
+        tbody.appendChild(row);
+        if (details) tbody.appendChild(details);
+    });
 }
 
 function syncQuickRowEditableState(tr) {
@@ -1130,6 +1437,17 @@ function getQuickVuelosSum() {
     return sum;
 }
 
+function getQuickFeeAereoSum() {
+    let sum = 0;
+    document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
+        const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
+        if (tipo === 'fee-aereo') {
+            sum += parseFormattedNumber(tr.querySelector('.quick-row-monto')?.value);
+        }
+    });
+    return sum;
+}
+
 function getQuickHotelsAndTrasladosSum() {
     let sum = 0;
     document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
@@ -1140,6 +1458,128 @@ function getQuickHotelsAndTrasladosSum() {
     });
     return sum;
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// FINANCIACIÓN EN CUOTAS
+// La entrega inicial equivale al aéreo (vuelos + fee) y el saldo restante se
+// fracciona en 3 o 6 cuotas, igual que en los paquetes promocionales.
+// ────────────────────────────────────────────────────────────────────────────
+
+const round2Quick = (n) => Math.round((parseFloat(n) || 0) * 100) / 100;
+const ceil2Quick = (n) => Math.ceil(round2Quick(n) * 100) / 100;
+
+/**
+ * Calcula la entrega, el saldo y los planes de cuotas de la cotización actual.
+ *
+ * @param {Object} params
+ * @param {number} params.totalAereo - Vuelos + fee aéreo (total del grupo)
+ * @param {number} params.totalFinal - Precio total del grupo (ya redondeado si corresponde)
+ * @param {number} params.paxCount - Cantidad de pasajeros
+ * @returns {Object} Montos por persona y totales con sus planes de cuotas
+ */
+export function computeQuickCuotas({ totalAereo = 0, totalFinal = 0, paxCount = 1 }) {
+    const pax = Math.max(1, parseInt(paxCount, 10) || 1);
+
+    const entregaTotal = round2Quick(Math.min(Math.max(0, totalAereo), Math.max(0, totalFinal)));
+    const saldoTotal = round2Quick(Math.max(0, totalFinal - entregaTotal));
+
+    const entregaPersona = round2Quick(entregaTotal / pax);
+    const saldoPersona = round2Quick(saldoTotal / pax);
+    const precioPersona = round2Quick(totalFinal / pax);
+
+    const planes = PLANES_CUOTAS_RAPIDA.map(cantidad => ({
+        cantidad,
+        montoPersona: saldoPersona > 0 ? ceil2Quick(saldoPersona / cantidad) : 0,
+        montoTotal: saldoTotal > 0 ? ceil2Quick(saldoTotal / cantidad) : 0
+    }));
+
+    return {
+        paxCount: pax,
+        precioPersona,
+        precioTotal: round2Quick(totalFinal),
+        entregaPersona,
+        entregaTotal,
+        saldoPersona,
+        saldoTotal,
+        planes
+    };
+}
+window.computeQuickCuotas = computeQuickCuotas;
+
+function setQuickCuotasScope(scope) {
+    quickCuotasScope = (scope === 'total') ? 'total' : 'persona';
+
+    const btnPersona = document.getElementById('btn-cuotas-por-persona');
+    const btnTotal = document.getElementById('btn-cuotas-total');
+    const activeCls = 'px-3.5 py-1 rounded-lg text-xs font-black transition-all bg-white text-brand-primary shadow-2xs select-none cursor-pointer';
+    const idleCls = 'px-3.5 py-1 rounded-lg text-xs font-bold transition-all text-slate-500 hover:text-slate-800 select-none cursor-pointer';
+    if (btnPersona) btnPersona.className = quickCuotasScope === 'persona' ? activeCls : idleCls;
+    if (btnTotal) btnTotal.className = quickCuotasScope === 'total' ? activeCls : idleCls;
+
+    calculateQuickQuote();
+}
+window.setQuickCuotasScope = setQuickCuotasScope;
+
+/**
+ * Dibuja las tarjetas de cuotas para tenerlas a mano al hablar con el pasajero.
+ */
+function renderQuickCuotas(cuotas, currency) {
+    const container = document.getElementById('quick-cuotas-content');
+    if (!container) return;
+
+    const money = (val) => `${currency} ${window.formatPriceES(val)}`;
+    const porPersona = quickCuotasScope === 'persona';
+
+    if (!cuotas || cuotas.precioTotal <= 0) {
+        container.innerHTML = '<p class="text-xs font-semibold text-slate-400">Cargá los montos de vuelos y alojamiento para ver cómo quedarían las cuotas.</p>';
+        return;
+    }
+
+    const precio = porPersona ? cuotas.precioPersona : cuotas.precioTotal;
+    const entrega = porPersona ? cuotas.entregaPersona : cuotas.entregaTotal;
+    const saldo = porPersona ? cuotas.saldoPersona : cuotas.saldoTotal;
+    const sufijo = porPersona
+        ? 'por persona'
+        : `total · ${cuotas.paxCount} ${cuotas.paxCount === 1 ? 'pasajero' : 'pasajeros'}`;
+
+    const resumen = [
+        [`Precio ${sufijo}`, money(precio), 'font-black text-slate-900'],
+        ['Entrega inicial · valor de los vuelos', money(entrega), 'font-bold text-brand-primary'],
+        ['Saldo a financiar', money(saldo), 'font-bold text-slate-700']
+    ];
+
+    const tarjetas = saldo > 0
+        ? cuotas.planes.map(plan => {
+            const monto = porPersona ? plan.montoPersona : plan.montoTotal;
+            return `
+                <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 flex flex-col justify-center">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">${plan.cantidad} cuotas de</span>
+                    <span class="text-xl font-black text-slate-900 whitespace-nowrap">${money(monto)}</span>
+                    <span class="text-[10px] font-semibold text-slate-400">+ entrega de ${money(entrega)}</span>
+                </div>`;
+        }).join('')
+        : `<div class="sm:col-span-2 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-xs font-semibold text-amber-800">
+                No hay saldo para financiar: el precio queda cubierto por la entrega de los vuelos.
+           </div>`;
+
+    container.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="rounded-2xl border border-slate-200 divide-y divide-slate-100">
+                ${resumen.map(([label, value, cls]) => `
+                    <div class="flex items-center justify-between gap-4 px-4 py-3">
+                        <span class="text-xs font-semibold text-slate-500">${label}</span>
+                        <span class="text-sm ${cls} whitespace-nowrap">${value}</span>
+                    </div>`).join('')}
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                ${tarjetas}
+            </div>
+        </div>
+        <p class="text-[10px] text-slate-400 font-semibold mt-3">
+            La entrega inicial cubre el aéreo (vuelos + fee)${porPersona ? `: ${money(cuotas.entregaPersona)} por persona · ${money(cuotas.entregaTotal)} en total` : `: ${money(cuotas.entregaTotal)}`}. El saldo se abona en 3 o 6 cuotas.
+        </p>`;
+}
+window.renderQuickCuotas = renderQuickCuotas;
 
 function calculateQuickQuote() {
     const paxCount = parseInt(document.getElementById('rapido-pax-count')?.value) || 2;
@@ -1231,6 +1671,13 @@ function calculateQuickQuote() {
     const elPaxRedondeado = document.getElementById('rapido-pax-redondeado');
     if (elPaxRedondeado) elPaxRedondeado.innerText = `${currency} ${window.formatPriceES(roundedPerPerson)}`;
 
+    // Financiación: entrega = aéreo, saldo en 3 o 6 cuotas (respeta el redondeo activo)
+    const totalParaCuotas = isQuickRedondeoActive ? roundedTotal : totalFinal;
+    renderQuickCuotas(
+        computeQuickCuotas({ totalAereo, totalFinal: totalParaCuotas, paxCount }),
+        currency
+    );
+
     saveQuickQuoteFormState();
 }
 
@@ -1285,13 +1732,18 @@ async function saveQuickQuote(andRedirect = false) {
         } else if (tipo === 'hotel') {
             totalTerrestreNeto += monto;
             const estrellas = parseInt(tr.querySelector('.quick-row-estrellas')?.value, 10) || 4;
-            hoteles.push({ nombre: label, costo: monto, operador: operador, estrellas: estrellas });
+            hoteles.push({
+                nombre: label, costo: monto, operador: operador, estrellas: estrellas,
+                regimen: tr.querySelector('.quick-row-regimen')?.value || '',
+                hotel_id: tr.querySelector('.quick-row-hotel-id')?.value || ''
+            });
         } else if (tipo === 'traslado') {
             totalTerrestreNeto += monto;
             traslados.push({ nombre: label, costo: monto, operador: operador });
         }
     });
 
+    const origen = document.getElementById('rapido-origen')?.value || '';
     const destino = document.getElementById('rapido-destino')?.value || '';
     const fechaSalida = document.getElementById('rapido-fecha-salida')?.value || '';
     const fechaRegreso = document.getElementById('rapido-fecha-regreso')?.value || '';
@@ -1303,6 +1755,7 @@ async function saveQuickQuote(andRedirect = false) {
         {
             nombre: "METADATA_PRESUPUESTO_RAPIDO",
             costo: 0,
+            origen: origen,
             destino: destino,
             fecha_salida: fechaSalida,
             fecha_regreso: fechaRegreso,
@@ -1379,6 +1832,7 @@ async function saveQuickQuote(andRedirect = false) {
                 hoteles,        // alojamientos reales
                 traslados,      // traslados separados
                 trasladosTotal,
+                origen,
                 destino,
                 fechaSalida,
                 fechaRegreso,
@@ -1588,6 +2042,9 @@ async function loadQuickBudgetIntoForm(quoteId) {
         document.getElementById('rapido-pax-count').value = q.cantidad_pasajeros || 2;
 
         // Reset optional inputs first
+        const origenInput = document.getElementById('rapido-origen');
+        if (origenInput) origenInput.value = '';
+
         const destInput = document.getElementById('rapido-destino');
         if (destInput) destInput.value = '';
 
@@ -1633,6 +2090,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
         if (q.hoteles && q.hoteles.length > 0) {
             q.hoteles.forEach(h => {
                 if (h.nombre === "METADATA_PRESUPUESTO_RAPIDO") {
+                    if (origenInput) origenInput.value = h.origen || '';
                     if (destInput) destInput.value = h.destino || '';
                     if (h.fecha_salida && depPickerInput && depPickerInput._flatpickr) {
                         depPickerInput._flatpickr.setDate(h.fecha_salida);
@@ -1647,7 +2105,10 @@ async function loadQuickBudgetIntoForm(quoteId) {
                     return;
                 }
                 const tipo = h.nombre.toLowerCase().includes('traslado') ? 'traslado' : 'hotel';
-                addQuickBudgetRow({ tipo: tipo, label: h.nombre, monto: h.costo, operador: h.operador, estrellas: h.estrellas || 4 });
+                addQuickBudgetRow({
+                    tipo: tipo, label: h.nombre, monto: h.costo, operador: h.operador,
+                    estrellas: h.estrellas || 4, regimen: h.regimen || '', hotel_id: h.hotel_id || ''
+                });
             });
         }
         updateQuickCurrencyLabels();
@@ -1715,6 +2176,9 @@ async function fillQuickTestData() {
     passengerInput.value = 'Pasajero de prueba';
     paxCountInput.value = 2;
 
+    const origenInput = document.getElementById('rapido-origen');
+    if (origenInput) origenInput.value = 'Córdoba';
+
     const destInput = document.getElementById('rapido-destino');
     if (destInput) destInput.value = 'Cancún, México';
 
@@ -1737,7 +2201,7 @@ async function fillQuickTestData() {
 
     addQuickBudgetRow({ tipo: 'vuelo', label: 'Vuelo Aerolíneas Argentinas', monto: 1800.00 });
     addQuickBudgetRow({ tipo: 'fee-aereo', isDefault: true, monto: 180.00 });
-    addQuickBudgetRow({ tipo: 'hotel', label: 'Riu Palace Aruba', monto: 3200.00 });
+    addQuickBudgetRow({ tipo: 'hotel', label: 'Riu Palace Aruba', monto: 3200.00, estrellas: 5, regimen: 'All Inclusive' });
     addQuickBudgetRow({ tipo: 'traslado', label: 'Traslado Privado In/Out', monto: 250.00 });
     addQuickBudgetRow({ tipo: 'admin', isDefault: true });
 
@@ -1780,6 +2244,9 @@ export function enableQuickFormEditing(enabled) {
     const paxInput = document.getElementById('rapido-pax-count');
     if (paxInput) paxInput.disabled = !enabled;
 
+    const origenInput = document.getElementById('rapido-origen');
+    if (origenInput) origenInput.disabled = !enabled;
+
     const destInput = document.getElementById('rapido-destino');
     if (destInput) destInput.disabled = !enabled;
 
@@ -1792,6 +2259,19 @@ export function enableQuickFormEditing(enabled) {
                 el._flatpickr.altInput.disabled = !enabled;
             }
         }
+    });
+
+    // Controles del panel de detalles de cada fila
+    document.querySelectorAll('#quick-budget-body tr.quick-row-details select').forEach(sel => {
+        sel.disabled = !enabled;
+    });
+    document.querySelectorAll('#quick-budget-body tr.quick-row-details button').forEach(btn => {
+        btn.disabled = !enabled;
+    });
+    // Los chips de operador/aerolinea son spans con onclick: se desactiva el panel completo
+    document.querySelectorAll('#quick-budget-body .quick-row-details-panel').forEach(panel => {
+        panel.classList.toggle('pointer-events-none', !enabled);
+        panel.classList.toggle('opacity-60', !enabled);
     });
 
     // Enable/disable rows
@@ -2061,20 +2541,22 @@ export function buildQuickQuoteTextMessage(data, options = { forWhatsApp: true }
     let lineaVuelo = '';
     const destinoRaw = (data.destino || '').trim();
     if (destinoRaw || data.hasVuelo) {
-        let origen = (data.origen || '').trim() || 'Córdoba';
+        const origenExplicito = (data.origen || '').trim();
+        let origen = origenExplicito || 'Córdoba';
         let destino = destinoRaw || 'Destino a confirmar';
 
-        // Manejar formatos "Origen a Destino" o "Origen - Destino"
+        // Manejar formatos "Origen a Destino" o "Origen - Destino".
+        // Si el usuario cargó el campo Origen, ese valor tiene prioridad.
         if (destino.toLowerCase().includes(' a ')) {
             const parts = destino.split(/\s+a\s+/i);
             if (parts.length >= 2) {
-                origen = parts[0].trim();
+                if (!origenExplicito) origen = parts[0].trim();
                 destino = parts.slice(1).join(' a ').trim();
             }
         } else if (destino.includes(' - ')) {
             const parts = destino.split(' - ');
             if (parts.length >= 2) {
-                origen = parts[0].trim();
+                if (!origenExplicito) origen = parts[0].trim();
                 destino = parts.slice(1).join(' - ').trim();
             }
         }
@@ -2192,7 +2674,9 @@ export function buildQuickQuoteTextMessage(data, options = { forWhatsApp: true }
         starsCount = Math.min(5, Math.max(1, starsCount));
         const estrellasTexto = starsCount === 1 ? '1 estrella' : `${starsCount} estrellas`;
 
-        return `🏨 ${nombre} - ${estrellasTexto}`;
+        const regimen = (typeof hotel === 'object' && hotel.regimen) ? String(hotel.regimen).trim() : '';
+
+        return `🏨 ${nombre} - ${estrellasTexto}${regimen ? ` · ${regimen}` : ''}`;
     });
 
     // Bloque de Alojamientos con título en negrita y salto de línea
@@ -2234,9 +2718,29 @@ export function buildQuickQuoteTextMessage(data, options = { forWhatsApp: true }
         `💰 ${bold(`Total (Base ${baseHabitacion}):`)} ${strPrecioTotal}`
     ].join('\n');
 
+    // 7. Financiación: entrega inicial (valor de los vuelos) + saldo en cuotas
+    let bloqueCuotas = '';
+    const cuotas = data.cuotas;
+    if (cuotas && cuotas.entregaPersona > 0) {
+        const lineasCuotas = [`💳 ${bold('Formas de pago (por persona)')}`];
+        lineasCuotas.push(`• Entrega inicial de ${moneda} ${formatNumber(cuotas.entregaPersona)} (valor de los vuelos)`);
+
+        const planes = (cuotas.planes || []).filter(plan => plan && plan.montoPersona > 0);
+        if (planes.length > 0) {
+            planes.forEach(plan => {
+                lineasCuotas.push(`• Saldo en ${plan.cantidad} cuotas de ${moneda} ${formatNumber(plan.montoPersona)}`);
+            });
+        } else {
+            lineasCuotas.push('• Sin saldo a financiar: la entrega cubre el total');
+        }
+
+        bloqueCuotas = lineasCuotas.join('\n');
+    }
+
     const secciones = [
         ...lineasServicios,
-        bloquePrecios
+        bloquePrecios,
+        bloqueCuotas
     ].filter(Boolean);
 
     return secciones.join('\n\n');
@@ -2248,6 +2752,7 @@ window.buildQuickQuoteTextMessage = buildQuickQuoteTextMessage;
  */
 export async function copyQuickQuoteAsText() {
     const paxCount = parseInt(document.getElementById('rapido-pax-count')?.value, 10) || 2;
+    const origen = (document.getElementById('rapido-origen')?.value || '').trim();
     const destino = (document.getElementById('rapido-destino')?.value || '').trim();
     const moneda = document.getElementById('rapido-moneda')?.value || 'USD';
 
@@ -2272,7 +2777,11 @@ export async function copyQuickQuoteAsText() {
         } else if (tipo === 'hotel') {
             const estrellas = parseInt(tr.querySelector('.quick-row-estrellas')?.value, 10) || 4;
             if (monto > 0 || (label && label.toLowerCase() !== 'alojamiento')) {
-                hoteles.push({ nombre: label, estrellas: estrellas });
+                hoteles.push({
+                    nombre: label,
+                    estrellas: estrellas,
+                    regimen: tr.querySelector('.quick-row-regimen')?.value || ''
+                });
             }
         } else if (tipo === 'traslado') {
             if (monto > 0) {
@@ -2303,9 +2812,13 @@ export async function copyQuickQuoteAsText() {
     const fechaSalida = document.getElementById('rapido-fecha-salida')?.value || '';
     const fechaRegreso = document.getElementById('rapido-fecha-regreso')?.value || '';
 
+    // Financiación: la entrega inicial es el aéreo (vuelos + fee)
+    const totalAereo = getQuickVuelosSum() + getQuickFeeAereoSum();
+    const cuotas = computeQuickCuotas({ totalAereo, totalFinal: total, paxCount });
+
     const payload = {
         paxCount,
-        origen: 'Córdoba',
+        origen: origen || 'Córdoba',
         destino: destino || (document.getElementById('rapido-pasajero')?.value || ''),
         fechaSalida,
         fechaRegreso,
@@ -2315,7 +2828,8 @@ export async function copyQuickQuoteAsText() {
         incluyeTraslado,
         moneda,
         precioPersona,
-        total
+        total,
+        cuotas
     };
 
     const mensaje = buildQuickQuoteTextMessage(payload, { forWhatsApp: true });
@@ -2341,7 +2855,8 @@ export async function copySavedQuickBudgetAsText(quoteId, event) {
 
         const hoteles = (q.hoteles || []).map(h => ({
             nombre: typeof h === 'string' ? h : (h.nombre || h.label || 'Hotel'),
-            estrellas: (typeof h === 'object' && h.estrellas) ? h.estrellas : 4
+            estrellas: (typeof h === 'object' && h.estrellas) ? h.estrellas : 4,
+            regimen: (typeof h === 'object' && h.regimen) ? h.regimen : ''
         }));
 
         const traslados = q.traslados || [];
@@ -2355,9 +2870,13 @@ export async function copySavedQuickBudgetAsText(quoteId, event) {
         const paxCount = q.cantidad_pasajeros || 2;
         const precioPersona = paxCount > 0 ? (total / paxCount) : total;
 
+        // Entrega inicial = aéreo guardado (monto de cada vuelo + su fee)
+        const totalAereo = (q.vuelos || []).reduce((sum, v) => sum + (v.monto || 0) + (v.fee || 0), 0);
+        const cuotas = computeQuickCuotas({ totalAereo, totalFinal: total, paxCount });
+
         const payload = {
             paxCount: paxCount,
-            origen: q.origen || 'Córdoba',
+            origen: metadata.origen || q.origen || 'Córdoba',
             destino: q.destino || q.pasajero_nombre || '',
             fechaSalida,
             fechaRegreso,
@@ -2367,7 +2886,8 @@ export async function copySavedQuickBudgetAsText(quoteId, event) {
             incluyeTraslado: incluyeTraslado,
             moneda: q.moneda || 'USD',
             precioPersona: precioPersona,
-            total: total
+            total: total,
+            cuotas: cuotas
         };
 
         const mensaje = buildQuickQuoteTextMessage(payload, { forWhatsApp: true });

@@ -359,7 +359,6 @@ textarea:focus {
     border-color: rgba(226, 232, 240, 1) !important;
 }
 
-
 .app-fade-in {
     animation: fadeInApp 0.6s forwards ease-out;
 }
@@ -684,30 +683,16 @@ textarea:focus {
    ══════════════════════════════════════════════════════════════════ */
 
 /* ── Global Silky Smooth Theme Transition (Fine & Subtle) ── */
-html.theme-transitioning,
-html.theme-transitioning *,
-html.theme-transitioning *::before,
-html.theme-transitioning *::after {
-    transition: background-color 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-                border-color 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-                color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow 0.45s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
+html
 
 /* Ensure iframes never transition or flash */
-html.theme-transitioning iframe,
-iframe#pdf-preview-iframe,
-iframe#ver-pdf-iframe {
-    transition: none !important;
-}
+html
 
 /* Persistent subtle transitions for layout surfaces */
 body,
 #app-top-header,
 #app-sidebar,
 #main-content-wrapper,
-.theme-switch-btn,
-#theme-toggle-thumb,
 .bento-box,
 .bg-white,
 header,
@@ -719,435 +704,7 @@ nav {
                 box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Theme Toggle Switch Track */
-.theme-switch-btn {
-    width: 58px !important;
-    min-width: 58px !important;
-    height: 30px !important;
-    padding: 2px !important;
-    background-color: #e2e8f0;
-    border: 1px solid #cbd5e1;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-    transition: background-color 0.35s ease, border-color 0.35s ease !important;
-}
-
-.theme-switch-btn:hover {
-    border-color: #94a3b8;
-}
-
-/* Sliding Thumb */
-#theme-toggle-thumb,
-.theme-toggle-thumb {
-    width: 24px !important;
-    height: 24px !important;
-    transition: transform 0.4s cubic-bezier(0.34, 1.4, 0.64, 1),
-                background-color 0.35s ease,
-                box-shadow 0.35s ease !important;
-}
-
-/* Dark mode active state for the switch track & thumb */
-html.dark .theme-switch-btn {
-    background-color: #222a3c !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-html.dark .theme-switch-btn:hover {
-    border-color: rgba(255, 255, 255, 0.18) !important;
-}
-
-html.dark #theme-toggle-thumb,
-html.dark .theme-toggle-thumb {
-    transform: translateX(26px) !important;
-    background-color: #131722 !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-
-/* ── Seamless Sun & Moon Icon Morphing (Spin & Crossfade) ── */
-.theme-icon-sun,
-.theme-icon-moon,
-#theme-icon-sun,
-#theme-icon-moon {
-    transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.4s cubic-bezier(0.34, 1.4, 0.64, 1) !important;
-}
-
-/* Light mode state */
-.theme-icon-sun,
-#theme-icon-sun {
-    opacity: 1 !important;
-    transform: rotate(0deg) scale(1) !important;
-    display: block !important;
-}
-
-.theme-icon-moon,
-#theme-icon-moon {
-    opacity: 0 !important;
-    transform: rotate(-90deg) scale(0.35) !important;
-    display: block !important;
-    pointer-events: none !important;
-}
-
-/* Dark mode state */
-html.dark .theme-icon-sun,
-html.dark #theme-icon-sun {
-    opacity: 0 !important;
-    transform: rotate(90deg) scale(0.35) !important;
-    display: block !important;
-    pointer-events: none !important;
-}
-
-html.dark .theme-icon-moon,
-html.dark #theme-icon-moon {
-    opacity: 1 !important;
-    transform: rotate(0deg) scale(1) !important;
-    display: block !important;
-    color: #93c5fd !important;
-}
-
-/* ── Base Layout: Warm Graphite-Slate Background (Soft, Non-blinding) ── */
-html.dark,
-html.dark body {
-    background-color: #11151e !important;
-    color: #cbd5e1 !important;
-    background-image:
-        radial-gradient(circle at 5% 0%, rgba(255, 84, 93, 0.04) 0%, transparent 40%),
-        radial-gradient(circle at 95% 100%, rgba(247, 150, 70, 0.03) 0%, transparent 40%) !important;
-    background-attachment: fixed !important;
-}
-
-/* Scrollbars in Dark Mode */
-html.dark ::-webkit-scrollbar-track {
-    background: #11151e !important;
-}
-
-html.dark ::-webkit-scrollbar-thumb {
-    background: #273145 !important;
-    border-radius: 8px !important;
-}
-
-html.dark ::-webkit-scrollbar-thumb:hover {
-    background: #36445e !important;
-}
-
-/* Top Header */
-html.dark #app-top-header {
-    background-color: rgba(17, 21, 30, 0.88) !important;
-    border-color: rgba(255, 255, 255, 0.07) !important;
-}
-
-html.dark #nav-date-time {
-    background-color: rgba(255, 255, 255, 0.04) !important;
-    border-color: rgba(255, 255, 255, 0.07) !important;
-    color: #8292a7 !important;
-}
-
-html.dark #nav-date-time svg {
-    color: #8292a7 !important;
-}
-
-/* Sidebar in Dark Mode */
-html.dark #app-sidebar.sidebar-light {
-    background-color: #11151e !important;
-    border-color: rgba(255, 255, 255, 0.07) !important;
-}
-
-html.dark .sidebar-item-style {
-    color: #8292a7 !important;
-}
-
-html.dark .sidebar-item-style svg {
-    color: #5e6f85 !important;
-}
-
-html.dark .sidebar-item-style:hover {
-    background-color: rgba(255, 84, 93, 0.1) !important;
-    color: #fda4af !important;
-    border-color: rgba(255, 84, 93, 0.2) !important;
-}
-
-html.dark .sidebar-item-style:hover svg {
-    color: #ff545d !important;
-}
-
-html.dark .sidebar-item-active {
-    background-color: rgba(255, 84, 93, 0.16) !important;
-    color: #ff6b74 !important;
-    border-color: rgba(255, 84, 93, 0.28) !important;
-}
-
-html.dark .sidebar-item-active svg {
-    color: #ff545d !important;
-}
-
-html.dark .sidebar-section-header {
-    color: #5e6f85 !important;
-}
-
-html.dark #sidebar-user-badge {
-    background-color: rgba(255, 255, 255, 0.04) !important;
-    border-color: rgba(255, 255, 255, 0.07) !important;
-    color: #cbd5e1 !important;
-}
-
-html.dark #sidebar-username-span {
-    color: #e2e8f0 !important;
-}
-
-html.dark #sidebar-collapse-btn-desktop:hover {
-    background-color: rgba(255, 255, 255, 0.06) !important;
-    color: #e2e8f0 !important;
-}
-
-html.dark #sidebar-btn-logout:hover {
-    background-color: rgba(244, 63, 94, 0.1) !important;
-    border-color: rgba(244, 63, 94, 0.2) !important;
-}
-
-/* ── Elevated Surfaces: Cards, Bento Boxes, Modals ── */
-html.dark .bg-white,
-html.dark [class*="bg-white/80"],
-html.dark [class*="bg-white/90"],
-html.dark [class*="bg-white/95"],
-html.dark .bento-box,
-html.dark .glass-login-panel {
-    background-color: #19202e !important;
-    border-color: rgba(255, 255, 255, 0.07) !important;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22) !important;
-}
-
-html.dark .bento-box:hover {
-    background-color: #1e2637 !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
-}
-
-/* Secondary Surfaces */
-html.dark .bg-slate-50,
-html.dark [class*="bg-slate-50/"] {
-    background-color: #141924 !important;
-}
-
-html.dark .bg-slate-100,
-html.dark [class*="bg-slate-100/"] {
-    background-color: #1d2536 !important;
-}
-
-html.dark .bg-slate-200,
-html.dark [class*="bg-slate-200/"] {
-    background-color: #273145 !important;
-}
-
-html.dark .hover\:bg-slate-50:hover {
-    background-color: #1b2333 !important;
-}
-
-html.dark .hover\:bg-slate-100:hover {
-    background-color: #242e42 !important;
-}
-
-html.dark .hover\:bg-slate-200:hover {
-    background-color: #2d3952 !important;
-}
-
-/* ── Interactive Glass Action Buttons (e.g. ver_cotizacion actions) ── */
-html.dark [class*="bg-white/40"] {
-    background-color: rgba(255, 255, 255, 0.05) !important;
-    border-color: rgba(255, 255, 255, 0.09) !important;
-    color: #cbd5e1 !important;
-}
-
-html.dark [class*="bg-white/40"]:hover {
-    background-color: rgba(255, 255, 255, 0.1) !important;
-    color: #ffffff !important;
-}
-
-/* ── Dark Action Buttons (bg-slate-900) - Never black holes ── */
-html.dark .bg-slate-900 {
-    background-color: #273145 !important;
-    color: #f1f5f9 !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
-
-html.dark .hover\:bg-slate-800:hover {
-    background-color: #313d56 !important;
-}
-
-/* ── Badges & Status Pills (Soft Translucent, No Glare) ── */
-html.dark .bg-rose-50,
-html.dark [class*="bg-rose-50/"] {
-    background-color: rgba(244, 63, 94, 0.12) !important;
-    color: #fda4af !important;
-    border-color: rgba(244, 63, 94, 0.22) !important;
-}
-
-html.dark .bg-amber-50,
-html.dark [class*="bg-amber-50/"],
-html.dark .bg-amber-100,
-html.dark [class*="bg-amber-100/"] {
-    background-color: rgba(245, 158, 11, 0.12) !important;
-    color: #fcd34d !important;
-    border-color: rgba(245, 158, 11, 0.22) !important;
-}
-
-html.dark .bg-emerald-50,
-html.dark [class*="bg-emerald-50/"] {
-    background-color: rgba(16, 185, 129, 0.12) !important;
-    color: #6ee7b7 !important;
-    border-color: rgba(16, 185, 129, 0.22) !important;
-}
-
-html.dark .bg-blue-50,
-html.dark [class*="bg-blue-50/"] {
-    background-color: rgba(59, 130, 246, 0.12) !important;
-    color: #93c5fd !important;
-    border-color: rgba(59, 130, 246, 0.22) !important;
-}
-
-/* ── Borders & Dividers (Very Soft & Low-Contrast) ── */
-html.dark [class*="border-slate-100"],
-html.dark [class*="border-slate-200"],
-html.dark [class*="border-slate-300"],
-html.dark [class*="divide-slate-100"] > * + *,
-html.dark [class*="divide-slate-200"] > * + * {
-    border-color: rgba(255, 255, 255, 0.07) !important;
-}
-
-/* Vertical line dividers */
-html.dark [class*="h-10"][class*="bg-slate-200"] {
-    background-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-/* ── Typography Scale (Pleasant, Soft Off-White, Never Blinding) ── */
-html.dark .text-slate-900 {
-    color: #e2e8f0 !important;
-}
-
-html.dark .text-slate-800 {
-    color: #dbe2ea !important;
-}
-
-html.dark .text-slate-700 {
-    color: #cbd5e1 !important;
-}
-
-html.dark .text-slate-600 {
-    color: #94a3b8 !important;
-}
-
-html.dark .text-slate-500 {
-    color: #8292a7 !important;
-}
-
-html.dark .text-slate-400 {
-    color: #64748b !important;
-}
-
 /* ── Form Controls & Inputs ── */
-/* Standard Inputs */
-html.dark .glass-input,
-html.dark input[type="text"]:not(.bg-transparent):not([style*="transparent"]),
-html.dark input[type="number"]:not(.bg-transparent),
-html.dark input[type="date"],
-html.dark input[type="password"],
-html.dark input[type="email"],
-html.dark select,
-html.dark textarea {
-    border: 1px solid rgba(255, 255, 255, 0.09) !important;
-    background-color: #131722 !important;
-    color: #e2e8f0 !important;
-    box-shadow: none !important;
-}
-
-/* Inputs with bg-white/60 */
-html.dark input[class*="bg-white/60"] {
-    background-color: #131722 !important;
-    border-color: rgba(255, 255, 255, 0.09) !important;
-    color: #e2e8f0 !important;
-}
-
-/* Strictly Preserve Transparent Inputs (Quick Quote Toolbar & Tables) */
-html.dark input.bg-transparent,
-html.dark input[style*="transparent"],
-html.dark .quick-row-label,
-html.dark #rapido-pasajero,
-html.dark #rapido-destino,
-html.dark #rapido-fecha-salida,
-html.dark #rapido-fecha-regreso {
-    background-color: transparent !important;
-    background: transparent !important;
-    border-top: none !important;
-    border-left: none !important;
-    border-right: none !important;
-    color: #e2e8f0 !important;
-    box-shadow: none !important;
-}
-
-html.dark #rapido-destino,
-html.dark #rapido-fecha-salida,
-html.dark #rapido-fecha-regreso {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
-}
-
-html.dark input:focus,
-html.dark select:focus,
-html.dark textarea:focus {
-    border-color: var(--primary-color, #ff545d) !important;
-    box-shadow: 0 0 0 3px rgba(255, 84, 93, 0.15) !important;
-}
-
-html.dark input::placeholder,
-html.dark textarea::placeholder {
-    color: #5e6f85 !important;
-}
-
-html.dark select option {
-    background-color: #19202e !important;
-    color: #e2e8f0 !important;
-}
-
-/* Dropzones in Dark Mode */
-html.dark .dropzone {
-    border: 1px dashed rgba(255, 255, 255, 0.12) !important;
-    background-color: rgba(255, 255, 255, 0.02) !important;
-}
-
-html.dark .dropzone:hover,
-html.dark .dropzone.dragover {
-    border-color: rgba(255, 84, 93, 0.6) !important;
-    background-color: rgba(255, 84, 93, 0.04) !important;
-}
-
-/* Baggage & Transfer Options */
-html.dark .baggage-opt-btn,
-html.dark .transfer-opt-btn {
-    background-color: rgba(255, 255, 255, 0.04) !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-html.dark .baggage-opt-btn:hover,
-html.dark .transfer-opt-btn:hover {
-    background-color: rgba(255, 255, 255, 0.07) !important;
-    border-color: rgba(255, 255, 255, 0.14) !important;
-}
-
-html.dark .baggage-opt-btn.active,
-html.dark .transfer-opt-btn.active {
-    background-color: rgba(16, 185, 129, 0.12) !important;
-    border-color: rgba(16, 185, 129, 0.35) !important;
-}
-
-/* ── Tables & Lists ── */
-html.dark table thead tr,
-html.dark table th {
-    background-color: #141924 !important;
-    color: #8292a7 !important;
-    border-color: rgba(255, 255, 255, 0.07) !important;
-}
-
-html.dark table tbody tr:hover {
-    background-color: rgba(255, 255, 255, 0.02) !important;
-}
-
 /* ── Elimination of Pink in Archivos Guardados Table ── */
 #db-quotes-table-body tr,
 #db-quotes-table-body td {
@@ -1156,109 +713,6 @@ html.dark table tbody tr:hover {
 
 #db-quotes-table-body tr:hover {
     background-color: rgba(241, 245, 249, 0.8) !important;
-}
-
-html.dark #db-quotes-table-body tr:hover {
-    background-color: rgba(255, 255, 255, 0.04) !important;
-}
-
-html.dark table tfoot,
-html.dark table tfoot tr,
-html.dark table tfoot td {
-    background-color: #141924 !important;
-    border-color: rgba(255, 255, 255, 0.07) !important;
-}
-
-html.dark #rapido-redondeo-row,
-html.dark #rapido-redondeo-row td {
-    background-color: rgba(6, 78, 59, 0.22) !important;
-    border-color: rgba(16, 185, 129, 0.25) !important;
-}
-
-/* Saved Quotes Browser Tabs */
-html.dark #tab-detalladas {
-    background-color: #19202e !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
-    color: #e2e8f0 !important;
-}
-
-html.dark #tab-rapidos {
-    background-color: rgba(255, 255, 255, 0.03) !important;
-    color: #64748b !important;
-}
-
-html.dark #tab-rapidos:hover {
-    background-color: rgba(255, 255, 255, 0.06) !important;
-    color: #94a3b8 !important;
-}
-
-/* Modals */
-html.dark #confirm-modal-box,
-html.dark #quick-quote-preview-modal-box {
-    background-color: #19202e !important;
-    border-color: rgba(255, 255, 255, 0.09) !important;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5) !important;
-}
-
-html.dark #quick-quote-preview-textarea {
-    background-color: #131926 !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-    color: #e2e8f0 !important;
-}
-
-html.dark #confirm-modal-title {
-    color: #e2e8f0 !important;
-}
-
-html.dark #confirm-modal-desc {
-    color: #8292a7 !important;
-}
-
-/* Flatpickr Calendar */
-html.dark .flatpickr-calendar {
-    background: #19202e !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45) !important;
-}
-
-html.dark .flatpickr-day {
-    color: #cbd5e1 !important;
-}
-
-html.dark .flatpickr-day.prevMonthDay,
-html.dark .flatpickr-day.nextMonthDay {
-    color: #475569 !important;
-}
-
-html.dark .flatpickr-months .flatpickr-month,
-html.dark span.flatpickr-weekday {
-    color: #cbd5e1 !important;
-    fill: #cbd5e1 !important;
-}
-
-html.dark .flatpickr-current-month .numInputWrapper span.arrowUp:after {
-    border-bottom-color: #cbd5e1 !important;
-}
-
-html.dark .flatpickr-current-month .numInputWrapper span.arrowDown:after {
-    border-top-color: #cbd5e1 !important;
-}
-
-html.dark .flatpickr-day.inRange {
-    background: rgba(255, 84, 93, 0.15) !important;
-    color: #fda4af !important;
-}
-
-/* Login Screens */
-html.dark #login-screen,
-html.dark #admin-login-page-container,
-html.dark #admin-page-container {
-    background-color: #11151e !important;
-}
-
-html.dark nav {
-    background-color: #19202e !important;
-    border-color: rgba(255, 255, 255, 0.07) !important;
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1277,5 +731,797 @@ iframe#ver-pdf-iframe {
         background-color: #ffffff !important;
         color: #000000 !important;
         background-image: none !important;
+    }
+}
+/* ══════════════════════════════════════════════════════════════════
+   TRANSICIONES DE VISTA (todas las páginas usan el mismo movimiento)
+   Salida corta y entrada suave con easing expo: rápido pero fluido.
+   ══════════════════════════════════════════════════════════════════ */
+:root {
+    --view-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --view-ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --view-leave-ms: 120ms;
+    --view-enter-ms: 300ms;
+}
+
+@keyframes view-leave {
+    from { opacity: 1; transform: none; }
+    to   { opacity: 0; transform: translate3d(0, -6px, 0); }
+}
+
+@keyframes view-enter {
+    from { opacity: 0; transform: translate3d(0, 10px, 0); }
+    to   { opacity: 1; transform: none; }
+}
+
+#app.view-leave {
+    transform-origin: 50% 0;
+    animation: view-leave var(--view-leave-ms) var(--view-ease-in) both;
+}
+
+#app.view-enter-active {
+    transform-origin: 50% 0;
+    animation: view-enter var(--view-enter-ms) var(--view-ease-out) forwards;
+}
+
+/* Aparición escalonada de bloques dentro de una vista */
+@keyframes view-rise {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 14px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.stagger-in > * {
+    animation: view-rise 460ms var(--view-ease-out) both;
+}
+
+.stagger-in > *:nth-child(1) { animation-delay: 40ms; }
+.stagger-in > *:nth-child(2) { animation-delay: 90ms; }
+.stagger-in > *:nth-child(3) { animation-delay: 140ms; }
+.stagger-in > *:nth-child(4) { animation-delay: 190ms; }
+.stagger-in > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-in > *:nth-child(n+6) { animation-delay: 280ms; }
+
+/* ══════════════════════════════════════════════════════════════════
+   INICIO — PANEL DE GESTIÓN
+   Una sola superficie: la jerarquía sale de la tipografía, las líneas
+   finas y el espacio, no de tarjetas. Tokens propios para controlar
+   ambos temas sin depender de los overrides globales del modo oscuro.
+   ══════════════════════════════════════════════════════════════════ */
+.dash {
+    --ink: #0f172a;
+    --ink-2: #475569;
+    --ink-3: #94a3b8;
+    --line: #e2e8f0;
+    --line-soft: #eef2f6;
+    --hover: rgba(15, 23, 42, 0.028);
+    --accent: #ff545d;          /* validado sobre #f8fafc */
+    --accent-wash: rgba(255, 84, 93, 0.08);
+    --rank: #475569;
+    --good: #047857;
+    --bad: #b91c1c;
+    --wash-opacity: 0.18;
+
+    position: relative;
+    isolation: isolate;
+    color: var(--ink);
+    container-type: inline-size;
+}
+
+/* ── Fondo: paisaje muy tenue que se funde con la página ── */
+.dash-backdrop {
+    position: absolute;
+    z-index: -1;
+    top: -1.5rem;             /* pt-6 de #app */
+    left: -1rem;              /* px-4 de #app */
+    right: -1rem;
+    height: 440px;
+    pointer-events: none;
+    overflow: hidden;
+    /* Se desvanece hacia abajo y hacia los costados: no hay bordes visibles */
+    -webkit-mask-image:
+        linear-gradient(to bottom, #000 0%, #000 30%, transparent 100%),
+        linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+        linear-gradient(to bottom, #000 0%, #000 30%, transparent 100%),
+        linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
+    mask-composite: intersect;
+}
+
+@media (min-width: 640px) {
+    .dash-backdrop { left: -1.5rem; right: -1.5rem; }
+}
+
+@media (min-width: 1024px) {
+    .dash-backdrop { left: -2rem; right: -2rem; }
+}
+
+.dash-wash {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center 40%;
+    opacity: 0;
+    filter: saturate(0.85);
+    transform: scale(1.04);
+    transition: opacity 2400ms var(--view-ease-out);
+}
+
+.dash-wash.active {
+    opacity: var(--wash-opacity);
+    animation: dash-drift 30s ease-in-out infinite alternate;
+}
+
+@keyframes dash-drift {
+    from { transform: scale(1.04) translate3d(0, 0, 0); }
+    to   { transform: scale(1.1) translate3d(-1%, -0.6%, 0); }
+}
+
+/* ── Vuelo: dibujo de línea fina sobre el fondo ── */
+.dash-flight {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Sin franja libre entre el saludo y las acciones no hay vuelo:
+   nunca debe pasar por encima de texto ni de botones. */
+@container (max-width: 939px) {
+    .dash-flight {
+        display: none;
+    }
+
+    /* En pantallas angostas la foto se agranda y se vuelve protagonista: se atenúa */
+    .dash-wash.active {
+        opacity: calc(var(--wash-opacity) * 0.55);
+    }
+}
+
+.dash-flight .route {
+    fill: none;
+    stroke: var(--ink-3);
+    stroke-opacity: 0.45;
+    stroke-width: 1.25;
+    stroke-linecap: round;
+    stroke-dasharray: 3 9;
+}
+
+.dash-flight .trail {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.75;
+    stroke-linecap: round;
+}
+
+.dash-flight .plane {
+    fill: var(--ink);
+}
+
+/* ── Encabezado ── */
+.dash-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 0.75rem 0 2.25rem;
+}
+
+.dash-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ink-2);
+    letter-spacing: 0.01em;
+}
+
+.dash-title {
+    margin-top: 0.5rem;
+    font-size: 1.75rem;
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+}
+
+.dash-sub {
+    margin-top: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ink-2);
+}
+
+.dash-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.dash-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 2.375rem;
+    padding: 0 0.95rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        background-color 160ms var(--view-ease-out),
+        border-color 160ms var(--view-ease-out),
+        color 160ms var(--view-ease-out);
+}
+
+.dash-btn svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
+.dash-btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid transparent;
+}
+
+.dash-btn-primary:hover {
+    background: color-mix(in srgb, var(--accent) 88%, #000);
+}
+
+.dash-btn-secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+}
+
+.dash-btn-secondary:hover {
+    border-color: var(--ink-3);
+}
+
+.dash-btn:focus-visible,
+.dash-link:focus-visible,
+.dash-row:focus-visible,
+.dash-nav-item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ── Franja de indicadores ── */
+.dash-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.dash-kpi {
+    min-width: 0;
+    padding: 1.25rem 1.25rem 1.25rem 0;
+}
+
+/* Líneas entre columnas en 2 columnas (móvil/tablet) */
+.dash-kpi:nth-child(2n) {
+    padding-left: 1.25rem;
+    border-left: 1px solid var(--line);
+}
+
+.dash-kpi:nth-child(n+3) {
+    border-top: 1px solid var(--line);
+}
+
+@media (min-width: 1024px) {
+    .dash-kpis {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .dash-kpi {
+        padding: 1.375rem 1.5rem;
+        border-top: none !important;
+    }
+
+    .dash-kpi:nth-child(n) {
+        border-left: 1px solid var(--line);
+        padding-left: 1.5rem;
+    }
+
+    .dash-kpi:first-child {
+        border-left: none;
+        padding-left: 0;
+    }
+}
+
+.dash-kpi-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.dash-kpi-value {
+    margin-top: 0.5rem;
+    font-size: 1.75rem;
+    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dash-kpi-unit {
+    margin-left: 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink-3);
+    letter-spacing: 0;
+}
+
+.dash-kpi-foot {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dash-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    font-weight: 600;
+}
+
+.dash-delta svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.dash-delta.up { color: var(--good); }
+.dash-delta.down { color: var(--bad); }
+.dash-delta.flat { color: var(--ink-2); }
+
+/* ── Cuerpo: contenido + columna lateral, separados por una línea ── */
+.dash-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.dash-aside {
+    border-top: 1px solid var(--line);
+}
+
+@media (min-width: 1024px) {
+    .dash-main {
+        grid-template-columns: minmax(0, 1fr) 340px;
+    }
+
+    .dash-primary {
+        padding-right: 2rem;
+    }
+
+    .dash-aside {
+        border-top: none;
+        border-left: 1px solid var(--line);
+        padding-left: 2rem;
+    }
+}
+
+@media (min-width: 1440px) {
+    .dash-main {
+        grid-template-columns: minmax(0, 1fr) 380px;
+    }
+}
+
+.dash-section {
+    padding: 1.75rem 0;
+}
+
+.dash-section + .dash-section {
+    border-top: 1px solid var(--line);
+}
+
+.dash-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.dash-section-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+}
+
+.dash-section-meta {
+    margin-left: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-3);
+}
+
+.dash-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ink-2);
+    white-space: nowrap;
+    cursor: pointer;
+    border-radius: 0.25rem;
+    transition: color 160ms var(--view-ease-out);
+}
+
+.dash-link:hover {
+    color: var(--ink);
+}
+
+.dash-link svg {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.dash-empty {
+    padding: 1.5rem 0;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--ink-3);
+}
+
+/* ── Gráfico de barras ── */
+.dash-chart {
+    position: relative;
+    height: 180px;
+}
+
+.dash-chart svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.dash-chart .grid-line {
+    stroke: var(--line);
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+.dash-chart .axis-text {
+    fill: var(--ink-3);
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-chart .bar {
+    fill: var(--accent);
+    transition: opacity 120ms ease;
+}
+
+/* Al pasar sobre una columna, las demás retroceden */
+.dash-chart svg.is-hovering .bar {
+    opacity: 0.35;
+}
+
+.dash-chart svg.is-hovering .bar.is-active {
+    opacity: 1;
+}
+
+.dash-chart .hit {
+    fill: transparent;
+    cursor: default;
+}
+
+.dash-tooltip {
+    position: absolute;
+    z-index: 5;
+    pointer-events: none;
+    padding: 0.5rem 0.625rem;
+    border-radius: 0.375rem;
+    background: var(--ink);
+    color: #fff;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    transform: translate(-50%, calc(-100% - 8px));
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+
+.dash-tooltip.visible {
+    opacity: 1;
+}
+
+.dash-tooltip strong {
+    display: block;
+    font-weight: 600;
+}
+
+.dash-tooltip span {
+    opacity: 0.7;
+}
+
+/* ── Tabla de actividad ── */
+.dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.dash-table th {
+    padding: 0 0.75rem 0.625rem 0;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--ink-3);
+    letter-spacing: 0.02em;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+}
+
+.dash-table td {
+    padding: 0.75rem 0.75rem 0.75rem 0;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-2);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 0;
+}
+
+.dash-table th:last-child,
+.dash-table td:last-child {
+    padding-right: 0;
+}
+
+.dash-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Columnas que se ajustan a su contenido y nunca se recortan (montos, fechas, tipo) */
+.dash-table .fit {
+    width: 1%;
+    max-width: none;
+    overflow: visible;
+}
+
+.dash-table .cell-client {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.dash-row {
+    cursor: pointer;
+    transition: background-color 120ms ease;
+}
+
+.dash-row:hover td {
+    background: var(--hover);
+}
+
+.dash-row:hover .cell-client {
+    color: var(--accent);
+}
+
+.dash-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.dash-type::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--ink-3);
+    flex-shrink: 0;
+}
+
+.dash-type.rapida::before {
+    background: var(--accent);
+}
+
+/* Columnas secundarias se ocultan en pantallas chicas */
+@media (max-width: 767px) {
+    .dash-table .col-optional {
+        display: none;
+    }
+}
+
+/* ── Listas de la columna lateral ── */
+.dash-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.dash-list-item {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.625rem 0;
+    min-width: 0;
+}
+
+.dash-list-item + .dash-list-item {
+    border-top: 1px solid var(--line-soft);
+}
+
+.dash-date {
+    width: 2.625rem;
+    flex-shrink: 0;
+    text-align: center;
+    line-height: 1.05;
+}
+
+.dash-date-day {
+    display: block;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-date-month {
+    display: block;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.dash-list-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.dash-list-title {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dash-list-sub {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dash-list-aside {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Ranking de destinos: barra fina proporcional bajo cada nombre */
+.dash-rank-track {
+    margin-top: 0.4rem;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--line-soft);
+    overflow: hidden;
+}
+
+.dash-rank-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--rank);
+    transform-origin: left center;
+    animation: dash-grow 700ms var(--view-ease-out) both;
+}
+
+@keyframes dash-grow {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+}
+
+/* Accesos: filas de navegación con chevron */
+.dash-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.75rem 0.5rem;
+    margin: 0 -0.5rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background-color 140ms ease;
+}
+
+.dash-nav-item:hover {
+    background: var(--hover);
+}
+
+.dash-nav-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    color: var(--ink-3);
+    flex-shrink: 0;
+}
+
+.dash-nav-chevron {
+    width: 0.875rem;
+    height: 0.875rem;
+    color: var(--ink-3);
+    flex-shrink: 0;
+    transition: transform 160ms var(--view-ease-out), color 160ms ease;
+}
+
+.dash-nav-item:hover .dash-nav-chevron {
+    transform: translateX(2px);
+    color: var(--ink-2);
+}
+
+/* Esqueleto mientras cargan los datos */
+.dash-skeleton {
+    display: inline-block;
+    height: 0.9em;
+    width: 3.5rem;
+    border-radius: 0.25rem;
+    background: var(--line);
+    vertical-align: middle;
+    animation: dash-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dash-pulse {
+    50% { opacity: 0.5; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ACCESIBILIDAD: sin movimiento si el sistema lo pide
+   ══════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+    #app.view-leave,
+    #app.view-enter-active {
+        animation-duration: 80ms !important;
+        animation-name: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .stagger-in > *,
+    .dash-rank-fill,
+    .dash-skeleton {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .dash-wash.active {
+        animation: none !important;
+    }
+
+    .dash-flight {
+        display: none !important;
     }
 }
