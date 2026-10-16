@@ -174,6 +174,50 @@ function syncHotelDatesWithFlights() {
 }
 window.syncHotelDatesWithFlights = syncHotelDatesWithFlights;
 
+// -- Modalidad activa del cotizador ('standard' | 'multidestino' | 'vuelos') --
+let currentQuoteMode = 'standard';
+
+function isSoloVuelosMode() {
+    return currentQuoteMode === 'vuelos';
+}
+window.isSoloVuelosMode = isSoloVuelosMode;
+
+/** Detecta si una cotizacion guardada es del tipo "solo vuelos". */
+function isSoloVuelosQuote(quote) {
+    if (!quote) return false;
+    if (String(quote.tipo_cotizacion || '').toLowerCase() === 'solo_vuelos') return true;
+    return Array.isArray(quote.hoteles) &&
+        quote.hoteles.some(h => h && String(h.tipo_cotizacion || '').toLowerCase() === 'solo_vuelos');
+}
+window.isSoloVuelosQuote = isSoloVuelosQuote;
+
+/**
+ * Adapta el formulario estandar a la modalidad "solo vuelos": oculta
+ * alojamiento, traslados y gastos administrativos, y deja el monto de
+ * traslados en cero para que no participe del calculo.
+ */
+function applySoloVuelosLayout() {
+    ['section-alojamiento', 'section-traslados', 'section-gastos-admin'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
+
+    const hotelsContainer = document.getElementById('hotels-container');
+    if (hotelsContainer) hotelsContainer.innerHTML = '';
+    hotelCount = 0;
+
+    const montoTraslados = document.getElementById('monto_traslados');
+    if (montoTraslados) {
+        montoTraslados.removeAttribute('required');
+        montoTraslados.value = '0';
+    }
+    const operadorTraslados = document.getElementById('operador_traslados');
+    if (operadorTraslados) operadorTraslados.value = '';
+    const tipoTraslado = document.getElementById('tipo_traslado');
+    if (tipoTraslado) tipoTraslado.value = 'tradicional';
+}
+window.applySoloVuelosLayout = applySoloVuelosLayout;
+
 function saveDetailedQuoteFormState() {
     if (isRestoringStateDetailed) return;
 
@@ -221,6 +265,7 @@ function saveDetailedQuoteFormState() {
     const hasExtraFlight = cardVuelo3 && !cardVuelo3.classList.contains('hidden');
 
     const state = {
+        quote_mode: currentQuoteMode,
         currentQuoteId: currentQuoteId,
         currentQuoteOwner: window.currentQuoteOwner,
         isReadOnlyMode: isReadOnlyMode,
@@ -261,6 +306,12 @@ function restoreDetailedQuoteFormState() {
     try {
         const state = JSON.parse(saved);
         if (!state) return;
+
+        // El borrador pertenece a otra modalidad: se descarta para no mezclar datos
+        if ((state.quote_mode || 'standard') !== currentQuoteMode) {
+            sessionStorage.removeItem('detailedQuoteFormState');
+            return;
+        }
 
         isRestoringStateDetailed = true;
 
@@ -379,8 +430,12 @@ function restoreDetailedQuoteFormState() {
                     }
                 }
             });
-        } else {
+        } else if (!isSoloVuelosMode()) {
             addHotelCard();
+        }
+
+        if (isSoloVuelosMode()) {
+            applySoloVuelosLayout();
         }
 
         // Apply read only or editing mode layout
@@ -1714,7 +1769,7 @@ function checkIfFormHasData() {
     const pax = document.getElementById('nombre_pax')?.value || '';
     const dest = document.getElementById('destino')?.value || '';
     const flights = document.getElementById('monto_vuelos')?.value || '';
-    const transfers = document.getElementById('monto_traslados')?.value || '';
+    const transfers = isSoloVuelosMode() ? '' : (document.getElementById('monto_traslados')?.value || '');
     const dateIda = document.getElementById('fecha_vuelo_ida')?.value || '';
     const date3 = document.getElementById('fecha_vuelo_3')?.value || '';
     const dateVuelta = document.getElementById('fecha_vuelo_vuelta')?.value || '';
@@ -1928,6 +1983,71 @@ function renderSummaryTableHTML(config, container) {
     `;
 }
 
+/** Desglose de costos para cotizaciones de solo vuelos (sin hoteles ni traslados). */
+function renderSoloVuelosSummaryHTML(config, container) {
+    const { currency, cantPax, flightsCost, flightsFee, aplicarRedondeo } = config;
+    const operadorVuelos = config.operadorVuelos || '';
+    if (!container) return;
+
+    const total = flightsCost + flightsFee;
+    const perPerson = cantPax > 0 ? total / cantPax : total;
+    const roundedPerPerson = aplicarRedondeo ? (Math.ceil(perPerson / 10) * 10) : perPerson;
+    const roundedTotal = aplicarRedondeo ? (roundedPerPerson * cantPax) : total;
+    const roundingAdded = roundedTotal - total;
+
+    container.innerHTML = `
+        <div class="w-full overflow-x-auto">
+            <table class="w-full min-w-max text-left border-collapse text-[10px] font-medium">
+                <thead>
+                    <tr class="border-b border-slate-200 text-slate-500 font-bold">
+                        <th class="py-2 pr-2 text-[9px] uppercase tracking-wider text-slate-400 w-[130px]">Concepto</th>
+                        <th class="py-2 px-2 text-right text-[9px] uppercase tracking-wider text-brand-primary font-extrabold min-w-[80px]">Servicios Aereos</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-slate-600">
+                    <tr>
+                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
+                            <img src="/assets/iconos/avion.svg" class="w-3.5 h-3.5 icon-slate" alt="Vuelos">
+                            <span class="truncate">Vuelos</span>
+                            ${getOperatorTag(operadorVuelos, { compact: true })}
+                        </td>
+                        <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(flightsCost)}</td>
+                    </tr>
+                    <tr class="${flightsFee > 0 ? '' : 'opacity-40'}">
+                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
+                            <img src="/assets/iconos/gastos.svg" class="w-3.5 h-3.5 icon-slate" alt="Fee Aereo">
+                            <span class="truncate">Fee Aereo</span>
+                        </td>
+                        <td class="py-2 px-2 text-right font-semibold text-slate-700">${flightsFee > 0 ? currency + ' ' + formatPriceES(flightsFee) : '<span class="text-slate-300">-</span>'}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
+                            <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 icon-slate" alt="Redondeo">
+                            <span class="truncate">Redondeo</span>
+                        </td>
+                        <td class="py-2 px-2 text-right font-semibold text-slate-700">${currency} ${formatPriceES(roundingAdded)}</td>
+                    </tr>
+                    <tr class="bg-slate-50/50 font-bold border-t border-slate-200">
+                        <td class="py-2.5 pr-2 text-[10px] text-slate-800 uppercase tracking-wider flex items-center gap-1">
+                            <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 icon-dark" alt="Total">
+                            <span>Total</span>
+                        </td>
+                        <td class="py-2.5 px-2 text-right text-xs text-brand-primary font-extrabold">${currency} ${formatPriceES(roundedTotal)}</td>
+                    </tr>
+                    <tr class="bg-brand-primary/5 font-bold border-t border-brand-primary/10">
+                        <td class="py-2.5 pr-2 text-[9px] text-brand-primary uppercase tracking-widest flex items-center gap-1">
+                            <img src="/assets/iconos/persona.svg" class="w-3.5 h-3.5 icon-brand" alt="Por Pax">
+                            <span class="truncate">Por Pax (${cantPax})</span>
+                        </td>
+                        <td class="py-2.5 px-2 text-right text-xs text-brand-primary font-extrabold">${currency} ${formatPriceES(roundedPerPerson)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+window.renderSoloVuelosSummaryHTML = renderSoloVuelosSummaryHTML;
+
 function renderMultidestinoSummaryHTML(config, container) {
     const { currency, cantPax, flightsCost, flightsFee, transfersCost, aplicarRedondeo, hotelList } = config;
     const operadorVuelos = config.operadorVuelos || '';
@@ -2103,6 +2223,18 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
         aplicarRedondeo = hotelesRaw[0].redondear;
     }
 
+    if (isSoloVuelosQuote(quote)) {
+        renderSoloVuelosSummaryHTML({
+            currency,
+            cantPax,
+            flightsCost,
+            flightsFee,
+            aplicarRedondeo,
+            operadorVuelos: quote.operador_vuelos || ''
+        }, container);
+        return;
+    }
+
     const realHotels = hotelesRaw.filter(h => h.nombre !== "METADATA_COTIZACION" && h.nombre !== "METADATA_PRESUPUESTO_RAPIDO");
 
     if (realHotels.length === 0) {
@@ -2236,6 +2368,19 @@ function updateRealTimeSummary() {
 
     const container = document.getElementById('realtime-breakdown-container');
     if (!container) return;
+
+    if (isSoloVuelosMode()) {
+        renderSoloVuelosSummaryHTML({
+            currency,
+            cantPax,
+            flightsCost,
+            flightsFee,
+            aplicarRedondeo: document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true,
+            operadorVuelos: document.getElementById('operador_vuelos')?.value.trim() || ''
+        }, container);
+        saveDetailedQuoteFormState();
+        return;
+    }
 
     const allHotelCards = Array.from(document.querySelectorAll('.hotel-option-card'));
     if (allHotelCards.length === 0) {
@@ -2419,7 +2564,9 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         const transfersCost = payload.monto_traslados || 0;
         const aereosTotal = flightsCost + flightsFee;
 
-        const primaryHotel = payload.hoteles[0];
+        const realHoteles = (payload.hoteles || []).filter(h =>
+            h.nombre !== 'METADATA_COTIZACION' && h.nombre !== 'METADATA_PRESUPUESTO_RAPIDO');
+        const primaryHotel = realHoteles[0];
         const hotelCost = primaryHotel ? primaryHotel.costo : 0;
         const adminFee = (hotelCost + transfersCost) * 0.05;
         const total = aereosTotal + hotelCost + transfersCost + adminFee;
@@ -2514,6 +2661,7 @@ function _buildPayload() {
     const fechaVuelo3 = isVuelo3Active ? formatDatePickerDate(getDatePickerValue('fecha_vuelo_3')) : '';
     const imgVuelo3 = isVuelo3Active ? (document.getElementById('data-vuelo-3')?.value || '') : '';
     const aplicarRedondeo = document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true;
+    const soloVuelos = isSoloVuelosMode();
 
     const payload = {
         nombre_pax: document.getElementById('nombre_pax').value,
@@ -2531,9 +2679,9 @@ function _buildPayload() {
         img_vuelo_3: imgVuelo3,
         monto_vuelos: parseFloat(document.getElementById('monto_vuelos').value),
         fee_aereo: parseFloat(document.getElementById('fee_aereo_monto').value),
-        monto_traslados: parseFloat(document.getElementById('monto_traslados').value),
+        monto_traslados: soloVuelos ? 0 : parseFloat(document.getElementById('monto_traslados').value),
         operador_vuelos: document.getElementById('operador_vuelos')?.value.trim() || '',
-        operador_traslados: document.getElementById('operador_traslados')?.value.trim() || '',
+        operador_traslados: soloVuelos ? '' : (document.getElementById('operador_traslados')?.value.trim() || ''),
         tipo_traslado: document.getElementById('tipo_traslado')?.value || 'tradicional',
         gastos_iva: 0.0,
         equipaje: selectedBaggage,
@@ -2542,11 +2690,15 @@ function _buildPayload() {
         hoteles: []
     };
 
+    if (soloVuelos) {
+        payload.tipo_cotizacion = 'solo_vuelos';
+    }
+
     if (currentQuoteId) {
         payload.id = currentQuoteId;
     }
 
-    const hotelCards = Array.from(document.querySelectorAll('.hotel-option-card'));
+    const hotelCards = soloVuelos ? [] : Array.from(document.querySelectorAll('.hotel-option-card'));
 
     // Find the recommended (starred) hotel index
     let recommendedIdx = 0;
@@ -2558,7 +2710,7 @@ function _buildPayload() {
     });
 
     // Reorder: recommended first, then the rest in original order
-    const orderedCards = [
+    const orderedCards = hotelCards.length === 0 ? [] : [
         hotelCards[recommendedIdx],
         ...hotelCards.filter((_, idx) => idx !== recommendedIdx)
     ];
@@ -2602,13 +2754,18 @@ function _buildPayload() {
     }
 
     const monedaVal = document.getElementById('moneda_seleccionada')?.value || 'USD';
-    payload.hoteles.push({
+    const metadata = {
         nombre: "METADATA_COTIZACION",
         moneda: monedaVal,
         fecha_vuelo_3: fechaVuelo3,
         img_vuelo_3: imgVuelo3,
         redondear: aplicarRedondeo
-    });
+    };
+    if (soloVuelos) {
+        // La modalidad viaja dentro de la metadata porque la tabla no tiene columna propia
+        metadata.tipo_cotizacion = 'solo_vuelos';
+    }
+    payload.hoteles.push(metadata);
 
     return payload;
 }
@@ -3002,7 +3159,11 @@ function resetForm() {
         container.innerHTML = '';
     }
     hotelCount = 0;
-    addHotelCard();
+    if (isSoloVuelosMode()) {
+        applySoloVuelosLayout();
+    } else {
+        addHotelCard();
+    }
 
     // Hide results
     const results = document.getElementById('results-panel');
@@ -3532,6 +3693,15 @@ async function fillTestData() {
     const hotelsContainer = document.getElementById('hotels-container');
     hotelsContainer.innerHTML = '';
     hotelCount = 0;
+
+    if (isSoloVuelosMode()) {
+        // Modalidad solo vuelos: no se cargan alojamientos de prueba
+        document.getElementById('monto_traslados').value = '0';
+        updateBaseLabel();
+        updateRealTimeSummary();
+        showAlert('success', 'Datos de prueba cargados correctamente (solo servicios aereos).');
+        return;
+    }
 
     // Add Hotel 1 (Nuestra recomendación)
     addHotelCard({
@@ -4355,6 +4525,16 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
             return;
         }
 
+        // La cotización y el formulario abierto deben ser de la misma modalidad
+        const isSoloVuelos = isSoloVuelosQuote(q);
+        if (isSoloVuelos !== isSoloVuelosMode()) {
+            window.pendingEditQuoteId = quoteId;
+            window.pendingEditQuoteEditable = forceEditMode;
+            window.hideLoader();
+            navigateTo((isSoloVuelos ? '/cotizacion-vuelos?id=' : '/cotizacion-completa?id=') + quoteId);
+            return;
+        }
+
         switchTab('cotizacion-tab');
 
         // Fill basic data fields
@@ -4472,7 +4652,9 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
                 }
             }
         });
-        if (!hasRealHotels) {
+        if (isSoloVuelos) {
+            applySoloVuelosLayout();
+        } else if (!hasRealHotels) {
             addHotelCard();
         }
         updateCurrencyLabels();
@@ -4719,39 +4901,47 @@ export async function switchQuoteMode(targetMode, preserveData = true) {
         };
     }
 
+    const QUOTE_MODES = {
+        standard: { index: 0, button: 'btn-mode-standard', title: 'Cotización Estándar', path: '/cotizacion-completa' },
+        multidestino: { index: 1, button: 'btn-mode-multidestino', title: 'Cotización Multidestino', path: '/cotizacion-multidestino' },
+        vuelos: { index: 2, button: 'btn-mode-vuelos', title: 'Cotización Solo Vuelos', path: '/cotizacion-vuelos' }
+    };
+
+    const mode = QUOTE_MODES[targetMode] ? targetMode : 'standard';
+    const modeConfig = QUOTE_MODES[mode];
+    currentQuoteMode = mode;
+    window.currentQuoteMode = mode;
+
     const pill = document.getElementById('mode-pill-indicator');
-    const btnStandard = document.getElementById('btn-mode-standard');
-    const btnMultidestino = document.getElementById('btn-mode-multidestino');
+    if (pill) pill.style.transform = `translateX(${modeConfig.index * 100}%)`;
+
+    Object.keys(QUOTE_MODES).forEach(key => {
+        const btn = document.getElementById(QUOTE_MODES[key].button);
+        if (!btn) return;
+        const isActive = key === mode;
+        btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+        btn.classList.toggle('text-brand-primary', isActive);
+        btn.classList.toggle('text-slate-500', !isActive);
+    });
+
     const titleEl = document.getElementById('cotizador-main-title');
+    if (titleEl) titleEl.textContent = modeConfig.title;
 
-    if (targetMode === 'multidestino') {
-        if (pill) pill.style.transform = 'translateX(100%)';
-        if (btnStandard) {
-            btnStandard.setAttribute('aria-checked', 'false');
-            btnStandard.classList.remove('text-brand-primary');
-            btnStandard.classList.add('text-slate-500');
-        }
-        if (btnMultidestino) {
-            btnMultidestino.setAttribute('aria-checked', 'true');
-            btnMultidestino.classList.add('text-brand-primary');
-            btnMultidestino.classList.remove('text-slate-500');
-        }
-        if (titleEl) titleEl.textContent = 'Cotización Multidestino';
+    const tpl = document.getElementById(mode === 'multidestino' ? 'template-multidestino' : 'template-estandar');
+    if (tpl) {
+        mount.innerHTML = '';
+        mount.appendChild(tpl.content.cloneNode(true));
+    }
 
-        const tpl = document.getElementById('template-multidestino');
-        if (tpl) {
-            mount.innerHTML = '';
-            mount.appendChild(tpl.content.cloneNode(true));
-        }
+    if (preserveData) {
+        _restoreCarriedData(carriedData);
+    }
 
-        if (preserveData) {
-            _restoreCarriedData(carriedData);
-        }
+    if (window.location.pathname !== modeConfig.path) {
+        history.replaceState(null, null, modeConfig.path);
+    }
 
-        if (window.location.pathname !== '/cotizacion-multidestino') {
-            history.replaceState(null, null, '/cotizacion-multidestino');
-        }
-
+    if (mode === 'multidestino') {
         try {
             const multiModule = await import('/static/js/cotizar_multidestino.js?v=' + Date.now());
             if (multiModule && typeof multiModule.initCotizarMultidestino === 'function') {
@@ -4760,47 +4950,27 @@ export async function switchQuoteMode(targetMode, preserveData = true) {
         } catch (e) {
             console.error("Error inicializando cotizar_multidestino.js:", e);
         }
-    } else {
-        if (pill) pill.style.transform = 'translateX(0%)';
-        if (btnStandard) {
-            btnStandard.setAttribute('aria-checked', 'true');
-            btnStandard.classList.add('text-brand-primary');
-            btnStandard.classList.remove('text-slate-500');
-        }
-        if (btnMultidestino) {
-            btnMultidestino.setAttribute('aria-checked', 'false');
-            btnMultidestino.classList.remove('text-brand-primary');
-            btnMultidestino.classList.add('text-slate-500');
-        }
-        if (titleEl) titleEl.textContent = 'Cotización Estándar';
-
-        const tpl = document.getElementById('template-estandar');
-        if (tpl) {
-            mount.innerHTML = '';
-            mount.appendChild(tpl.content.cloneNode(true));
-        }
-
-        if (preserveData) {
-            _restoreCarriedData(carriedData);
-        }
-
-        if (window.location.pathname !== '/cotizacion-completa') {
-            history.replaceState(null, null, '/cotizacion-completa');
-        }
-
-        initCotizarStandard();
+        return;
     }
+
+    if (mode === 'vuelos') {
+        applySoloVuelosLayout();
+    }
+
+    initCotizarStandard();
 }
 window.switchQuoteMode = switchQuoteMode;
 
 export function initCotizar() {
     window.switchQuoteMode = switchQuoteMode;
     loadOperadoresDatalist();
-    const isMultidestino = window.location.pathname === '/cotizacion-multidestino' || 
-                           new URLSearchParams(window.location.search).get('modo') === 'multidestino';
-    
-    if (isMultidestino) {
+    const path = window.location.pathname;
+    const modoParam = new URLSearchParams(window.location.search).get('modo');
+
+    if (path === '/cotizacion-multidestino' || modoParam === 'multidestino') {
         switchQuoteMode('multidestino', false);
+    } else if (path === '/cotizacion-vuelos' || modoParam === 'vuelos') {
+        switchQuoteMode('vuelos', false);
     } else {
         switchQuoteMode('standard', false);
     }
@@ -4881,7 +5051,8 @@ export function initCotizarStandard() {
     }
     window._fillTestDataShortcutListener = (e) => {
         if (e.ctrlKey && e.altKey && e.key === '9') {
-            if (window.location.pathname !== '/cotizacion-completa') return;
+            if (window.location.pathname !== '/cotizacion-completa' &&
+                window.location.pathname !== '/cotizacion-vuelos') return;
             e.preventDefault();
             if (typeof fillTestData === 'function') {
                 fillTestData();
@@ -4924,7 +5095,7 @@ export function initCotizarStandard() {
     loadConfig();
 
     const hotelsContainer = document.getElementById("hotels-container");
-    if (hotelsContainer && hotelsContainer.children.length === 0) {
+    if (hotelsContainer && hotelsContainer.children.length === 0 && !isSoloVuelosMode()) {
         addHotelCard();
     }
 
@@ -5245,6 +5416,8 @@ export async function editQuoteFromView() {
 
     if (isMultidestino) {
         navigateTo('/cotizacion-multidestino?id=' + quoteId);
+    } else if (isSoloVuelosQuote(quote)) {
+        navigateTo('/cotizacion-vuelos?id=' + quoteId);
     } else {
         navigateTo('/cotizacion-completa?id=' + quoteId);
     }
@@ -5289,6 +5462,8 @@ async function duplicateQuoteFromView() {
 
         if (isMultidestino) {
             navigateTo('/cotizacion-multidestino?id=' + cloned.id);
+        } else if (isSoloVuelosQuote(cloned) || isSoloVuelosQuote(window.currentViewQuote)) {
+            navigateTo('/cotizacion-vuelos?id=' + cloned.id);
         } else {
             navigateTo('/cotizacion-completa?id=' + cloned.id);
         }

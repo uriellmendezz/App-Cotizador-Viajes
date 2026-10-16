@@ -459,6 +459,7 @@ const routeNames = {
     '/hacer-cotizacion': 'Nueva Cotización',
     '/cotizacion-completa': 'Cotización PDF',
     '/cotizacion-multidestino': 'Cotización PDF',
+    '/cotizacion-vuelos': 'Cotización PDF',
     '/editar': 'Archivos',
     '/paquetes': 'Paquetes Promocionales',
     '/configuracion': 'Configuración',
@@ -534,6 +535,7 @@ const routes = {
     '/hacer-cotizacion': { html: '/static/views/opciones_cotizacion.html', js: '/static/js/inicio.js', init: 'initOpciones' },
     '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/cotizacion-multidestino': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
+    '/cotizacion-vuelos': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
     '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
     '/paquetes': { html: '/static/views/paquetes.html', js: '/static/js/paquetes.js', init: 'initPaquetes' },
@@ -901,7 +903,7 @@ function updateNavActiveState(path) {
     let btnId = '';
     if (path === '/inicio' || path === '/') btnId = 'sidebar-btn-inicio';
     else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
-    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino') btnId = 'sidebar-btn-full-quote';
+    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino' || path === '/cotizacion-vuelos') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
     else if (path === '/paquetes') btnId = 'sidebar-btn-paquetes';
     else if (path === '/configuracion') btnId = 'sidebar-btn-configuracion';
@@ -1028,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('keydown', async (e) => {
     if (e.ctrlKey && e.altKey && (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9')) {
         const path = window.location.pathname;
-        if (path === '/cotizacion-completa' && typeof window.fillTestData === 'function') {
+        if ((path === '/cotizacion-completa' || path === '/cotizacion-vuelos') && typeof window.fillTestData === 'function') {
             e.preventDefault();
             await window.fillTestData();
         } else if (path === '/cotizacion-rapida' && typeof window.fillQuickTestData === 'function') {

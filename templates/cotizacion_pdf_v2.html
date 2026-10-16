@@ -930,6 +930,32 @@
             letter-spacing: 0.03em;
         }
 
+        /* SOLO VUELOS: tramos apilados uno sobre otro y capturas mas grandes */
+        body.solo-vuelos-layout .title-section {
+            margin: 20px 0 28px 0;
+        }
+
+        body.solo-vuelos-layout .flights-section {
+            margin-bottom: 20px;
+        }
+
+        body.solo-vuelos-layout .flights-row.flights-stacked .flight-col {
+            margin-bottom: 16px !important;
+        }
+
+        body.solo-vuelos-layout .flights-row.flights-stacked .flight-img-container img {
+            height: 195px !important;
+            object-fit: contain;
+        }
+
+        body.solo-vuelos-layout.solo-vuelos-3-tramos .flights-row.flights-stacked .flight-col {
+            margin-bottom: 11px !important;
+        }
+
+        body.solo-vuelos-layout.solo-vuelos-3-tramos .flights-row.flights-stacked .flight-img-container img {
+            height: 125px !important;
+        }
+
         .multidestino-total-card {
             display: flex;
             align-items: center;
@@ -1001,7 +1027,7 @@
 </head>
 
 <body
-    class="{% if is_multidestino %}multidestino-layout multi-{{ hoteles|length }}-layout{% elif hoteles|length == 1 %}single-hotel-layout{% elif hoteles|length == 2 %}two-hotels-layout{% elif hoteles|length == 3 %}three-hotels-layout{% endif %}">
+    class="{% if is_solo_vuelos %}solo-vuelos-layout{% if has_vuelo_3 %} solo-vuelos-3-tramos{% endif %}{% elif is_multidestino %}multidestino-layout multi-{{ hoteles|length }}-layout{% elif hoteles|length == 1 %}single-hotel-layout{% elif hoteles|length == 2 %}two-hotels-layout{% elif hoteles|length == 3 %}three-hotels-layout{% endif %}">
 
     <!-- ═══════════════ 1. CABECERA ═══════════════ -->
     <div class="header">
@@ -1032,6 +1058,7 @@
                 {{ detalle_vuelo_completo }}
             </td>
         </tr>
+        {% if not is_solo_vuelos %}
         <tr>
             <td class="svc-icon">
                 {{ svg_dormitorios }}
@@ -1040,7 +1067,8 @@
                 Estadía en {{ destino }} por {{ noches_alojamiento }}.
             </td>
         </tr>
-        {% if monto_traslados > 0 %}
+        {% endif %}
+        {% if monto_traslados > 0 and not is_solo_vuelos %}
         <tr>
             <td class="svc-icon">
                 {{ svg_traslados }}
@@ -1062,7 +1090,7 @@
     <div class="flights-section">
         <div class="section-heading">Vuelos</div>
         <div
-            class="flights-row {% if has_vuelo_3 %}flights-3-col{% elif hoteles|length == 1 %}flights-stacked{% endif %}">
+            class="flights-row {% if is_solo_vuelos %}flights-stacked{% elif has_vuelo_3 %}flights-3-col{% elif hoteles|length == 1 %}flights-stacked{% endif %}">
             <div class="flight-col">
                 <div class="flight-label">
                     <span class="flight-icon">{{ svg_avion_despegando.replace('<svg', '<svg fill="#334155"' )|safe
@@ -1106,7 +1134,34 @@
         </div>
     </div>
 
+    <!-- ═══════════════ 5. TOTAL SOLO VUELOS ═══════════════ -->
+    {% if is_solo_vuelos %}
+    <div class="multidestino-total-card">
+        <div class="m-total-left">
+            <div class="m-total-title">Total de los Servicios Aéreos</div>
+            <div class="m-total-subtitle">Incluye vuelos, impuestos y tasas de los tramos cotizados.</div>
+        </div>
+        <div class="m-total-right">
+            <div class="m-total-pp">
+                <span class="currency">{{ moneda|default('USD') }}</span> {{ format_price(precio_persona_general) }}
+            </div>
+            <div class="m-total-base">
+                {% if cantidad_pasajeros|int == 1 %}
+                por pasajero
+                {% else %}
+                por persona — {{ cantidad_pasajeros }} pasajeros
+                {% endif %}
+            </div>
+            {% if cantidad_pasajeros|int != 1 %}
+            <div class="m-total-final" style="white-space: nowrap;">Total: {{ moneda|default('USD') }} {{
+                format_price(costo_total_general) }}</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- ═══════════════ 5. ALOJAMIENTO ═══════════════ -->
+    {% if not is_solo_vuelos %}
     <div class="hotels-section">
         {% if is_multidestino %}
         <div class="section-heading">Itinerario de Alojamientos</div>
@@ -1229,6 +1284,7 @@
         </div>
         {% endif %}
     </div>
+    {% endif %}
 
     <!-- ═══════════════ 6. PIE DE PÁGINA — LEGALES ═══════════════ -->
     <div class="legal-footer">
