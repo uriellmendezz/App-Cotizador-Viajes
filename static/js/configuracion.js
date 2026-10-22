@@ -38,6 +38,49 @@ export async function initConfiguracion() {
 
 const PANELES = ['hoteles', 'aerolineas', 'exportar'];
 
+// Texto del encabezado de la página para el menú y cada sección
+const ENCABEZADOS = {
+    menu: {
+        tag: 'Configuración',
+        tagCls: 'text-brand-primary bg-rose-50',
+        titulo: 'Configuración',
+        desc: 'Administrá los datos que reutilizás en tus cotizaciones y descargá tu información.'
+    },
+    hoteles: {
+        tag: 'Configuración',
+        tagCls: 'text-brand-primary bg-rose-50',
+        titulo: 'Catálogo de Hoteles',
+        desc: 'Alojamientos con fotos, descripción y estrellas, listos para usar en cotizaciones y paquetes.'
+    },
+    aerolineas: {
+        tag: 'Configuración',
+        tagCls: 'text-sky-600 bg-sky-50',
+        titulo: 'Catálogo de Aerolíneas',
+        desc: 'Cargá aerolíneas con su logo para identificar los vuelos en las cotizaciones rápidas.'
+    },
+    exportar: {
+        tag: 'Configuración',
+        tagCls: 'text-emerald-600 bg-emerald-50',
+        titulo: 'Exportar Cotizaciones',
+        desc: 'Descargá todas tus cotizaciones en un CSV listo para abrir en Excel.'
+    }
+};
+
+function actualizarEncabezado(seccion) {
+    const datos = ENCABEZADOS[seccion] || ENCABEZADOS.menu;
+    const tag = document.getElementById('config-header-tag');
+    if (tag) {
+        tag.textContent = datos.tag;
+        tag.className = `inline-block text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full ${datos.tagCls}`;
+    }
+    const titulo = document.getElementById('config-header-title');
+    if (titulo) titulo.textContent = datos.titulo;
+    const desc = document.getElementById('config-header-desc');
+    if (desc) desc.textContent = datos.desc;
+    // El botón de volver solo aparece dentro de una sección
+    document.getElementById('config-header-back')?.classList.toggle('hidden', seccion === 'menu');
+}
+
 function setupMenu() {
     document.querySelectorAll('[data-config-open]').forEach(btn => {
         btn.addEventListener('click', () => abrirPanel(btn.dataset.configOpen));
@@ -52,12 +95,14 @@ function abrirPanel(nombre) {
     PANELES.forEach(p => {
         document.getElementById(`config-panel-${p}`)?.classList.toggle('hidden', p !== nombre);
     });
+    actualizarEncabezado(nombre);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function volverAlMenu() {
     PANELES.forEach(p => document.getElementById(`config-panel-${p}`)?.classList.add('hidden'));
     document.getElementById('config-menu').classList.remove('hidden');
+    actualizarEncabezado('menu');
     actualizarConteos();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }

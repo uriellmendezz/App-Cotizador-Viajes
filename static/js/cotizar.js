@@ -5087,7 +5087,7 @@ export async function switchQuoteMode(targetMode, preserveData = true) {
 
     if (mode === 'multidestino') {
         try {
-            const multiModule = await import('/static/js/cotizar_multidestino.js?v=' + Date.now());
+            const multiModule = await window.importFresh('/static/js/cotizar_multidestino.js');
             if (multiModule && typeof multiModule.initCotizarMultidestino === 'function') {
                 await multiModule.initCotizarMultidestino();
             }

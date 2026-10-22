@@ -192,6 +192,15 @@ Es un panel con opciones, no una única pantalla. El menú muestra una tarjeta p
 - Dentro de una pestaña extra `main.js` activa el modo embebido (`html.embedded-tab`): oculta el menú y la barra, y avisa a la barra de cada cambio de ruta. El menú lateral navega dentro de la pestaña activa.
 - Abrir pestañas: botón "+", Alt+T, Ctrl+clic o clic con la rueda en el menú lateral o en una fila de Archivos, y el botón "Abrir en una pestaña nueva" de Archivos. Alt+W cierra la pestaña (pide confirmación si es un formulario) y Alt+1..9 cambia de pestaña. Hasta 8 pestañas; se recuperan al recargar (su contenido se carga al abrirlas).
 - `sessionStorage` es compartido por todas las pestañas, por eso el estado del formulario usa `window.tabStorageKey(clave)`, que agrega el id de la pestaña.
+- La escala general de la interfaz es `--app-zoom` (0.9) en `styles.css`. Dentro de una pestaña extra no se vuelve a aplicar (`html.embedded-tab { zoom: 1 }`). La altura de los iframes se compensa con esa misma variable.
+- La pantalla de carga no tapa la barra de pestañas ni el menú lateral, así se puede cambiar de pestaña mientras una cotización se está cargando. El menú lateral es adaptable según el ancho disponible (que baja al hacer zoom): completo desde 1024px, compactado a íconos entre 640px y 1023px, y menú hamburguesa (botón en la barra de pestañas) por debajo de 640px. Ver `applyResponsiveSidebar` en `main.js`.
+- Las pestañas extra toman la sesión y la configuración de la ventana principal, sin llamadas extra al servidor.
+
+### M. Carga Rápida de Secciones (`main.js`)
+- Cada vista y módulo JS se descarga una vez por sesión y queda en memoria (`window.__appCaches`, compartido con las pestañas). En cada navegación el módulo se ejecuta como instancia nueva a partir de ese texto (`importFresh`), sin pasar por la red. Al iniciar se precargan en segundo plano las secciones más usadas.
+- Los imports internos (`./hotel_catalog.js`, etc.) se piden con `?v=APP_VERSION`: **subir `APP_VERSION` en `main.js` (y la versión de `index.html`) al publicar cambios**.
+- El servidor comprime las respuestas (GZip) y manda `Cache-Control: no-cache` para el código de la interfaz (se revalida en cada carga y nunca queda una versión vieja), y un día de caché para imágenes y fuentes.
+
 
 ### L. Recotización y Comparación de Cotizaciones (`static/js/comparador.js`)
 - `comparador.js` convierte cualquier cotización (estándar, multidestino, solo vuelos, crucero o rápida) en un modelo con los conceptos de la tabla resumen (vuelos, fee, alojamiento, traslados, gastos admin, redondeo, total y por pax) usando las mismas fórmulas.

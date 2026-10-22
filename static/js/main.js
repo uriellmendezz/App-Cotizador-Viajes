@@ -76,12 +76,52 @@ function isAdminPath(path = window.location.pathname) {
 }
 window.isAdminPath = isAdminPath;
 
-// Initialize sidebar collapse state on desktop early
-if (window.innerWidth >= 1024) {
-    if (localStorage.getItem('sidebarCollapsed') === 'true') {
-        document.body.classList.add('sidebar-collapsed');
+// ──────────────────────────────────────────────────────────────────────────────
+// MENÚ LATERAL ADAPTABLE (el ancho disponible baja al hacer zoom en el navegador)
+//  · 'full'    (>= 1024px): menú completo, o colapsado si el agente lo eligió.
+//  · 'compact' (640-1023px): se compacta solo a íconos y sigue visible.
+//  · 'drawer'  (< 640px): menú hamburguesa que se abre desde la barra de pestañas.
+// Los cortes coinciden con los @media de styles.css.
+// ──────────────────────────────────────────────────────────────────────────────
+const SIDEBAR_DRAWER_MAX = 640;
+const SIDEBAR_COMPACT_MAX = 1024;
+
+function getSidebarMode() {
+    const w = window.innerWidth;
+    if (w < SIDEBAR_DRAWER_MAX) return 'drawer';
+    if (w < SIDEBAR_COMPACT_MAX) return 'compact';
+    return 'full';
+}
+window.getSidebarMode = getSidebarMode;
+
+function setDrawerOpen(open) {
+    document.body.classList.toggle('sidebar-drawer-open', !!open);
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (backdrop) {
+        backdrop.classList.toggle('hidden', !open);
+        backdrop.classList.toggle('block', !!open);
     }
 }
+window.setDrawerOpen = setDrawerOpen;
+
+let lastSidebarMode = null;
+function applyResponsiveSidebar() {
+    const mode = getSidebarMode();
+    if (mode === lastSidebarMode) return;
+    lastSidebarMode = mode;
+
+    let userCollapsed = false;
+    try { userCollapsed = localStorage.getItem('sidebarCollapsed') === 'true'; } catch (e) {}
+    document.body.classList.toggle('sidebar-collapsed', mode === 'compact' || (mode === 'full' && userCollapsed));
+    if (mode !== 'drawer') setDrawerOpen(false);
+
+    const innerChevron = document.getElementById('sidebar-inner-chevron');
+    if (innerChevron) innerChevron.classList.toggle('rotate-180', document.body.classList.contains('sidebar-collapsed'));
+}
+window.applyResponsiveSidebar = applyResponsiveSidebar;
+
+applyResponsiveSidebar();
+window.addEventListener('resize', applyResponsiveSidebar);
 
 // Session Management Helpers
 function decodeTokenPayload(token) {
@@ -507,6 +547,7 @@ const routeNames = {
 
 // SPA Router implementation
 async function navigateTo(url) {
+    if (document.body.classList.contains('sidebar-drawer-open')) setDrawerOpen(false);
     // Con una pestaña extra activa, el menú lateral navega dentro de esa pestaña
     if (!IS_EMBEDDED_TAB && window.AppTabs?.navigateActiveFrame(url)) return;
 
@@ -565,7 +606,95 @@ function confirmLogout() {
 window.confirmLogout = confirmLogout;
 
 // Duración de la salida de vista. Debe coincidir con --view-leave-ms en styles.css
-const VIEW_LEAVE_MS = 120;
+const VIEW_LEAVE_MS = 80;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CARGA RÁPIDA DE VISTAS Y MÓDULOS
+// Antes cada navegación volvía a descargar la vista y el JS completo. Ahora el
+// texto se descarga una vez por sesión y queda en memoria, compartido con las
+// pestañas extra (que así abren sin volver a descargar nada).
+// Cada navegación sigue creando una instancia nueva del módulo (como antes, con
+// su estado limpio) a partir del texto en memoria, sin pasar por la red.
+// Cambiar APP_VERSION al publicar cambios en los módulos compartidos.
+// ──────────────────────────────────────────────────────────────────────────────
+const APP_VERSION = '2.5.0';
+window.APP_VERSION = APP_VERSION;
+
+const appCaches = (() => {
+    if (IS_EMBEDDED_TAB) {
+        try {
+            if (window.top.__appCaches) return window.top.__appCaches;
+        } catch (e) {}
+    }
+    const caches = { views: new Map(), modules: new Map() };
+    window.__appCaches = caches;
+    return caches;
+})();
+
+function cachedText(cache, key, url, transform) {
+    if (!cache.has(key)) {
+        const promise = fetch(url)
+            .then(res => {
+                if (!res.ok) throw new Error(`No se pudo cargar ${key} (${res.status})`);
+                return res.text();
+            })
+            .then(text => (transform ? transform(text, key) : text));
+        // Si falla no queda en caché, así se reintenta en la próxima navegación
+        promise.catch(() => cache.delete(key));
+        cache.set(key, promise);
+    }
+    return cache.get(key);
+}
+
+function loadViewHtml(path) {
+    return cachedText(appCaches.views, path, `${path}?v=${APP_VERSION}`);
+}
+
+// Los imports relativos ('./x.js') y absolutos ('/static/...') se reescriben a URLs
+// completas con versión: el módulo se ejecuta desde un blob, que no tiene ruta propia
+function rewriteModuleSource(src, path) {
+    const origin = window.location.origin;
+    const dir = origin + path.slice(0, path.lastIndexOf('/') + 1);
+    return src
+        .replace(/(\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)(['"])\.\/([^'"?]+)\2/g,
+            (m, pre, q, file) => `${pre}${q}${dir}${file}?v=${APP_VERSION}${q}`)
+        .replace(/(\bimport\s*\(\s*)(['"])\/(?!\/)/g, `$1$2${origin}/`)
+        + `\n//# sourceURL=${origin}${path}`;
+}
+
+function loadModuleSource(path) {
+    return cachedText(appCaches.modules, path, `${path}?v=${APP_VERSION}`, rewriteModuleSource);
+}
+
+async function importFresh(path) {
+    const src = await loadModuleSource(path);
+    const blobUrl = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    try {
+        return await import(blobUrl);
+    } finally {
+        URL.revokeObjectURL(blobUrl);
+    }
+}
+window.importFresh = importFresh;
+
+// Precarga en segundo plano de las secciones más usadas (solo descarga, no ejecuta)
+let isPrefetchScheduled = false;
+function prefetchCommonRoutes() {
+    if (isPrefetchScheduled || IS_EMBEDDED_TAB) return;
+    isPrefetchScheduled = true;
+    const run = () => {
+        ['/inicio', '/cotizacion-rapida', '/cotizacion-completa', '/editar', '/ver-cotizacion', '/comparar']
+            .forEach(p => {
+                const r = routes[p];
+                if (!r) return;
+                loadViewHtml(r.html).catch(() => {});
+                if (r.js) loadModuleSource(r.js).catch(() => {});
+            });
+        loadModuleSource('/static/js/cotizar_multidestino.js').catch(() => {});
+    };
+    if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 3000 });
+    else setTimeout(run, 1500);
+}
 
 const routes = {
     '/login': { html: '/static/views/login.html', js: '/static/js/login.js', init: 'initLogin' },
@@ -592,9 +721,16 @@ let isConfigLoaded = false;
 async function loadHeaderConfig() {
     if (isConfigLoaded || !window.authToken) return;
     try {
-        const res = await authenticatedFetch('/api/config');
-        if (res.ok) {
-            const config = await res.json();
+        // Las pestañas extra reutilizan la configuración ya cargada por la ventana principal
+        let config = null;
+        if (IS_EMBEDDED_TAB) {
+            try { config = window.top.agencyConfig || null; } catch (e) {}
+        }
+        if (!config) {
+            const res = await authenticatedFetch('/api/config');
+            if (res.ok) config = await res.json();
+        }
+        if (config) {
 
             // Set agency colors dynamically on root
             document.documentElement.style.setProperty('--primary-color', config.colores[0]);
@@ -711,6 +847,18 @@ async function router() {
                     isExpired = true;
                 }
             }
+            // Las pestañas extra toman la sesión de la ventana principal (sin otra llamada de refresco)
+            if ((!_agentAccessToken || isExpired) && IS_EMBEDDED_TAB) {
+                try {
+                    const topToken = window.top.getAgentToken?.();
+                    const topPayload = topToken ? decodeTokenPayload(topToken) : null;
+                    if (topPayload && (!topPayload.exp || topPayload.exp * 1000 > Date.now())) {
+                        setAgentSession(topToken, window.top.loggedInUser);
+                        isExpired = false;
+                        isAgentSessionChecked = true;
+                    }
+                } catch (e) {}
+            }
             if ((!_agentAccessToken || isExpired) && !isAgentSessionChecked) {
                 isAgentSessionChecked = true;
                 try {
@@ -812,6 +960,8 @@ async function router() {
             sidebarEl.classList.add('hidden');
             if (headerEl) headerEl.classList.add('hidden');
             wrapperEl.classList.remove('lg:pl-[220px]');
+            // Las pestañas extra también necesitan la configuración de la agencia
+            if (IS_EMBEDDED_TAB && normalizedPath !== '/login') loadHeaderConfig();
         } else {
             sidebarEl.classList.remove('hidden');
             if (headerEl) headerEl.classList.remove('hidden');
@@ -869,15 +1019,14 @@ async function router() {
             void appEl.offsetHeight;
             appEl.classList.add('view-leave');
 
-            // Fetch content concurrently
-            const fetchPromise = fetch(route.html + '?v=' + Date.now());
+            // La vista y el código se piden en paralelo (quedan en memoria para la próxima vez)
+            const viewPromise = loadViewHtml(route.html);
+            if (route.js) loadModuleSource(route.js).catch(() => {});
 
             // Se espera exactamente lo que dura la salida (ver --view-leave-ms)
             await new Promise(resolve => setTimeout(resolve, VIEW_LEAVE_MS));
 
-            const response = await fetchPromise;
-            if (!response.ok) throw new Error(`Failed to load view ${route.html}`);
-            const html = await response.text();
+            const html = await viewPromise;
 
             // Inject new HTML content
             appEl.innerHTML = html;
@@ -902,7 +1051,7 @@ async function router() {
 
             // Import and run dynamic module JS script
             if (route.js) {
-                const module = await import(route.js + '?v=' + Date.now());
+                const module = await importFresh(route.js);
                 const initFunc = module[route.init];
                 if (initFunc && typeof initFunc === 'function') {
                     initFunc();
@@ -931,6 +1080,8 @@ async function router() {
 
         // Update dynamic back button after content loads
         updateBackButton();
+
+        if (normalizedPath !== '/login' && normalizedPath !== '/admin-login') prefetchCommonRoutes();
 
     }
 
@@ -1347,43 +1498,22 @@ window.closeConfirmModal = closeConfirmModal;
 
 // Sidebar toggle behavior (mobile drawer and desktop collapse)
 function toggleSidebar(force) {
-    const isMobile = window.innerWidth < 1024;
+    const mode = getSidebarMode();
     const innerChevron = document.getElementById('sidebar-inner-chevron');
 
-    if (isMobile) {
-        // Mobile drawer behavior
-        const sidebar = document.getElementById('app-sidebar');
-        const backdrop = document.getElementById('sidebar-backdrop');
-        if (!sidebar || !backdrop) return;
-
-        const isOpen = sidebar.classList.contains('translate-x-0');
-        const shouldOpen = typeof force === 'boolean' ? force : !isOpen;
-
-        if (shouldOpen) {
-            sidebar.classList.remove('-translate-x-full');
-            sidebar.classList.add('translate-x-0');
-            backdrop.classList.remove('hidden');
-            backdrop.classList.add('block');
-        } else {
-            sidebar.classList.add('-translate-x-full');
-            sidebar.classList.remove('translate-x-0');
-            backdrop.classList.remove('block');
-            backdrop.classList.add('hidden');
-        }
+    if (mode === 'drawer') {
+        // Menú hamburguesa: abrir o cerrar el panel
+        const isOpen = document.body.classList.contains('sidebar-drawer-open');
+        setDrawerOpen(typeof force === 'boolean' ? force : !isOpen);
     } else {
-        // Desktop collapse inline behavior
+        // Colapsar a íconos. En modo compacto se puede desplegar un momento,
+        // pero solo se guarda la preferencia elegida en pantalla amplia.
         const body = document.body;
         const shouldCollapse = typeof force === 'boolean' ? !force : !body.classList.contains('sidebar-collapsed');
 
-        if (shouldCollapse) {
-            body.classList.add('sidebar-collapsed');
-            localStorage.setItem('sidebarCollapsed', 'true');
-            if (innerChevron) innerChevron.classList.add('rotate-180');
-        } else {
-            body.classList.remove('sidebar-collapsed');
-            localStorage.setItem('sidebarCollapsed', 'false');
-            if (innerChevron) innerChevron.classList.remove('rotate-180');
-        }
+        body.classList.toggle('sidebar-collapsed', shouldCollapse);
+        if (mode === 'full') localStorage.setItem('sidebarCollapsed', shouldCollapse ? 'true' : 'false');
+        if (innerChevron) innerChevron.classList.toggle('rotate-180', shouldCollapse);
     }
 
     updateHomeButtonVisibility();
@@ -1391,13 +1521,13 @@ function toggleSidebar(force) {
 window.toggleSidebar = toggleSidebar;
 
 function updateHomeButtonVisibility() {
-    const isMobile = window.innerWidth < 1024;
+    const isMobile = getSidebarMode() === 'drawer';
     const homeBtn = document.getElementById('top-nav-inicio-btn');
     if (!homeBtn) return;
 
     if (isMobile) {
         const sidebar = document.getElementById('app-sidebar');
-        const isOpen = sidebar && sidebar.classList.contains('translate-x-0');
+        const isOpen = document.body.classList.contains('sidebar-drawer-open');
         if (isOpen) {
             homeBtn.classList.add('hidden');
         } else {
