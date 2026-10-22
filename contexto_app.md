@@ -174,6 +174,13 @@ Es un panel con opciones, no una única pantalla. El menú muestra una tarjeta p
 - **Financiación en cuotas**: la **entrega** es siempre el valor de los vuelos por persona (monto + fee) y el saldo (`precio por persona - entrega`) se divide en **3 y/o 6 cuotas** (redondeadas hacia arriba al centavo).
 - **Salidas para redes**: imagen 1080×1350 generada en el navegador con html2canvas (foto del hotel, logo de la agencia, qué incluye, precio y cuotas) y texto con emojis listo para copiar.
 
+### J. Cotización de Crucero (`/cotizacion-crucero`)
+- **Carga desde el PDF del operador**: el agente arrastra el presupuesto que descarga del mayorista (ej. Ola / Krooze) y `app/crucero_parser.py` extrae barco, naviera, cabina y tamaño, noches, fechas de embarque y desembarque, puertos, pasajeros, código, precio, itinerario día por día, foto de la cabina y mapa de la ruta (descarta los logos que se repiten en todas las páginas). Si faltan datos esenciales y hay `GROQ_API_KEY`, se completan con IA sin pisar lo ya detectado. Los campos autocompletados se resaltan en verde para que el agente los revise.
+- **Servicios opcionales**: vuelos (capturas, equipaje, fee automático del 10% o fijo), alojamiento pre y post crucero (con selector "Mis Hoteles"), traslados al puerto y paquete de bebidas.
+- **Precio único (lógica AND)**: `vuelos + fee + crucero (tarifa + tasas y propinas + bebidas) + alojamientos + traslados + 5% de gastos administrativos sobre los servicios no aéreos`, con redondeo opcional. Se calcula en `_apply_crucero_totals` (backend) y en `static/js/crucero_resumen.js` (resumen en tiempo real).
+- **Persistencia**: se guarda en la tabla `cotizaciones` sin columnas nuevas; el bloque `crucero` viaja dentro de la entrada `METADATA_COTIZACION` de `hoteles` (con `tipo_cotizacion: "crucero"`) y cada hotel lleva `etapa: "pre" | "post"`.
+- **PDF**: `templates/cotizacion_crucero_pdf.html` (`generate_cruise_pdf`) arma una línea de tiempo vertical con los pasos unidos por líneas punteadas: vuelo de ida → hotel pre → traslado → embarque (cabina, itinerario y mapa) → desembarque → traslado → hotel post → vuelo de regreso, y cierra con la tarjeta del total.
+
 ---
 
 ## 6. Endpoints de la API (`app/routers/` y `app/main.py`)
@@ -213,6 +220,10 @@ Lista los operadores ya usados en la sucursal (columnas `operador_vuelos` y `ope
 
 ### 12. `/api/aerolineas` (GET / POST / PUT / DELETE) y `GET /api/aerolineas/logos-sugeridos`
 CRUD del catálogo de aerolíneas en la tabla `aerolineas_catalogo`, aislado por `sucursal_id`. El endpoint de logos sugeridos lista los archivos de `assets/logos_aerolineas`.
+
+
+### 13. `POST /api/crucero/extraer-pdf`
+Recibe el PDF del operador (máx. 15 MB) y devuelve los datos del crucero detectados (`campos_detectados` indica cuáles se encontraron). Las cotizaciones de crucero se guardan y generan con los mismos `POST /api/cotizaciones` y `POST /api/cotizar-pdf`.
 
 > Las tablas de hoteles y paquetes se crean con `scripts/003_hoteles_paquetes.sql`;
 > las columnas de operador con `scripts/004_operadores.sql`;

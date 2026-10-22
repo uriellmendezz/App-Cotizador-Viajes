@@ -460,6 +460,7 @@ const routeNames = {
     '/cotizacion-completa': 'Cotización PDF',
     '/cotizacion-multidestino': 'Cotización PDF',
     '/cotizacion-vuelos': 'Cotización PDF',
+    '/cotizacion-crucero': 'Cotización de Crucero',
     '/editar': 'Archivos',
     '/paquetes': 'Paquetes Promocionales',
     '/configuracion': 'Configuración',
@@ -536,6 +537,7 @@ const routes = {
     '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/cotizacion-multidestino': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/cotizacion-vuelos': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
+    '/cotizacion-crucero': { html: '/static/views/cotizar_crucero.html', js: '/static/js/cotizar_crucero.js', init: 'initCotizarCrucero' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
     '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
     '/paquetes': { html: '/static/views/paquetes.html', js: '/static/js/paquetes.js', init: 'initPaquetes' },
@@ -903,7 +905,7 @@ function updateNavActiveState(path) {
     let btnId = '';
     if (path === '/inicio' || path === '/') btnId = 'sidebar-btn-inicio';
     else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
-    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino' || path === '/cotizacion-vuelos') btnId = 'sidebar-btn-full-quote';
+    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino' || path === '/cotizacion-vuelos' || path === '/cotizacion-crucero') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
     else if (path === '/paquetes') btnId = 'sidebar-btn-paquetes';
     else if (path === '/configuracion') btnId = 'sidebar-btn-configuracion';
@@ -1033,6 +1035,9 @@ window.addEventListener('keydown', async (e) => {
         if ((path === '/cotizacion-completa' || path === '/cotizacion-vuelos') && typeof window.fillTestData === 'function') {
             e.preventDefault();
             await window.fillTestData();
+        } else if (path === '/cotizacion-crucero' && typeof window.fillCruceroTestData === 'function') {
+            e.preventDefault();
+            await window.fillCruceroTestData();
         } else if (path === '/cotizacion-rapida' && typeof window.fillQuickTestData === 'function') {
             e.preventDefault();
             await window.fillQuickTestData();

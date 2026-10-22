@@ -1,4 +1,5 @@
 import { HOTEL_PICKER_BUTTON_HTML, starsToString } from './hotel_catalog.js';
+import { isCruceroQuote, renderCruceroSummaryFromQuote } from './crucero_resumen.js';
 let hotelCount = 0;
 let agencyConfig = {};
 let importedQuotes = [];
@@ -2205,6 +2206,11 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
     if (!currency) {
         const hotelWithMoneda = hotelesRaw.find(h => h && h.moneda);
         currency = hotelWithMoneda ? hotelWithMoneda.moneda : 'USD';
+    }
+
+    if (isCruceroQuote(quote)) {
+        renderCruceroSummaryFromQuote(quote, container, currency);
+        return;
     }
 
     const isMultidestino = quote.tipo_cotizacion === 'multidestino' ||
@@ -4517,6 +4523,12 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
         const isMultidestino = q.tipo_cotizacion === 'multidestino' ||
             (Array.isArray(q.hoteles) && q.hoteles.some(h => h.tipo_cotizacion === 'multidestino'));
 
+        if (isCruceroQuote(q)) {
+            window.hideLoader();
+            navigateTo('/cotizacion-crucero?id=' + quoteId);
+            return;
+        }
+
         if (isMultidestino) {
             window.pendingEditQuoteId = quoteId;
             window.pendingEditQuoteEditable = forceEditMode;
@@ -5414,7 +5426,9 @@ export async function editQuoteFromView() {
     window.pendingEditQuoteId = quoteId;
     window.pendingEditQuoteEditable = true;
 
-    if (isMultidestino) {
+    if (isCruceroQuote(quote)) {
+        navigateTo('/cotizacion-crucero?id=' + quoteId);
+    } else if (isMultidestino) {
         navigateTo('/cotizacion-multidestino?id=' + quoteId);
     } else if (isSoloVuelosQuote(quote)) {
         navigateTo('/cotizacion-vuelos?id=' + quoteId);
@@ -5460,7 +5474,9 @@ async function duplicateQuoteFromView() {
             )) ||
             (Array.isArray(cloned.hoteles) && cloned.hoteles.some(h => h.tipo_cotizacion === 'multidestino'));
 
-        if (isMultidestino) {
+        if (isCruceroQuote(cloned) || isCruceroQuote(window.currentViewQuote)) {
+            navigateTo('/cotizacion-crucero?id=' + cloned.id);
+        } else if (isMultidestino) {
             navigateTo('/cotizacion-multidestino?id=' + cloned.id);
         } else if (isSoloVuelosQuote(cloned) || isSoloVuelosQuote(window.currentViewQuote)) {
             navigateTo('/cotizacion-vuelos?id=' + cloned.id);

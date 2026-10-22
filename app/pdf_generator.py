@@ -47,6 +47,11 @@ ICONS_DIR = ASSETS_DIR / "iconos"
 FONTS_DIR = BASE_DIR / "Montserrat" / "static"
 
 TEMPLATE_NAME = "cotizacion_pdf_v2.html"
+CRUISE_TEMPLATE_NAME = "cotizacion_crucero_pdf.html"
+
+METADATA_NAMES = ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")
+WEEKDAYS_ES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+MONTHS_SHORT_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
 
 def format_price(val: float) -> str:
@@ -226,32 +231,8 @@ def generate_pdf(data: dict) -> bytes:
     RuntimeError
         If WeasyPrint fails to render the PDF.
     """
-    # Late import so the rest of the app doesn't break if WeasyPrint isn't installed
-    try:
-        from weasyprint import HTML
-    except ImportError as e:
-        raise RuntimeError(
-            "WeasyPrint no está instalado. Ejecutá: pip install weasyprint "
-            "(requiere GTK3 en Windows). "
-            "Más info: https://weasyprint.readthedocs.io/en/stable/first_steps.html"
-        ) from e
-
     # ── Resolve font paths ─────────────────────────────────────────────────
-    font_map = {
-        "font_regular": FONTS_DIR / "Montserrat-Regular.ttf",
-        "font_medium": FONTS_DIR / "Montserrat-Medium.ttf",
-        "font_semibold": FONTS_DIR / "Montserrat-SemiBold.ttf",
-        "font_bold": FONTS_DIR / "Montserrat-Bold.ttf",
-        "font_extrabold": FONTS_DIR / "Montserrat-ExtraBold.ttf",
-        "font_black": FONTS_DIR / "Montserrat-Black.ttf",
-    }
-    font_uris = {}
-    for key, path in font_map.items():
-        if path.exists():
-            font_uris[key] = _path_to_file_uri(path)
-        else:
-            print(f"[PDF] Warning: Font not found: {path}")
-            font_uris[key] = ""
+    font_uris = _resolve_font_uris()
 
     # ── Resolve banner ─────────────────────────────────────────────────────
     banner_path = ASSETS_DIR / "Banner ONE TRIP cotizacion 2.png"
@@ -548,12 +529,313 @@ def generate_pdf(data: dict) -> bytes:
         "monto_traslados": float(data.get("monto_traslados", 0.0)),
     }
 
+    return _render_pdf(TEMPLATE_NAME, context, data, temp_files)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# COTIZACIÓN DE CRUCERO — línea de tiempo vertical
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _parse_any_date(date_val) -> datetime | None:
+    if not date_val:
+        return None
+    date_str = str(date_val).strip().split("T")[0]
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y", "%d-%m-%Y", "%d.%m.%Y", "%d.%m.%y"):
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            pass
+    return None
+
+
+def _timeline_date(date_val) -> str:
+    """'2027-01-30' -> 'Sábado 30 ene 2027' (rótulo de cada paso de la línea de tiempo)."""
+    dt = _parse_any_date(date_val)
+    if not dt:
+        return ""
+    return f"{WEEKDAYS_ES[dt.weekday()].capitalize()} {dt.day} {MONTHS_SHORT_ES[dt.month - 1]} {dt.year}"
+
+
+def _split_port(puerto: str) -> tuple:
+    """'Nassau, Bahamas' -> ('Nassau', 'Bahamas')"""
+    if "," in (puerto or ""):
+        ciudad, pais = puerto.split(",", 1)
+        return ciudad.strip(), pais.strip()
+    return (puerto or "").strip(), ""
+
+
+def _nights_label(n) -> str:
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        return ""
+    if n <= 0:
+        return ""
+    return "1 noche" if n == 1 else f"{n} noches"
+
+
+def extract_crucero(data: dict) -> dict:
+    """The cruise block travels at the top level or inside the METADATA entry of `hoteles`."""
+    crucero = data.get("crucero")
+    if isinstance(crucero, dict) and crucero:
+        return crucero
+    for h in data.get("hoteles") or []:
+        if isinstance(h, dict) and h.get("nombre") in METADATA_NAMES and isinstance(h.get("crucero"), dict):
+            return h["crucero"]
+    return {}
+
+
+def _cruise_hotel(hotel: dict, idx: int, temp_files: list) -> dict:
+    h = dict(hotel)
+    ci = _parse_any_date(h.get("fecha_checkin"))
+    co = _parse_any_date(h.get("fecha_checkout"))
+    if ci and co and co > ci:
+        h["noches_label"] = _nights_label((co - ci).days)
+    else:
+        h["noches_label"] = h.get("noches_alojamiento") or ""
+    h["stars_count"] = _get_stars_count(h.get("estrellas")) if h.get("estrellas") else 0
+    h["fecha_checkin_label"] = _timeline_date(h.get("fecha_checkin"))
+    h["fecha_checkout_label"] = _timeline_date(h.get("fecha_checkout"))
+    img = h.get("imagen1") or h.get("imagen") or ""
+    h["imagen_path"] = _safe_base64_to_temp_file(img, f"crucero_hotel_{idx}_") if img else None
+    if h["imagen_path"]:
+        temp_files.append(h["imagen_path"])
+    h.setdefault("nombre", "Alojamiento")
+    return h
+
+
+def generate_cruise_pdf(data: dict) -> bytes:
+    """
+    Generate the cruise quotation PDF: a vertical timeline that links flights,
+    pre/post cruise hotels, transfers and the cruise itself with dotted lines.
+
+    `data` follows the regular quote payload plus a `crucero` dict (barco,
+    cabina, noches, fecha_embarque, itinerario, imagen_cabina, ...). Hotels in
+    `hoteles` carry `etapa` = "pre" | "post".
+    """
+    temp_files = []
+    crucero = dict(extract_crucero(data))
+
+    moneda = data.get("moneda") or "USD"
+    hoteles_raw = data.get("hoteles") or []
+    for h in hoteles_raw:
+        if isinstance(h, dict) and h.get("nombre") in METADATA_NAMES and h.get("moneda") and not data.get("moneda"):
+            moneda = h["moneda"]
+
+    # ── Cruise block ───────────────────────────────────────────────────────
+    itinerario = []
+    for idx, row in enumerate(crucero.get("itinerario") or []):
+        if not isinstance(row, dict):
+            continue
+        dt = _parse_any_date(row.get("fecha"))
+        navegacion = bool(row.get("navegacion")) or str(row.get("puerto", "")).strip().lower().startswith("naveg")
+        ciudad, pais = _split_port(row.get("puerto", ""))
+        itinerario.append({
+            "dia": idx + 1,
+            "fecha": f"{dt.day} {MONTHS_SHORT_ES[dt.month - 1]}" if dt else "",
+            "dia_semana": WEEKDAYS_ES[dt.weekday()][:3] if dt else "",
+            "ciudad": "Día de navegación" if navegacion else ciudad,
+            "pais": "" if navegacion else pais,
+            "llegada": row.get("llegada") or "",
+            "salida": row.get("salida") or "",
+            "navegacion": navegacion,
+        })
+
+    for key, prefix in (("imagen_cabina", "crucero_cabina_"), ("imagen_mapa", "crucero_mapa_")):
+        uri = _safe_base64_to_temp_file(crucero.get(key) or "", prefix) if crucero.get(key) else None
+        crucero[f"{key}_path"] = uri
+        if uri:
+            temp_files.append(uri)
+
+    puertos = [r for r in itinerario if not r["navegacion"]]
+    crucero["puerto_embarque"] = crucero.get("puerto_embarque") or (
+        f"{puertos[0]['ciudad']}" if puertos else "")
+    crucero["puerto_desembarque"] = crucero.get("puerto_desembarque") or (
+        f"{puertos[-1]['ciudad']}" if puertos else "")
+    crucero["embarque_ciudad"] = _split_port(crucero["puerto_embarque"])[0]
+    crucero["desembarque_ciudad"] = _split_port(crucero["puerto_desembarque"])[0]
+    crucero["noches_label"] = _nights_label(crucero.get("noches"))
+    crucero["escalas"] = max(len(puertos) - 2, 0)
+    first_row = next((r for r in (crucero.get("itinerario") or []) if isinstance(r, dict)), {})
+    last_row = next((r for r in reversed(crucero.get("itinerario") or []) if isinstance(r, dict)), {})
+    crucero["hora_embarque"] = first_row.get("salida") or ""
+    crucero["hora_desembarque"] = last_row.get("llegada") or ""
+
+    # ── Hotels before / after the cruise ───────────────────────────────────
+    real_hotels = [h for h in hoteles_raw if isinstance(h, dict) and h.get("nombre") not in METADATA_NAMES]
+    hotel_pre = [_cruise_hotel(h, i, temp_files) for i, h in enumerate(real_hotels) if h.get("etapa") == "pre"]
+    hotel_post = [_cruise_hotel(h, i + 10, temp_files) for i, h in enumerate(real_hotels) if h.get("etapa") == "post"]
+
+    # ── Flights ────────────────────────────────────────────────────────────
+    incluye_vuelos = bool(data.get("incluye_vuelos", True)) and bool(
+        data.get("img_vuelo_ida") or data.get("img_vuelo_vuelta") or float(data.get("monto_vuelos") or 0) > 0
+    )
+    img_ida_uri = img_vuelta_uri = None
+    if incluye_vuelos:
+        if data.get("img_vuelo_ida"):
+            img_ida_uri = _safe_base64_to_temp_file(data["img_vuelo_ida"], "crucero_vuelo_ida_")
+        if data.get("img_vuelo_vuelta"):
+            img_vuelta_uri = _safe_base64_to_temp_file(data["img_vuelo_vuelta"], "crucero_vuelo_vuelta_")
+        temp_files.extend(u for u in (img_ida_uri, img_vuelta_uri) if u)
+
+    monto_traslados = float(data.get("monto_traslados") or 0)
+    origen = data.get("origen") or ""
+
+    # ── Timeline steps in chronological order ──────────────────────────────
+    timeline = []
+    if incluye_vuelos and (img_ida_uri or data.get("fecha_vuelo_ida")):
+        timeline.append({
+            "tipo": "vuelo", "icono": "despegue",
+            "fecha": _timeline_date(data.get("fecha_vuelo_ida")),
+            "titulo": "Vuelo de ida",
+            "detalle": f"{origen} → {hotel_pre[0].get('ciudad') if hotel_pre and hotel_pre[0].get('ciudad') else crucero['embarque_ciudad']}".strip(" →"),
+            "imagen": img_ida_uri,
+        })
+    for h in hotel_pre:
+        timeline.append({
+            "tipo": "hotel", "icono": "hotel", "fecha": h["fecha_checkin_label"],
+            "titulo": "Alojamiento antes del crucero", "hotel": h,
+        })
+    if monto_traslados > 0:
+        timeline.append({
+            "tipo": "traslado", "icono": "traslado", "fecha": "",
+            "titulo": "Traslado al puerto",
+            "detalle": f"Traslado hacia la terminal de cruceros de {crucero['embarque_ciudad']}." if crucero["embarque_ciudad"] else "Traslado hacia la terminal de cruceros.",
+        })
+    timeline.append({
+        "tipo": "crucero", "icono": "barco",
+        "fecha": _timeline_date(crucero.get("fecha_embarque")),
+        "titulo": f"Embarque en {crucero['embarque_ciudad']}" if crucero["embarque_ciudad"] else "Embarque",
+    })
+    timeline.append({
+        "tipo": "desembarque", "icono": "ancla",
+        "fecha": _timeline_date(crucero.get("fecha_desembarque")),
+        "titulo": f"Desembarque en {crucero['desembarque_ciudad']}" if crucero["desembarque_ciudad"] else "Desembarque",
+        "detalle": f"Llegada al puerto a las {crucero['hora_desembarque']} hs." if crucero["hora_desembarque"] else "Fin del crucero.",
+    })
+    if monto_traslados > 0:
+        timeline.append({
+            "tipo": "traslado", "icono": "traslado", "fecha": "",
+            "titulo": "Traslado desde el puerto",
+            "detalle": "Traslado desde la terminal de cruceros hacia el hotel." if hotel_post else "Traslado desde la terminal de cruceros hacia el aeropuerto.",
+        })
+    for h in hotel_post:
+        timeline.append({
+            "tipo": "hotel", "icono": "hotel", "fecha": h["fecha_checkin_label"],
+            "titulo": "Alojamiento después del crucero", "hotel": h,
+        })
+    if incluye_vuelos and (img_vuelta_uri or data.get("fecha_vuelo_vuelta")):
+        timeline.append({
+            "tipo": "vuelo", "icono": "aterrizaje",
+            "fecha": _timeline_date(data.get("fecha_vuelo_vuelta")),
+            "titulo": "Vuelo de regreso",
+            "detalle": f"{hotel_post[-1].get('ciudad') if hotel_post and hotel_post[-1].get('ciudad') else crucero['desembarque_ciudad']} → {origen}".strip(" →"),
+            "imagen": img_vuelta_uri,
+        })
+
+    # ── Included services summary ──────────────────────────────────────────
+    cant_pax = int(data.get("cantidad_pasajeros") or 1)
+    pax_str = "un pasajero" if cant_pax == 1 else f"{cant_pax} pasajeros"
+    servicios = []
+    if incluye_vuelos:
+        servicios.append(("vuelos", data.get("detalle_vuelo_completo") or f"Vuelos ida y vuelta desde {origen} para {pax_str}."))
+    barco_txt = crucero.get("barco") or "el barco"
+    servicios.append(("barco", f"Crucero de {crucero['noches_label'] or 'varias noches'} a bordo del {barco_txt}"
+                               f"{', cabina ' + crucero['cabina'] if crucero.get('cabina') else ''}."))
+    if crucero.get("paquete_bebidas"):
+        servicios.append(("bebidas", f"{crucero['paquete_bebidas']}."))
+    if crucero.get("incluye"):
+        servicios.append(("check", crucero["incluye"].rstrip(".") + "."))
+    for h in hotel_pre + hotel_post:
+        etapa = "antes" if h.get("etapa") == "pre" else "después"
+        ciudad = f" en {h['ciudad']}" if h.get("ciudad") else ""
+        noches = f" por {h['noches_label']}" if h.get("noches_label") else ""
+        servicios.append(("hotel", f"Alojamiento{ciudad}{noches} {etapa} del crucero."))
+    if monto_traslados > 0:
+        servicios.append(("traslados", "Traslados al puerto de embarque y desde el puerto de desembarque."))
+
+    partes_total = (["vuelos"] if incluye_vuelos else []) + ["crucero"]
+    if hotel_pre or hotel_post:
+        partes_total.append("alojamientos")
+    if monto_traslados > 0:
+        partes_total.append("traslados")
+    partes_total.append("impuestos")
+    total_incluye = "Incluye " + ", ".join(partes_total[:-1]) + " e " + partes_total[-1] + "."
+
+    destino = data.get("destino") or crucero.get("barco") or "Crucero"
+    destino_len = len(destino)
+    destino_font_size = "22pt" if destino_len > 25 else "30pt" if destino_len > 18 else "36pt" if destino_len > 12 else "44pt"
+
+    banner_path = ASSETS_DIR / "Banner ONE TRIP cotizacion 2.png"
+    context = {
+        **_resolve_font_uris(),
+        "banner_path": _path_to_file_uri(banner_path) if banner_path.exists() else "",
+        "fecha_generacion": datetime.now().strftime("%d/%m/%Y"),
+        "moneda": moneda,
+        "destino": destino,
+        "destino_font_size": destino_font_size,
+        "nombre_pax": data.get("nombre_pax", "Pasajero"),
+        "fecha_salida_label": format_long_date(data.get("fecha_salida") or crucero.get("fecha_embarque")),
+        "validez_cotizacion": data.get("validez_cotizacion", ""),
+        "cantidad_pasajeros": cant_pax,
+        "base_habitacion": data.get("base_habitacion", ""),
+        "crucero": crucero,
+        "itinerario": itinerario,
+        "timeline": timeline,
+        "servicios": servicios,
+        "total_incluye": total_incluye,
+        "costo_total_general": float(data.get("costo_total") or 0),
+        "precio_persona_general": float(data.get("precio_persona") or 0),
+        "format_price": format_price,
+        "svg_avion_despegando": _read_svg_content("avion-despegando.svg"),
+        "svg_avion_aterrizando": _read_svg_content("avion-aterrizando.svg"),
+        "svg_cama": _read_svg_content("cama.svg"),
+        "svg_traslados": _read_svg_content("traslados.svg"),
+        "svg_luna": _read_svg_content("luna.svg"),
+        "svg_cafe": _read_svg_content("cafe.svg"),
+        "svg_vuelos": _read_svg_content("ticket-vuelos.svg"),
+        "svg_persona": _read_svg_content("persona.svg"),
+    }
+    return _render_pdf(CRUISE_TEMPLATE_NAME, context, data, temp_files)
+
+
+def _resolve_font_uris() -> dict:
+    """file:// URIs of the Montserrat weights used by the PDF templates."""
+    font_map = {
+        "font_regular": FONTS_DIR / "Montserrat-Regular.ttf",
+        "font_medium": FONTS_DIR / "Montserrat-Medium.ttf",
+        "font_semibold": FONTS_DIR / "Montserrat-SemiBold.ttf",
+        "font_bold": FONTS_DIR / "Montserrat-Bold.ttf",
+        "font_extrabold": FONTS_DIR / "Montserrat-ExtraBold.ttf",
+        "font_black": FONTS_DIR / "Montserrat-Black.ttf",
+    }
+    font_uris = {}
+    for key, path in font_map.items():
+        if path.exists():
+            font_uris[key] = _path_to_file_uri(path)
+        else:
+            print(f"[PDF] Warning: Font not found: {path}")
+            font_uris[key] = ""
+    return font_uris
+
+
+def _render_pdf(template_name: str, context: dict, data: dict, temp_files: list) -> bytes:
+    """Render a Jinja template with WeasyPrint, embed the quote as /CotizacionData and clean temp images."""
+    try:
+        from weasyprint import HTML
+    except ImportError as e:
+        raise RuntimeError(
+            "WeasyPrint no está instalado. Ejecutá: pip install weasyprint "
+            "(requiere GTK3 en Windows). "
+            "Más info: https://weasyprint.readthedocs.io/en/stable/first_steps.html"
+        ) from e
+
     # ── Render HTML with Jinja2 ────────────────────────────────────────────
     env = Environment(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),
         autoescape=False,
     )
-    template = env.get_template(TEMPLATE_NAME)
+    template = env.get_template(template_name)
     html_content = template.render(**context)
 
     # ── Generate PDF with WeasyPrint ───────────────────────────────────────
@@ -565,6 +847,8 @@ def generate_pdf(data: dict) -> bytes:
         pdf_bytes = html_doc.write_pdf()
     except Exception as e:
         raise RuntimeError(f"Error generando el PDF con WeasyPrint: {e}") from e
+    finally:
+        _cleanup_temp_files(temp_files)
 
     # ── Inject PDF Metadata with pypdf ─────────────────────────────────────
     try:
@@ -592,7 +876,11 @@ def generate_pdf(data: dict) -> bytes:
     except Exception as meta_err:
         print(f"[PDF] Warning: Failed to inject metadata. Details: {meta_err}")
 
-    # ── Cleanup temporary image files ──────────────────────────────────────
+    return pdf_bytes
+
+
+def _cleanup_temp_files(temp_files: list) -> None:
+    """Delete the temporary image files referenced by file:// URIs."""
     for uri in temp_files:
         try:
             if uri and uri.startswith("file:///"):
@@ -606,5 +894,3 @@ def generate_pdf(data: dict) -> bytes:
                     os.remove(file_path)
         except Exception as cleanup_err:
             print(f"[PDF] Warning: Could not clean up temp file: {cleanup_err}")
-
-    return pdf_bytes

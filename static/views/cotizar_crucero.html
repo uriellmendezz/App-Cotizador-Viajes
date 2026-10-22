@@ -1,0 +1,444 @@
+<div class="max-w-[99%] mx-auto space-y-6">
+    <!-- Back button -->
+    <div class="pt-2">
+        <button onclick="navigateTo('/hacer-cotizacion');" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-700 transition-colors cursor-pointer select-none">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Volver a opciones
+        </button>
+    </div>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/60">
+        <div class="space-y-0.5">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-primary bg-rose-50 px-2.5 py-0.5 rounded-md border border-rose-100">
+                Módulo de Cotizaciones
+            </span>
+            <h1 class="text-2xl font-black text-slate-800 font-display tracking-tight">Cotización de Crucero</h1>
+        </div>
+    </div>
+
+    <datalist id="operadores-list"></datalist>
+
+    <form id="crucero-form" class="flex flex-col lg:flex-row gap-8 items-start w-full" novalidate>
+
+        <!-- Left Column - Form Sections -->
+        <div class="flex-1 w-full min-w-0 space-y-8">
+
+            <!-- Editing indicator -->
+            <div id="crucero-editing-indicator"
+                class="hidden p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
+                <span id="crucero-editing-text">Editando cotización guardada</span>
+                <button type="button" onclick="cancelCruceroEditing()"
+                    class="px-3 py-1 bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold transition-all cursor-pointer">Cancelar edición</button>
+            </div>
+
+            <!-- Section 1: PDF del operador -->
+            <section class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                    <span class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">1</span>
+                    <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Presupuesto del operador</h2>
+                </div>
+
+                <div id="crucero-pdf-dropzone" tabindex="0"
+                    class="relative border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-2xl p-8 bg-white flex flex-col items-center justify-center gap-2 min-h-[150px] cursor-pointer transition-all duration-300 group text-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        class="w-10 h-10 text-slate-400 group-hover:text-brand-primary transition-colors">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 11v6m0 0l-2.5-2.5M12 17l2.5-2.5" />
+                    </svg>
+                    <span class="text-sm text-slate-600 font-bold">Arrastrá el PDF del crucero o hacé clic para subirlo</span>
+                    <span class="text-[11px] text-slate-400 font-semibold">El presupuesto que descargás del operador mayorista (ej. Ola). Se completan barco, cabina, fechas, itinerario, precio y fotos.</span>
+                    <input type="file" id="crucero-pdf-input" accept="application/pdf,.pdf" class="hidden">
+                </div>
+
+                <div id="crucero-pdf-status" class="hidden mt-4 p-4 rounded-xl border text-xs font-semibold"></div>
+            </section>
+
+            <!-- Section 2: Datos generales -->
+            <section class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                    <span class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">2</span>
+                    <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Datos generales del viaje</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_nombre_pax" class="cr-label">Nombre Pasajero</label>
+                        <input type="text" id="cr_nombre_pax" placeholder="Ej. Mariana López" class="cr-input">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_destino" class="cr-label">Título del viaje</label>
+                        <input type="text" id="cr_destino" placeholder="Ej. Caribe Oriental" class="cr-input">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_cantidad_pasajeros" class="cr-label">Cantidad de Pasajeros</label>
+                        <input type="number" id="cr_cantidad_pasajeros" min="1" placeholder="2" class="cr-input">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_origen" class="cr-label">Origen</label>
+                        <input type="text" id="cr_origen" value="Córdoba" class="cr-input">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_validez" class="cr-label">Validez cotización</label>
+                        <input type="text" id="cr_validez" placeholder="dd/mm/aa" class="cr-input cr-date">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_moneda" class="cr-label">Moneda</label>
+                        <select id="cr_moneda" class="cr-input">
+                            <option value="USD">USD (Dólares)</option>
+                            <option value="ARS">ARS (Pesos)</option>
+                            <option value="EUR">EUR (Euros)</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <span class="cr-label">Ajustes</span>
+                        <label class="relative inline-flex items-center cursor-pointer select-none min-h-[46px]">
+                            <input type="checkbox" id="cr_redondear" checked class="sr-only peer">
+                            <div class="w-6 h-6 rounded-full bg-slate-200 border border-slate-300/50 flex items-center justify-center transition-all duration-300 peer-checked:bg-brand-primary peer-checked:border-brand-primary/50 text-transparent peer-checked:text-white">
+                                <svg class="w-3.5 h-3.5 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            </div>
+                            <span class="ml-3 text-sm font-semibold text-slate-700">Redondear totales</span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 3: Crucero -->
+            <section class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                    <span class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">3</span>
+                    <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Crucero</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_barco" class="cr-label">Barco</label>
+                        <input type="text" id="cr_barco" placeholder="Ej. MSC Meraviglia" class="cr-input">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_naviera" class="cr-label">Naviera</label>
+                        <input type="text" id="cr_naviera" placeholder="Ej. MSC Cruceros" class="cr-input">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_cabina" class="cr-label">Cabina</label>
+                        <input type="text" id="cr_cabina" placeholder="Ej. Interna - Bella" class="cr-input">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_cabina_tamano" class="cr-label">Tamaño cabina</label>
+                        <input type="text" id="cr_cabina_tamano" placeholder="Ej. 16 m²" class="cr-input">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_fecha_embarque" class="cr-label">Embarque</label>
+                        <input type="text" id="cr_fecha_embarque" placeholder="dd/mm/aa" class="cr-input cr-date">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_fecha_desembarque" class="cr-label">Desembarque</label>
+                        <input type="text" id="cr_fecha_desembarque" placeholder="dd/mm/aa" class="cr-input cr-date">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_noches" class="cr-label">Noches</label>
+                        <input type="number" id="cr_noches" min="1" placeholder="7" class="cr-input">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_codigo" class="cr-label">Código del presupuesto</label>
+                        <input type="text" id="cr_codigo" placeholder="Ej. 4GLNZK" class="cr-input">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_puerto_embarque" class="cr-label">Puerto de embarque</label>
+                        <input type="text" id="cr_puerto_embarque" placeholder="Ej. Miami, Estados Unidos" class="cr-input">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_puerto_desembarque" class="cr-label">Puerto de desembarque</label>
+                        <input type="text" id="cr_puerto_desembarque" placeholder="Ej. Miami, Estados Unidos" class="cr-input">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_operador" class="cr-label">Operador</label>
+                        <input type="text" id="cr_operador" list="operadores-list" placeholder="Ej. Ola" class="cr-input">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_bebidas_select" class="cr-label">Paquete de bebidas</label>
+                        <div class="flex gap-2">
+                            <select id="cr_bebidas_select" class="cr-input flex-1">
+                                <option value="">Sin paquete de bebidas</option>
+                                <option value="Paquete de bebidas Easy">Easy</option>
+                                <option value="Paquete de bebidas Easy Plus">Easy Plus</option>
+                                <option value="Paquete de bebidas Premium Extra">Premium Extra</option>
+                                <option value="Paquete de bebidas Deluxe">Deluxe</option>
+                                <option value="__custom">Personalizado...</option>
+                            </select>
+                            <input type="text" id="cr_bebidas_custom" placeholder="Ej. Paquete Brindiamo" class="cr-input flex-1 hidden">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_incluye" class="cr-label">Otros incluidos</label>
+                        <input type="text" id="cr_incluye" placeholder="Ej. Pensión completa, propinas incluidas" class="cr-input">
+                    </div>
+                </div>
+
+                <!-- Costos -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 p-5 bg-slate-50/60 border border-slate-200/60 rounded-xl">
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_costo_neto" class="cr-label">Tarifa neta (total cabina)</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none cr-currency">USD</span>
+                            <input type="number" id="cr_costo_neto" min="0" step="0.01" placeholder="0.00" class="cr-input cr-money">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_costo_tasas" class="cr-label">Tasas y propinas</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none cr-currency">USD</span>
+                            <input type="number" id="cr_costo_tasas" min="0" step="0.01" placeholder="0.00" class="cr-input cr-money">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_costo_bebidas" class="cr-label">Costo paquete de bebidas</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none cr-currency">USD</span>
+                            <input type="number" id="cr_costo_bebidas" min="0" step="0.01" placeholder="0.00" class="cr-input cr-money">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fotos -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div class="flex flex-col gap-2">
+                        <span class="cr-label">Foto de la cabina</span>
+                        <div class="cr-img-dropzone" data-target="imagen_cabina"></div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <span class="cr-label">Mapa de la ruta</span>
+                        <div class="cr-img-dropzone" data-target="imagen_mapa"></div>
+                    </div>
+                </div>
+
+                <!-- Itinerario -->
+                <div class="mt-8">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="cr-label">Itinerario día por día</span>
+                        <button type="button" id="cr-add-itinerary-row"
+                            class="px-3 py-1.5 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-full font-bold text-[10px] text-slate-600 uppercase tracking-wider transition-all duration-300 cursor-pointer">+ Agregar día</button>
+                    </div>
+                    <div class="border border-slate-200/70 rounded-xl overflow-x-auto">
+                        <table class="w-full text-xs min-w-[560px]">
+                            <thead class="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                                <tr>
+                                    <th class="text-left p-2.5 w-[130px]">Fecha</th>
+                                    <th class="text-left p-2.5">Puerto</th>
+                                    <th class="text-left p-2.5 w-[90px]">Llegada</th>
+                                    <th class="text-left p-2.5 w-[90px]">Salida</th>
+                                    <th class="w-10"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="cr-itinerary-body"></tbody>
+                        </table>
+                    </div>
+                    <p class="text-[10px] text-slate-400 font-semibold mt-2">Escribí "Navegación" en el puerto para los días en alta mar.</p>
+                </div>
+            </section>
+
+            <!-- Section 4: Vuelos (opcional) -->
+            <section class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">4</span>
+                        <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Vuelos</h2>
+                    </div>
+                    <label class="cr-toggle">
+                        <input type="checkbox" id="cr_incluye_vuelos" class="sr-only peer" data-section="cr-vuelos-body">
+                        <span class="cr-toggle-track"></span>
+                        <span class="text-xs font-bold text-slate-600">Incluir vuelos</span>
+                    </label>
+                </div>
+
+                <div id="cr-vuelos-body" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
+                            <span class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo de Ida</span>
+                            <div class="flex flex-col gap-2">
+                                <label for="cr_fecha_vuelo_ida" class="cr-label">Fecha</label>
+                                <input type="text" id="cr_fecha_vuelo_ida" placeholder="dd/mm/aa" class="cr-input cr-date">
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <span class="cr-label">Captura Vuelo Ida</span>
+                                <div class="cr-img-dropzone" data-target="img_vuelo_ida"></div>
+                            </div>
+                        </div>
+                        <div class="bg-slate-50/50 border border-slate-200/60 rounded-xl p-5 flex flex-col gap-4">
+                            <span class="text-xs font-extrabold uppercase text-brand-accent tracking-widest">Tramo de Regreso</span>
+                            <div class="flex flex-col gap-2">
+                                <label for="cr_fecha_vuelo_vuelta" class="cr-label">Fecha</label>
+                                <input type="text" id="cr_fecha_vuelo_vuelta" placeholder="dd/mm/aa" class="cr-input cr-date">
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <span class="cr-label">Captura Vuelo Regreso</span>
+                                <div class="cr-img-dropzone" data-target="img_vuelo_vuelta"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <span class="cr-label">Equipaje incluido</span>
+                        <div class="flex flex-wrap gap-2" id="cr-equipaje">
+                            <button type="button" data-bag="mano" class="cr-chip">Equipaje de mano</button>
+                            <button type="button" data-bag="carry" class="cr-chip">Carry-on (10kg)</button>
+                            <button type="button" data-bag="valija" class="cr-chip">Valija (23kg)</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="flex flex-col gap-2">
+                            <label for="cr_monto_vuelos" class="cr-label">Monto vuelos (neto)</label>
+                            <div class="relative flex items-center">
+                                <span class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none cr-currency">USD</span>
+                                <input type="number" id="cr_monto_vuelos" min="0" step="0.01" placeholder="0.00" class="cr-input cr-money">
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <div class="cr-label flex items-center justify-between">
+                                <label for="cr_fee_aereo">Fee aéreo</label>
+                                <label class="inline-flex items-center gap-1.5 normal-case tracking-normal text-[10px] font-semibold text-slate-500 cursor-pointer">
+                                    <input type="checkbox" id="cr_fee_auto" checked class="accent-[var(--primary-color,#ff545d)]"> Automático (10%)
+                                </label>
+                            </div>
+                            <div class="relative flex items-center">
+                                <span class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none cr-currency">USD</span>
+                                <input type="number" id="cr_fee_aereo" min="0" step="0.01" placeholder="0.00" readonly class="cr-input cr-money">
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label for="cr_operador_vuelos" class="cr-label">Operador</label>
+                            <input type="text" id="cr_operador_vuelos" list="operadores-list" placeholder="Ej. Delfos" class="cr-input">
+                        </div>
+                    </div>
+                </div>
+                <p id="cr-vuelos-off" class="text-xs text-slate-400 font-semibold">El pasajero viaja por su cuenta hasta el puerto. Activá "Incluir vuelos" para sumarlos a la cotización.</p>
+            </section>
+
+            <!-- Section 5: Alojamientos pre y post crucero (opcionales) -->
+            <section class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                    <span class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">5</span>
+                    <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Alojamientos</h2>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="cr-toggle">
+                            <input type="checkbox" id="cr_incluye_pre" class="sr-only peer" data-section="cr-hotel-pre">
+                            <span class="cr-toggle-track"></span>
+                            <span class="text-xs font-bold text-slate-600">Alojamiento antes del crucero (pre-crucero)</span>
+                        </label>
+                        <div id="cr-hotel-pre" class="hidden mt-4" data-etapa="pre"></div>
+                    </div>
+                    <div class="border-t border-slate-100 pt-6">
+                        <label class="cr-toggle">
+                            <input type="checkbox" id="cr_incluye_post" class="sr-only peer" data-section="cr-hotel-post">
+                            <span class="cr-toggle-track"></span>
+                            <span class="text-xs font-bold text-slate-600">Alojamiento después del crucero (post-crucero)</span>
+                        </label>
+                        <div id="cr-hotel-post" class="hidden mt-4" data-etapa="post"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 6: Traslados (opcional) -->
+            <section class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">6</span>
+                        <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Traslados</h2>
+                    </div>
+                    <label class="cr-toggle">
+                        <input type="checkbox" id="cr_incluye_traslados" class="sr-only peer" data-section="cr-traslados-body">
+                        <span class="cr-toggle-track"></span>
+                        <span class="text-xs font-bold text-slate-600">Incluir traslados</span>
+                    </label>
+                </div>
+                <div id="cr-traslados-body" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_monto_traslados" class="cr-label">Monto traslados al puerto (ida y vuelta)</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-4 text-xs font-bold text-slate-400 pointer-events-none cr-currency">USD</span>
+                            <input type="number" id="cr_monto_traslados" min="0" step="0.01" placeholder="0.00" class="cr-input cr-money">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label for="cr_operador_traslados" class="cr-label">Operador</label>
+                        <input type="text" id="cr_operador_traslados" list="operadores-list" placeholder="Ej. Civitatis" class="cr-input">
+                    </div>
+                </div>
+                <p id="cr-traslados-off" class="text-xs text-slate-400 font-semibold">Activá "Incluir traslados" para sumar el traslado al puerto de embarque y desde el puerto de desembarque.</p>
+            </section>
+
+            <!-- Gastos administrativos -->
+            <section class="bg-slate-100/80 border border-slate-200/60 rounded-xl p-4 text-slate-500">
+                <h3 class="font-display font-bold text-xs text-slate-400 uppercase tracking-wider mb-1.5">Gastos Administrativos</h3>
+                <p class="text-[11px] text-slate-500 leading-relaxed font-medium">Se sumará automáticamente un cargo fijo del
+                    <strong class="text-slate-700 font-bold">5%</strong> sobre los servicios no aéreos (Crucero + Alojamientos + Traslados).</p>
+            </section>
+
+            <div class="flex flex-col sm:flex-row justify-start gap-3 pt-4 pb-24 lg:pb-4">
+                <button type="submit" id="cr-btn-generar"
+                    class="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-brand-primary hover:bg-brand-primary/95 text-white font-extrabold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/30 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+                    GUARDAR Y GENERAR COTIZACIÓN
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Column - Real-time summary -->
+        <div class="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-28 z-40">
+            <div class="bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl p-6 shadow-md shadow-slate-100">
+                <h3 class="font-display font-extrabold text-xs tracking-wider text-slate-800 border-b border-slate-100 pb-3 mb-4 uppercase">
+                    Resumen en tiempo real
+                </h3>
+                <div id="crucero-resumen"></div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+    .cr-label { font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .cr-input {
+        width: 100%;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        background: rgba(255, 255, 255, 0.6);
+        transition: all 0.2s;
+    }
+    .cr-input:focus { outline: none; border-color: var(--primary-color, #ff545d); box-shadow: 0 0 0 4px rgba(255, 84, 93, 0.1); }
+    .cr-input.cr-money { padding-left: 3.5rem; text-align: right; font-weight: 600; }
+    .cr-input[readonly] { background: #f8fafc; color: #64748b; }
+    /* styles.css fuerza el fondo de todos los inputs con !important */
+    .cr-input.cr-autofilled { border-color: #34d399 !important; background: #ecfdf5 !important; }
+    .cr-toggle { display: inline-flex; align-items: center; gap: 0.6rem; cursor: pointer; user-select: none; }
+    .cr-toggle-track { position: relative; width: 2.25rem; height: 1.25rem; border-radius: 9999px; background: #e2e8f0; transition: background 0.2s; }
+    .cr-toggle-track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 1rem; height: 1rem; border-radius: 9999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform 0.2s; }
+    .peer:checked + .cr-toggle-track { background: var(--primary-color, #ff545d); }
+    .peer:checked + .cr-toggle-track::after { transform: translateX(1rem); }
+    .peer:focus-visible + .cr-toggle-track { box-shadow: 0 0 0 3px rgba(255, 84, 93, 0.25); }
+    .cr-chip { padding: 0.4rem 0.9rem; border-radius: 9999px; border: 1px solid #e2e8f0; font-size: 0.7rem; font-weight: 700; color: #64748b; background: #fff; cursor: pointer; transition: all 0.2s; }
+    .cr-chip.active { border-color: var(--primary-color, #ff545d); color: var(--primary-color, #ff545d); background: rgba(255, 84, 93, 0.06); }
+    .cr-itin-input { width: 100%; border: 1px solid transparent; border-radius: 0.5rem; padding: 0.35rem 0.5rem; font-size: 0.75rem; font-weight: 600; background: transparent; }
+    .cr-itin-input:hover { border-color: #e2e8f0; }
+    .cr-itin-input:focus { outline: none; border-color: var(--primary-color, #ff545d); background: #fff; }
+    #crucero-pdf-dropzone.cr-dragover, .cr-img-box.cr-dragover { border-color: var(--primary-color, #ff545d); background: rgba(255, 84, 93, 0.05); }
+</style>
