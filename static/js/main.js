@@ -1,3 +1,38 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// PESTAÑAS: cuando la app corre dentro de una pestaña extra (iframe creado por
+// tabs.js) se oculta la navegación propia y se avisa al contenedor de cada ruta.
+// ──────────────────────────────────────────────────────────────────────────────
+const IS_EMBEDDED_TAB = (() => {
+    try {
+        return window.self !== window.top && !!window.frameElement?.classList.contains('app-tab-frame');
+    } catch (e) {
+        return false;
+    }
+})();
+window.IS_EMBEDDED_TAB = IS_EMBEDDED_TAB;
+if (IS_EMBEDDED_TAB) document.documentElement.classList.add('embedded-tab');
+
+// sessionStorage es compartido por todas las pestañas internas (mismo documento
+// principal), así que cada pestaña usa sus propias claves para el estado de formularios
+function tabStorageKey(key) {
+    return IS_EMBEDDED_TAB ? `${key}::${window.frameElement.dataset.tabId}` : key;
+}
+window.tabStorageKey = tabStorageKey;
+
+// Abre una ruta en una pestaña nueva de la app (si las pestañas están disponibles)
+function openInAppTab(path, options = {}) {
+    try {
+        const tabs = window.top.AppTabs;
+        if (tabs) {
+            tabs.open(path, options);
+            return true;
+        }
+    } catch (e) {}
+    navigateTo(path);
+    return false;
+}
+window.openInAppTab = openInAppTab;
+
 // Clean up legacy session keys on initialization
 ['authToken', 'loggedInUser', 'userRole', 'userSucursalId', 'userSucursalNombre'].forEach(key => {
     try { localStorage.removeItem(key); } catch (e) {}
@@ -462,6 +497,7 @@ const routeNames = {
     '/cotizacion-vuelos': 'Cotización PDF',
     '/cotizacion-crucero': 'Cotización de Crucero',
     '/editar': 'Archivos',
+    '/comparar': 'Comparar Cotizaciones',
     '/paquetes': 'Paquetes Promocionales',
     '/configuracion': 'Configuración',
     '/ver-cotizacion': 'Ver Cotización',
@@ -471,6 +507,9 @@ const routeNames = {
 
 // SPA Router implementation
 async function navigateTo(url) {
+    // Con una pestaña extra activa, el menú lateral navega dentro de esa pestaña
+    if (!IS_EMBEDDED_TAB && window.AppTabs?.navigateActiveFrame(url)) return;
+
     const currentPath = window.location.pathname;
     // Push current path to history stack before leaving
     if (currentPath && currentPath !== url && currentPath !== '/login') {
@@ -540,6 +579,7 @@ const routes = {
     '/cotizacion-crucero': { html: '/static/views/cotizar_crucero.html', js: '/static/js/cotizar_crucero.js', init: 'initCotizarCrucero' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
     '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
+    '/comparar': { html: '/static/views/comparar.html', js: '/static/js/comparar.js', init: 'initComparar' },
     '/paquetes': { html: '/static/views/paquetes.html', js: '/static/js/paquetes.js', init: 'initPaquetes' },
     '/configuracion': { html: '/static/views/configuracion.html', js: '/static/js/configuracion.js', init: 'initConfiguracion' },
     '/administrar': { html: '/static/views/administrar.html', js: '/static/js/administrar.js', init: 'initAdministrar' },
@@ -765,10 +805,10 @@ async function router() {
     // Handle Sidebar and Mobile Header visibility based on route
     const sidebarEl = document.getElementById('app-sidebar');
     const wrapperEl = document.getElementById('main-content-wrapper');
-    const headerEl = document.getElementById('app-top-header');
+    const headerEl = document.getElementById('app-tabs-bar');
 
     if (sidebarEl && wrapperEl) {
-        if (normalizedPath === '/login' || normalizedPath === '/admin-login' || normalizedPath === '/admin') {
+        if (IS_EMBEDDED_TAB || normalizedPath === '/login' || normalizedPath === '/admin-login' || normalizedPath === '/admin') {
             sidebarEl.classList.add('hidden');
             if (headerEl) headerEl.classList.add('hidden');
             wrapperEl.classList.remove('lg:pl-[220px]');
@@ -893,6 +933,16 @@ async function router() {
         updateBackButton();
 
     }
+
+    // Avisar a la barra de pestañas qué sección quedó abierta
+    try {
+        const fullPath = window.location.pathname + window.location.search;
+        if (IS_EMBEDDED_TAB) {
+            window.top.AppTabs?.onFrameRouted(window.frameElement, fullPath, normalizedPath);
+        } else {
+            window.AppTabs?.onMainRouted(fullPath, normalizedPath);
+        }
+    } catch (e) {}
 }
 window.router = router;
 
@@ -907,6 +957,7 @@ function updateNavActiveState(path) {
     else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
     else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino' || path === '/cotizacion-vuelos' || path === '/cotizacion-crucero') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
+    else if (path === '/comparar') btnId = 'sidebar-btn-comparar';
     else if (path === '/paquetes') btnId = 'sidebar-btn-paquetes';
     else if (path === '/configuracion') btnId = 'sidebar-btn-configuracion';
     else if (path === '/admin') btnId = 'sidebar-btn-admin';
@@ -916,6 +967,7 @@ function updateNavActiveState(path) {
         activeBtn.classList.add('sidebar-item-active');
     }
 }
+window.updateNavActiveState = updateNavActiveState;
 
 // User session auth operations
 async function logoutAgent(notifyServer = true) {
@@ -937,7 +989,14 @@ async function logoutAgent(notifyServer = true) {
     const mobileLogo = document.getElementById('mobile-logo');
     if (mobileLogo) mobileLogo.src = '/assets/Logo%20ONE%20TRIP.png';
 
-    window.location.replace('/login');
+    // Al cerrar sesión desde una pestaña interna se cierra la app completa
+    let target = window;
+    if (IS_EMBEDDED_TAB) {
+        try { window.top.AppTabs?.reset(); target = window.top; } catch (e) {}
+    } else {
+        window.AppTabs?.reset();
+    }
+    target.location.replace('/login');
 }
 window.logoutAgent = logoutAgent;
 
@@ -983,49 +1042,11 @@ document.addEventListener('click', e => {
 // popstate handling for back/forward browser buttons
 window.addEventListener('popstate', router);
 
-// Header date & time dynamic clock
-window.lastDateTimeString = "";
-function updateHeaderDateTime() {
-    const elements = document.querySelectorAll('.nav-date-time-text');
-    if (elements.length === 0) return;
-
-    const now = new Date();
-    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-
-    const dayName = days[now.getDay()];
-    const day = now.getDate();
-    const monthName = months[now.getMonth()];
-    const year = now.getFullYear();
-
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-
-    const dateTimeString = `${dayName}, ${day} de ${monthName} de ${year} - ${hours}:${minutes}`;
-
-    if (dateTimeString !== window.lastDateTimeString) {
-        if (!window.lastDateTimeString) {
-            elements.forEach(el => el.innerText = dateTimeString);
-            window.lastDateTimeString = dateTimeString;
-        } else {
-            elements.forEach(el => el.classList.add('opacity-0', 'scale-95'));
-            setTimeout(() => {
-                elements.forEach(el => el.innerText = dateTimeString);
-                window.lastDateTimeString = dateTimeString;
-                elements.forEach(el => el.classList.remove('opacity-0', 'scale-95'));
-            }, 200);
-        }
-    }
-}
-window.updateHeaderDateTime = updateHeaderDateTime;
-
 // Initialize application routing
 document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.classList.remove('dark');
     try { localStorage.removeItem('ot_theme'); } catch (e) {}
     router();
-    updateHeaderDateTime();
-    setInterval(updateHeaderDateTime, 1000);
 });
 
 // Global keyboard shortcuts (Ctrl + Alt + 9: cotizaciones · Ctrl + Alt + 0: paquetes)

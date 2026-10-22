@@ -42,7 +42,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-    <link rel="stylesheet" href="/static/css/styles.css?v=2.3.0">
+    <link rel="stylesheet" href="/static/css/styles.css?v=2.4.0">
 
     <style>
         input::-webkit-outer-spin-button,
@@ -138,6 +138,15 @@
                         </svg>
                         <span class="sidebar-text">Archivos</span>
                     </button>
+                    <!-- Comparar Cotizaciones -->
+                    <button id="sidebar-btn-comparar" onclick="navigateTo('/comparar')" data-tooltip="Comparar"
+                        class="sidebar-item sidebar-item-style w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold cursor-pointer">
+                        <svg class="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l-2 2m2-2l2 2m4-2v13l2-2m-2 2l-2-2" />
+                        </svg>
+                        <span class="sidebar-text">Comparar</span>
+                    </button>
                     <!-- Configuración (Catálogo de Hoteles) -->
                     <button id="sidebar-btn-configuracion" onclick="navigateTo('/configuracion')" data-tooltip="Configuración"
                         class="sidebar-item sidebar-item-style w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold cursor-pointer">
@@ -191,36 +200,39 @@
 
     <!-- Main Layout Content Wrapper -->
     <div id="main-content-wrapper" class="flex-grow w-full transition-all duration-300">
-        <!-- Sticky Top Header (Visible on all screens) -->
-        <header id="app-top-header"
-            class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80 flex items-center justify-between px-6 h-16 w-full transition-all duration-300 hidden">
-            <div class="flex items-center gap-4">
-            </div>
-            <!-- Right Container: Date & Time + Dark Mode Switch -->
-            <div class="flex items-center gap-3">
-                <!-- Dynamic Date & Time -->
-                <div id="nav-date-time"
-                    class="text-xs font-semibold text-slate-400 select-none flex items-center gap-1.5 bg-slate-50 px-4 py-2 border border-slate-100 rounded-full transition-colors duration-300">
-                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                        stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span class="nav-date-time-text transition-all duration-200 transform inline-block"></span>
-                </div>
-
-            </div>
+        <!-- Barra de pestañas: varias secciones abiertas a la vez (ver static/js/tabs.js) -->
+        <header id="app-tabs-bar"
+            class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 flex items-end gap-1 px-2 sm:px-3 h-10 w-full hidden">
+            <button type="button" onclick="toggleSidebar()" title="Menú"
+                class="lg:hidden self-center p-1.5 mr-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div id="app-tabs-list" class="app-tabs-list flex items-end gap-1 min-w-0 overflow-x-auto"></div>
+            <button type="button" id="app-tabs-new" onclick="AppTabs.openNew()" title="Nueva pestaña (Alt+T)"
+                class="self-center shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-slate-100 cursor-pointer transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
+                </svg>
+            </button>
         </header>
 
-        <!-- Global Alert Message -->
-        <div class="max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-            <div id="alert-message"
-                class="alert hidden p-4 rounded-xl font-semibold border text-sm transition-all duration-300"></div>
+        <!-- Pestaña principal: la vista se carga directamente en #app -->
+        <div id="app-main-pane">
+            <!-- Global Alert Message -->
+            <div class="max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+                <div id="alert-message"
+                    class="alert hidden p-4 rounded-xl font-semibold border text-sm transition-all duration-300"></div>
+            </div>
+            <!-- Global App Target Container -->
+            <main id="app"
+                class="max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-32 lg:pb-10">
+            </main>
         </div>
-        <!-- Global App Target Container -->
-        <main id="app"
-            class="max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-32 lg:pb-10">
-        </main>
+
+        <!-- Pestañas adicionales: cada una es la app completa dentro de un iframe -->
+        <div id="app-tab-frames"></div>
     </div>
     <!-- Custom Confirm Modal -->
     <div id="confirm-modal"
@@ -260,7 +272,8 @@
     <datalist id="operadores-list"></datalist>
 
     <!-- Application Controller -->
-    <script src="/static/js/main.js?v=2.3.0"></script>
+    <script src="/static/js/main.js?v=2.4.0"></script>
+    <script src="/static/js/tabs.js?v=2.4.0"></script>
 </body>
 
 </html>

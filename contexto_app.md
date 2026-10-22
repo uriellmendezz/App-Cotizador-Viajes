@@ -138,6 +138,8 @@ Dado que el backend procesa el costo del hotel calculando el total acumulado y r
 - **Cálculo de Comisión Automática**: Suma el 5% de gastos administrativos sobre el total de servicios terrestres netos de forma inalterable y obligatoria.
 - **Flujo Puente de Integración**: Ofrece un botón de "Continuar a Cotización Completa" que almacena el presupuesto rápido para el historial y autocompleta el formulario principal, mapeando y consolidando los montos (vuelos consolidados netos + fee, traslados si el nombre contiene 'traslado', y hoteles secuenciales) dejando las descripciones, estrellas e imágenes en blanco para el enriquecimiento estético por parte del agente.
 
+- **Calculadora de cuotas**: la tarjeta de financiación muestra 3 y 6 cuotas por defecto y el agente puede sumar cualquier cantidad (1 a 48) o quitar planes; "Restablecer 3 y 6" vuelve a los valores por defecto. Los planes elegidos se guardan en la entrada `METADATA_PRESUPUESTO_RAPIDO` (`planes_cuotas`) y se usan también en el texto para WhatsApp.
+
 ### F. Importación y Reconstrucción desde PDF (Drag & Drop)
 - **Extracción de Metadatos**: El sistema permite arrastrar un archivo de cotización PDF generado previamente directamente sobre la aplicación.
 - **Carga Automática**: El backend analiza los metadatos del PDF utilizando la librería `pypdf`, recupera el JSON con el payload de cotización completo y el frontend rellena de forma instantánea el formulario. Esto facilita la edición y actualización rápida de cotizaciones existentes sin recurrir a la base de datos si se tiene el archivo físico.
@@ -145,6 +147,8 @@ Dado que el backend procesa el costo del hotel calculando el total acumulado y r
 ### G. Configuración: Catálogo de Hoteles (`/configuracion`)
 - **Alta y edición de hoteles** por sucursal: nombre, destino, calificación (1 a 5 estrellas), régimen y habitación habituales, descripción (máx. 200 caracteres, mismo límite que el PDF) y hasta 6 fotos (la primera es la portada; se pueden subir, arrastrar o pegar con Ctrl+V y se comprimen a JPEG).
 - **Selector "Mis Hoteles"**: cada tarjeta de hotel de la Cotización PDF (estándar y multidestino) tiene un botón que abre el catálogo y completa nombre, categoría, régimen, habitación, descripción e imagen. Si el hotel tiene varias fotos, el agente elige cuál usar. Lógica compartida en `static/js/hotel_catalog.js`.
+
+- **Guardar desde una cotización**: al cargar a mano un alojamiento (tarjetas de la Cotización PDF estándar y multidestino, o filas de tipo Alojamiento de la Cotización Rápida) la app ofrece "Guardar en Mis Hoteles" si el nombre no es genérico ("Hotel", "Alojamiento Adicional"...) y todavía no está en el catálogo. Se guardan nombre, destino, categoría, régimen y, en la Cotización PDF, habitación, descripción y foto. La sugerencia se puede descartar y no se muestra en modo lectura.
 
 ### G.1. Sección Configuración (`/configuracion`)
 Es un panel con opciones, no una única pantalla. El menú muestra una tarjeta por cada herramienta (con el conteo de registros) y al elegir una se abre su panel con un botón para volver:
@@ -182,6 +186,17 @@ Es un panel con opciones, no una única pantalla. El menú muestra una tarjeta p
 - **PDF**: `templates/cotizacion_crucero_pdf.html` (`generate_cruise_pdf`) arma una línea de tiempo vertical con los pasos unidos por líneas punteadas: vuelo de ida → hotel pre → traslado → embarque (cabina, itinerario y mapa) → desembarque → traslado → hotel post → vuelo de regreso, y cierra con la tarjeta del total.
 
 ---
+
+### K. Pestañas de la Aplicación (`static/js/tabs.js`)
+- La barra superior (que antes mostraba fecha y hora) es una barra de pestañas compacta. La pestaña principal es la vista normal y cada pestaña extra es la app completa dentro de un iframe (`.app-tab-frame`), así cada una conserva su formulario y estado (ej. la cotización anterior en una pestaña y la recotización en otra).
+- Dentro de una pestaña extra `main.js` activa el modo embebido (`html.embedded-tab`): oculta el menú y la barra, y avisa a la barra de cada cambio de ruta. El menú lateral navega dentro de la pestaña activa.
+- Abrir pestañas: botón "+", Alt+T, Ctrl+clic o clic con la rueda en el menú lateral o en una fila de Archivos, y el botón "Abrir en una pestaña nueva" de Archivos. Alt+W cierra la pestaña (pide confirmación si es un formulario) y Alt+1..9 cambia de pestaña. Hasta 8 pestañas; se recuperan al recargar (su contenido se carga al abrirlas).
+- `sessionStorage` es compartido por todas las pestañas, por eso el estado del formulario usa `window.tabStorageKey(clave)`, que agrega el id de la pestaña.
+
+### L. Recotización y Comparación de Cotizaciones (`static/js/comparador.js`)
+- `comparador.js` convierte cualquier cotización (estándar, multidestino, solo vuelos, crucero o rápida) en un modelo con los conceptos de la tabla resumen (vuelos, fee, alojamiento, traslados, gastos admin, redondeo, total y por pax) usando las mismas fórmulas.
+- **Recotizar**: botón en Ver Cotización, en cada fila de Archivos y en una cotización rápida guardada. Abre en otra pestaña `/cotizacion-completa?recotizar=ID` o `/cotizacion-rapida?recotizar=ID`, que carga la cotización como **nueva** (la original no se modifica). La tabla resumen en tiempo real muestra en cada celda el monto nuevo y abajo el anterior, con el más barato en verde, y un chip con cuánto baja o sube el total. La "×" del encabezado deja de comparar. Los montos originales se guardan por pestaña (`sessionStorage`, clave `recotizacionBaseline`) en la Cotización PDF y en memoria en la rápida. No disponible para cruceros.
+- **Comparar Cotizaciones** (`/comparar`, menú Gestión): se eligen hasta 6 cotizaciones PDF o rápidas y se ven lado a lado (una columna por opción de hotel), con el monto más barato de cada concepto en verde y la diferencia por pasajero respecto de la más barata. La selección queda en la URL (`?ids=completa:12,rapida:34`).
 
 ## 6. Endpoints de la API (`app/routers/` y `app/main.py`)
 

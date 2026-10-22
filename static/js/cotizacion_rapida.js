@@ -1,4 +1,5 @@
-import { openHotelPicker, REGIMENES, escapeHtml } from './hotel_catalog.js';
+import { openHotelPicker, REGIMENES, escapeHtml, shouldOfferSaveHotel, saveHotelToCatalog } from './hotel_catalog.js';
+import { buildQuoteModel, computePrices, fetchQuote, openRecotizacion, renderRecotizacionSummary } from './comparador.js';
 
 let isQuickFeeLocked = true;
 let currentQuickQuoteId = null;
@@ -6,8 +7,11 @@ let isRestoringState = false;
 let isQuickReadOnlyMode = false;
 let isQuickRedondeoActive = false;
 
-// Planes de financiación disponibles: entrega (valor de los vuelos) + saldo en 3 o 6 cuotas
-const PLANES_CUOTAS_RAPIDA = [3, 6];
+// Planes de financiación: entrega (valor de los vuelos) + saldo en cuotas.
+// 3 y 6 vienen por defecto; el agente puede sumar o quitar planes (calculadora).
+const PLANES_CUOTAS_DEFAULT = [3, 6];
+const MAX_CUOTAS_RAPIDA = 48;
+let quickPlanesCuotas = [...PLANES_CUOTAS_DEFAULT];
 let quickCuotasScope = 'persona'; // 'persona' | 'total'
 
 function ensureQuickRedondeoRowExists() {
@@ -211,6 +215,7 @@ function saveQuickQuoteFormState() {
         fechaSalida: document.getElementById('rapido-fecha-salida')?.value || '',
         fechaRegreso: document.getElementById('rapido-fecha-regreso')?.value || '',
         moneda: document.getElementById('rapido-moneda')?.value || 'USD',
+        planesCuotas: [...quickPlanesCuotas],
         rows: rows
     };
 
@@ -252,6 +257,8 @@ function restoreQuickQuoteFormState() {
     const savedCurrency = window.savedQuickQuoteState.moneda || 'USD';
     setQuickCurrency(savedCurrency);
 
+    quickPlanesCuotas = normalizePlanesCuotas(window.savedQuickQuoteState.planesCuotas);
+
     window.savedQuickQuoteState.rows.forEach(r => {
         addQuickBudgetRow({
             tipo: r.tipo,
@@ -274,6 +281,13 @@ function restoreQuickQuoteFormState() {
 }
 
 function updateSaveButtonState() {
+    // "Recotizar" solo tiene sentido sobre una cotización ya guardada
+    const btnRecotizar = document.getElementById('btn-recotizar-quick');
+    if (btnRecotizar) {
+        btnRecotizar.classList.toggle('hidden', !currentQuickQuoteId);
+        btnRecotizar.classList.toggle('flex', !!currentQuickQuoteId);
+    }
+
     const btnSaveOnly = document.getElementById('btn-save-quick-only');
     if (!btnSaveOnly) return;
 
@@ -687,6 +701,7 @@ export function initCotizacionRapida() {
                 confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
                 callback: () => {
                     window.savedQuickQuoteState = null;
+                    window.quickRecotizacionBaseline = null;
                     currentQuickQuoteId = null;
                     window.currentQuickQuoteOwner = null;
                     isQuickFeeLocked = true;
@@ -703,6 +718,7 @@ export function initCotizacionRapida() {
                     const retPickerInput = document.getElementById('rapido-fecha-regreso');
                     if (retPickerInput && retPickerInput._flatpickr) retPickerInput._flatpickr.clear();
                     loadDefaultQuickQuoteRows();
+                    quickPlanesCuotas = [...PLANES_CUOTAS_DEFAULT];
                     toggleQuickQuoteRedondeo(false);
                     calculateQuickQuote();
                     saveQuickQuoteFormState();
@@ -740,6 +756,12 @@ export function initCotizacionRapida() {
     }
     const initialQuoteId = urlParams.get('id') || pathQuoteId || window.pendingEditQuickBudgetId;
     window.pendingEditQuickBudgetId = null;
+
+    const recotizarId = String(urlParams.get('recotizar') || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+    if (recotizarId) {
+        startQuickRecotizacion(recotizarId);
+        return;
+    }
 
     if (initialQuoteId) {
         const cleanId = String(initialQuoteId).trim().replace(/[^a-zA-Z0-9_-]/g, '');
@@ -1077,9 +1099,53 @@ function applyHotelToQuickRow(tr, hotel) {
     }
 
     renderQuickRowSummary(tr);
+    refreshQuickRowSaveHotel(tr);
     calculateQuickQuote();
     saveQuickQuoteFormState();
 }
+
+/**
+ * Muestra el botón "Guardar en Mis Hoteles" cuando el alojamiento de la fila
+ * tiene un nombre real que todavía no está en el catálogo.
+ */
+async function refreshQuickRowSaveHotel(tr) {
+    const btn = tr?.querySelector('.quick-row-save-hotel');
+    const labelInput = tr?.querySelector('.quick-row-label');
+    if (!btn || !labelInput) return;
+    const name = labelInput.value;
+    const offer = await shouldOfferSaveHotel(name) && !isQuickReadOnlyMode;
+    // El nombre (o el modo lectura) pudo cambiar mientras se consultaba el catálogo
+    if (labelInput.value !== name) return;
+    btn.classList.toggle('hidden', !offer);
+    btn.classList.toggle('inline-flex', offer);
+}
+
+async function saveQuickRowHotelToCatalog(el) {
+    const tr = getQuickMainRow(el);
+    const nombre = (tr?.querySelector('.quick-row-label')?.value || '').trim();
+    if (!tr || !nombre) return;
+
+    el.disabled = true;
+    try {
+        const saved = await saveHotelToCatalog({
+            nombre,
+            destino: (document.getElementById('rapido-destino')?.value || '').trim(),
+            estrellas: parseInt(tr.querySelector('.quick-row-estrellas')?.value, 10) || 4,
+            regimen: tr.querySelector('.quick-row-regimen')?.value || ''
+        });
+        const hiddenId = tr.querySelector('.quick-row-hotel-id');
+        if (hiddenId && saved?.id) hiddenId.value = saved.id;
+        el.classList.add('hidden');
+        el.classList.remove('inline-flex');
+        saveQuickQuoteFormState();
+        window.showAlert?.('success', `"${nombre}" se guardó en Mis Hoteles. Podés sumarle fotos y descripción desde Configuración.`, true);
+    } catch (err) {
+        window.showAlert?.('warning', err.message, true);
+    } finally {
+        el.disabled = false;
+    }
+}
+window.saveQuickRowHotelToCatalog = saveQuickRowHotelToCatalog;
 
 /** Abre el catalogo de hoteles para la fila del boton. */
 function openQuickHotelPicker(el) {
@@ -1232,6 +1298,12 @@ function addQuickBudgetRow(data = null) {
                 <div class="flex flex-col min-w-0 flex-1">
                     <div class="flex items-center gap-1 min-w-0">
                         ${labelCellHtml}
+                        ${selectedTipo === 'hotel' ? `
+                        <button type="button" onclick="saveQuickRowHotelToCatalog(this)" title="Guardar este alojamiento en Mis Hoteles"
+                            class="quick-row-save-hotel hidden items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer flex-shrink-0">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                            Guardar en Mis Hoteles
+                        </button>` : ''}
                     </div>
                     ${tieneDetalles ? '<div class="quick-row-summary text-[10px] font-bold text-slate-500 truncate pl-1"></div>' : ''}
                 </div>
@@ -1312,6 +1384,10 @@ function addQuickBudgetRow(data = null) {
         labelInput.addEventListener('input', () => {
             saveQuickQuoteFormState();
         });
+        if (selectedTipo === 'hotel') {
+            labelInput.addEventListener('blur', () => refreshQuickRowSaveHotel(tr));
+            refreshQuickRowSaveHotel(tr);
+        }
     }
 
     const btnDelete = tr.querySelector('.btn-delete-row');
@@ -1462,7 +1538,7 @@ function getQuickHotelsAndTrasladosSum() {
 // ────────────────────────────────────────────────────────────────────────────
 // FINANCIACIÓN EN CUOTAS
 // La entrega inicial equivale al aéreo (vuelos + fee) y el saldo restante se
-// fracciona en 3 o 6 cuotas, igual que en los paquetes promocionales.
+// fracciona en cuotas: 3 y 6 por defecto, más las que el agente calcule.
 // ────────────────────────────────────────────────────────────────────────────
 
 const round2Quick = (n) => Math.round((parseFloat(n) || 0) * 100) / 100;
@@ -1477,7 +1553,7 @@ const ceil2Quick = (n) => Math.ceil(round2Quick(n) * 100) / 100;
  * @param {number} params.paxCount - Cantidad de pasajeros
  * @returns {Object} Montos por persona y totales con sus planes de cuotas
  */
-export function computeQuickCuotas({ totalAereo = 0, totalFinal = 0, paxCount = 1 }) {
+export function computeQuickCuotas({ totalAereo = 0, totalFinal = 0, paxCount = 1, planes: cantidades = quickPlanesCuotas }) {
     const pax = Math.max(1, parseInt(paxCount, 10) || 1);
 
     const entregaTotal = round2Quick(Math.min(Math.max(0, totalAereo), Math.max(0, totalFinal)));
@@ -1487,7 +1563,7 @@ export function computeQuickCuotas({ totalAereo = 0, totalFinal = 0, paxCount = 
     const saldoPersona = round2Quick(saldoTotal / pax);
     const precioPersona = round2Quick(totalFinal / pax);
 
-    const planes = PLANES_CUOTAS_RAPIDA.map(cantidad => ({
+    const planes = normalizePlanesCuotas(cantidades).map(cantidad => ({
         cantidad,
         montoPersona: saldoPersona > 0 ? ceil2Quick(saldoPersona / cantidad) : 0,
         montoTotal: saldoTotal > 0 ? ceil2Quick(saldoTotal / cantidad) : 0
@@ -1505,6 +1581,41 @@ export function computeQuickCuotas({ totalAereo = 0, totalFinal = 0, paxCount = 
     };
 }
 window.computeQuickCuotas = computeQuickCuotas;
+
+/** Deja la lista de planes ordenada, sin repetidos y dentro del rango válido. */
+function normalizePlanesCuotas(lista) {
+    if (!Array.isArray(lista)) return [...PLANES_CUOTAS_DEFAULT];
+    const limpios = lista
+        .map(n => parseInt(n, 10))
+        .filter(n => Number.isInteger(n) && n >= 1 && n <= MAX_CUOTAS_RAPIDA);
+    return [...new Set(limpios)].sort((a, b) => a - b);
+}
+
+function addQuickPlanCuotas() {
+    const input = document.getElementById('quick-cuotas-input');
+    const cantidad = parseInt(input?.value, 10);
+    if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > MAX_CUOTAS_RAPIDA) {
+        window.showAlert('warning', `Ingresá una cantidad de cuotas entre 1 y ${MAX_CUOTAS_RAPIDA}.`, true);
+        return;
+    }
+    quickPlanesCuotas = normalizePlanesCuotas([...quickPlanesCuotas, cantidad]);
+    input.value = '';
+    input.focus();
+    calculateQuickQuote();
+}
+window.addQuickPlanCuotas = addQuickPlanCuotas;
+
+function removeQuickPlanCuotas(cantidad) {
+    quickPlanesCuotas = quickPlanesCuotas.filter(n => n !== cantidad);
+    calculateQuickQuote();
+}
+window.removeQuickPlanCuotas = removeQuickPlanCuotas;
+
+function resetQuickPlanesCuotas() {
+    quickPlanesCuotas = [...PLANES_CUOTAS_DEFAULT];
+    calculateQuickQuote();
+}
+window.resetQuickPlanesCuotas = resetQuickPlanesCuotas;
 
 function setQuickCuotasScope(scope) {
     quickCuotasScope = (scope === 'total') ? 'total' : 'persona';
@@ -1548,19 +1659,36 @@ function renderQuickCuotas(cuotas, currency) {
         ['Saldo a financiar', money(saldo), 'font-bold text-slate-700']
     ];
 
-    const tarjetas = saldo > 0
-        ? cuotas.planes.map(plan => {
+    const plural = (n) => n === 1 ? 'cuota' : 'cuotas';
+    let tarjetas;
+    if (saldo <= 0) {
+        tarjetas = `<div class="sm:col-span-2 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-xs font-semibold text-amber-800">
+                No hay saldo para financiar: el precio queda cubierto por la entrega de los vuelos.
+           </div>`;
+    } else if (cuotas.planes.length === 0) {
+        tarjetas = `<div class="sm:col-span-2 rounded-2xl bg-slate-50 border border-slate-200 p-4 text-xs font-semibold text-slate-500">
+                Escribí una cantidad de cuotas en la calculadora para ver cómo queda el saldo.
+           </div>`;
+    } else {
+        tarjetas = cuotas.planes.map(plan => {
             const monto = porPersona ? plan.montoPersona : plan.montoTotal;
             return `
-                <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 flex flex-col justify-center">
-                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">${plan.cantidad} cuotas de</span>
+                <div class="group relative rounded-2xl bg-slate-50 border border-slate-200 p-4 flex flex-col justify-center">
+                    <button type="button" onclick="removeQuickPlanCuotas(${plan.cantidad})" title="Quitar este plan"
+                        class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">${plan.cantidad} ${plural(plan.cantidad)} de</span>
                     <span class="text-xl font-black text-slate-900 whitespace-nowrap">${money(monto)}</span>
                     <span class="text-[10px] font-semibold text-slate-400">+ entrega de ${money(entrega)}</span>
                 </div>`;
-        }).join('')
-        : `<div class="sm:col-span-2 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-xs font-semibold text-amber-800">
-                No hay saldo para financiar: el precio queda cubierto por la entrega de los vuelos.
-           </div>`;
+        }).join('');
+    }
+
+    const listaPlanes = cuotas.planes.map(p => p.cantidad);
+    const textoPlanes = listaPlanes.length > 1
+        ? `${listaPlanes.slice(0, -1).join(', ')} o ${listaPlanes[listaPlanes.length - 1]} cuotas`
+        : (listaPlanes.length === 1 ? `${listaPlanes[0]} ${plural(listaPlanes[0])}` : 'cuotas');
 
     container.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1576,10 +1704,106 @@ function renderQuickCuotas(cuotas, currency) {
             </div>
         </div>
         <p class="text-[10px] text-slate-400 font-semibold mt-3">
-            La entrega inicial cubre el aéreo (vuelos + fee)${porPersona ? `: ${money(cuotas.entregaPersona)} por persona · ${money(cuotas.entregaTotal)} en total` : `: ${money(cuotas.entregaTotal)}`}. El saldo se abona en 3 o 6 cuotas.
+            La entrega inicial cubre el aéreo (vuelos + fee)${porPersona ? `: ${money(cuotas.entregaPersona)} por persona · ${money(cuotas.entregaTotal)} en total` : `: ${money(cuotas.entregaTotal)}`}. El saldo se abona en ${textoPlanes}.
         </p>`;
+
+    const resetBtn = document.getElementById('quick-cuotas-reset');
+    if (resetBtn) {
+        const esDefault = quickPlanesCuotas.length === PLANES_CUOTAS_DEFAULT.length
+            && quickPlanesCuotas.every((n, i) => n === PLANES_CUOTAS_DEFAULT[i]);
+        resetBtn.classList.toggle('hidden', esDefault);
+    }
 }
 window.renderQuickCuotas = renderQuickCuotas;
+
+// ────────────────────────────────────────────────────────────────────────────
+// RECOTIZACIÓN
+// Los montos de la cotización original quedan en memoria (igual que el estado
+// del formulario) y se comparan concepto por concepto con los nuevos.
+// ────────────────────────────────────────────────────────────────────────────
+
+function renderQuickRecotizacion(currency, paxCount) {
+    const card = document.getElementById('quick-recotizar-card');
+    const container = document.getElementById('quick-recotizar-container');
+    if (!card || !container) return;
+
+    const baseline = window.quickRecotizacionBaseline;
+    if (!baseline) {
+        card.classList.add('hidden');
+        container.innerHTML = '';
+        return;
+    }
+
+    let vuelos = 0, fee = 0, alojamiento = 0, traslados = 0;
+    const hoteles = [];
+    document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => {
+        const tipo = tr.querySelector('.quick-row-tipo')?.value || '';
+        const monto = parseFormattedNumber(tr.querySelector('.quick-row-monto')?.value);
+        if (tipo === 'vuelo') vuelos += monto;
+        else if (tipo === 'fee-aereo') fee += monto;
+        else if (tipo === 'hotel') {
+            alojamiento += monto;
+            const label = (tr.querySelector('.quick-row-label')?.value || '').trim();
+            if (label) hoteles.push(label);
+        } else if (tipo === 'traslado') traslados += monto;
+    });
+
+    const current = {
+        id: null,
+        tipo: 'rapida',
+        tipoLabel: 'Cotización rápida',
+        nombre: (document.getElementById('rapido-pasajero')?.value || '').trim() || 'Nueva cotización',
+        currency,
+        cantPax: paxCount,
+        columns: [{
+            name: hoteles.join(' + ') || 'Cotización',
+            values: computePrices({ vuelos, fee, alojamiento, traslados, cantPax: paxCount, redondear: isQuickRedondeoActive })
+        }]
+    };
+
+    card.classList.remove('hidden');
+    renderRecotizacionSummary(baseline, current, container, { exitHandler: 'exitQuickRecotizacion()' });
+}
+
+function exitQuickRecotizacion() {
+    window.quickRecotizacionBaseline = null;
+    calculateQuickQuote();
+}
+window.exitQuickRecotizacion = exitQuickRecotizacion;
+
+/**
+ * Carga una cotización rápida guardada como punto de partida de una nueva:
+ * la original no se modifica y sus montos quedan para comparar.
+ */
+async function startQuickRecotizacion(quoteId) {
+    try {
+        const quote = await fetchQuote(quoteId, 'rapida');
+        window.quickRecotizacionBaseline = buildQuoteModel(quote);
+    } catch (err) {
+        window.showAlert('warning', 'No se pudo cargar la cotización a recotizar: ' + err.message);
+        loadDefaultQuickQuoteRows();
+        return;
+    }
+
+    await loadQuickBudgetIntoForm(quoteId, { keepRecotizacion: true });
+
+    // Se guarda como una cotización nueva
+    currentQuickQuoteId = null;
+    window.currentQuickQuoteOwner = null;
+    history.replaceState(null, null, '/cotizacion-rapida');
+    enableQuickFormEditing(true);
+    updateSaveButtonState();
+    calculateQuickQuote();
+
+    const appName = (window.agencyConfig && window.agencyConfig.nombre_agencia) || 'One Trip';
+    document.title = `Recotizar ${window.quickRecotizacionBaseline?.nombre || ''} | ${appName}`;
+}
+
+// Botón "Recotizar" de una cotización rápida guardada (abre otra pestaña)
+function recotizarCurrentQuickQuote() {
+    if (currentQuickQuoteId) openRecotizacion(currentQuickQuoteId, 'rapida');
+}
+window.recotizarCurrentQuickQuote = recotizarCurrentQuickQuote;
 
 function calculateQuickQuote() {
     const paxCount = parseInt(document.getElementById('rapido-pax-count')?.value) || 2;
@@ -1671,12 +1895,14 @@ function calculateQuickQuote() {
     const elPaxRedondeado = document.getElementById('rapido-pax-redondeado');
     if (elPaxRedondeado) elPaxRedondeado.innerText = `${currency} ${window.formatPriceES(roundedPerPerson)}`;
 
-    // Financiación: entrega = aéreo, saldo en 3 o 6 cuotas (respeta el redondeo activo)
+    // Financiación: entrega = aéreo, saldo en las cuotas elegidas (respeta el redondeo activo)
     const totalParaCuotas = isQuickRedondeoActive ? roundedTotal : totalFinal;
     renderQuickCuotas(
         computeQuickCuotas({ totalAereo, totalFinal: totalParaCuotas, paxCount }),
         currency
     );
+
+    renderQuickRecotizacion(currency, paxCount);
 
     saveQuickQuoteFormState();
 }
@@ -1761,7 +1987,8 @@ async function saveQuickQuote(andRedirect = false) {
             fecha_regreso: fechaRegreso,
             moneda: document.getElementById('rapido-moneda')?.value || 'USD',
             operador: document.getElementById('rapido-operador')?.value || '',
-            redondear: isQuickRedondeoActive
+            redondear: isQuickRedondeoActive,
+            planes_cuotas: [...quickPlanesCuotas]
         }
     ];
 
@@ -2005,7 +2232,9 @@ async function executeDeleteQuickBudget(quoteId) {
     }
 }
 
-async function loadQuickBudgetIntoForm(quoteId) {
+async function loadQuickBudgetIntoForm(quoteId, { keepRecotizacion = false } = {}) {
+    // Abrir una cotización guardada deja de comparar con la recotización anterior
+    if (!keepRecotizacion) window.quickRecotizacionBaseline = null;
     const cleanId = quoteId ? String(quoteId).trim().replace(/[^a-zA-Z0-9_-]/g, '') : null;
     if (!cleanId) {
         window.showAlert('warning', 'ID de cotización rápida no válido.');
@@ -2102,6 +2331,7 @@ async function loadQuickBudgetIntoForm(quoteId) {
                     setQuickCurrency(currency);
                     const savedRedondeo = typeof h.redondear !== 'undefined' ? h.redondear : false;
                     toggleQuickQuoteRedondeo(savedRedondeo);
+                    quickPlanesCuotas = normalizePlanesCuotas(h.planes_cuotas);
                     return;
                 }
                 const tipo = h.nombre.toLowerCase().includes('traslado') ? 'traslado' : 'hotel';
@@ -2273,6 +2503,7 @@ export function enableQuickFormEditing(enabled) {
         panel.classList.toggle('pointer-events-none', !enabled);
         panel.classList.toggle('opacity-60', !enabled);
     });
+    document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => refreshQuickRowSaveHotel(tr));
 
     // Enable/disable rows
     const rows = document.querySelectorAll('#quick-budget-body tr.quick-row');
@@ -2728,7 +2959,7 @@ export function buildQuickQuoteTextMessage(data, options = { forWhatsApp: true }
         const planes = (cuotas.planes || []).filter(plan => plan && plan.montoPersona > 0);
         if (planes.length > 0) {
             planes.forEach(plan => {
-                lineasCuotas.push(`• Saldo en ${plan.cantidad} cuotas de ${moneda} ${formatNumber(plan.montoPersona)}`);
+                lineasCuotas.push(`• Saldo en ${plan.cantidad} ${plan.cantidad === 1 ? 'cuota' : 'cuotas'} de ${moneda} ${formatNumber(plan.montoPersona)}`);
             });
         } else {
             lineasCuotas.push('• Sin saldo a financiar: la entrega cubre el total');
@@ -2872,7 +3103,10 @@ export async function copySavedQuickBudgetAsText(quoteId, event) {
 
         // Entrega inicial = aéreo guardado (monto de cada vuelo + su fee)
         const totalAereo = (q.vuelos || []).reduce((sum, v) => sum + (v.monto || 0) + (v.fee || 0), 0);
-        const cuotas = computeQuickCuotas({ totalAereo, totalFinal: total, paxCount });
+        const cuotas = computeQuickCuotas({
+            totalAereo, totalFinal: total, paxCount,
+            planes: normalizePlanesCuotas(metadata.planes_cuotas)
+        });
 
         const payload = {
             paxCount: paxCount,

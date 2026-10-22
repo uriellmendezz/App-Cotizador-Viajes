@@ -1,5 +1,9 @@
 import { HOTEL_PICKER_BUTTON_HTML, starsToString } from './hotel_catalog.js';
 import { isCruceroQuote, renderCruceroSummaryFromQuote } from './crucero_resumen.js';
+import {
+    buildQuoteModel, modelFromSummaryConfig, fetchQuote, openRecotizacion,
+    getRecotizacionBaseline, setRecotizacionBaseline, clearRecotizacionBaseline, renderRecotizacionSummary
+} from './comparador.js';
 let hotelCount = 0;
 let agencyConfig = {};
 let importedQuotes = [];
@@ -296,12 +300,12 @@ function saveDetailedQuoteFormState() {
         moneda: document.getElementById('moneda_seleccionada')?.value || 'USD'
     };
 
-    sessionStorage.setItem('detailedQuoteFormState', JSON.stringify(state));
+    sessionStorage.setItem(window.tabStorageKey('detailedQuoteFormState'), JSON.stringify(state));
 }
 window.saveDetailedQuoteFormState = saveDetailedQuoteFormState;
 
 function restoreDetailedQuoteFormState() {
-    const saved = sessionStorage.getItem('detailedQuoteFormState');
+    const saved = sessionStorage.getItem(window.tabStorageKey('detailedQuoteFormState'));
     if (!saved) return;
 
     try {
@@ -310,7 +314,7 @@ function restoreDetailedQuoteFormState() {
 
         // El borrador pertenece a otra modalidad: se descarta para no mezclar datos
         if ((state.quote_mode || 'standard') !== currentQuoteMode) {
-            sessionStorage.removeItem('detailedQuoteFormState');
+            sessionStorage.removeItem(window.tabStorageKey('detailedQuoteFormState'));
             return;
         }
 
@@ -2375,15 +2379,23 @@ function updateRealTimeSummary() {
     const container = document.getElementById('realtime-breakdown-container');
     if (!container) return;
 
+    // Recotización: la tabla muestra el valor anterior junto al nuevo
+    const recotizacionBaseline = getRecotizacionBaseline();
+
     if (isSoloVuelosMode()) {
-        renderSoloVuelosSummaryHTML({
+        const vuelosConfig = {
             currency,
             cantPax,
             flightsCost,
             flightsFee,
             aplicarRedondeo: document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true,
             operadorVuelos: document.getElementById('operador_vuelos')?.value.trim() || ''
-        }, container);
+        };
+        if (recotizacionBaseline) {
+            renderRecotizacionSummary(recotizacionBaseline, modelFromSummaryConfig(vuelosConfig, 'vuelos'), container);
+        } else {
+            renderSoloVuelosSummaryHTML(vuelosConfig, container);
+        }
         saveDetailedQuoteFormState();
         return;
     }
@@ -2420,7 +2432,7 @@ function updateRealTimeSummary() {
 
     const aplicarRedondeo = document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true;
 
-    renderSummaryTableHTML({
+    const summaryConfig = {
         currency,
         cantPax,
         flightsCost,
@@ -2430,11 +2442,71 @@ function updateRealTimeSummary() {
         operadorVuelos: document.getElementById('operador_vuelos')?.value.trim() || '',
         operadorTraslados: document.getElementById('operador_traslados')?.value.trim() || '',
         hotelList
-    }, container);
+    };
+    if (recotizacionBaseline) {
+        renderRecotizacionSummary(recotizacionBaseline, modelFromSummaryConfig(summaryConfig, 'estandar'), container);
+    } else {
+        renderSummaryTableHTML(summaryConfig, container);
+    }
 
     saveDetailedQuoteFormState();
 }
 window.updateRealTimeSummary = updateRealTimeSummary;
+
+// Deja de comparar con la cotización anterior (los montos cargados se mantienen)
+function exitRecotizacion() {
+    clearRecotizacionBaseline();
+    if (typeof window.updateRealTimeSummary === 'function') window.updateRealTimeSummary();
+}
+window.exitRecotizacion = exitRecotizacion;
+
+/**
+ * Prepara el formulario para recotizar una cotización guardada: la carga como
+ * cotización nueva (la original no se modifica) y guarda sus montos para
+ * compararlos en la tabla resumen en tiempo real.
+ */
+async function startRecotizacion(quoteId) {
+    window.showLoader('Preparando recotización...');
+    let quote;
+    try {
+        quote = await fetchQuote(quoteId, 'completa');
+    } catch (err) {
+        window.hideLoader();
+        showAlert('warning', 'No se pudo cargar la cotización a recotizar: ' + err.message);
+        return false;
+    }
+
+    if (isCruceroQuote(quote)) {
+        window.hideLoader();
+        showAlert('warning', 'La recotización todavía no está disponible para cruceros. Podés duplicar la cotización y editarla.');
+        return false;
+    }
+
+    setRecotizacionBaseline(buildQuoteModel(quote));
+
+    const isMultidestino = quote.tipo_cotizacion === 'multidestino' ||
+        (Array.isArray(quote.hoteles) && quote.hoteles.some(h => h.tipo_cotizacion === 'multidestino'));
+    const mode = isMultidestino ? 'multidestino' : (isSoloVuelosQuote(quote) ? 'vuelos' : 'standard');
+
+    window.pendingEditQuoteId = quote.id;
+    window.pendingEditQuoteEditable = true;
+    window.pendingRecotizarAsNew = true;
+    await switchQuoteMode(mode, false);
+    return true;
+}
+
+// Botón "Recotizar" de Ver Cotización y Archivos: abre la recotización en otra pestaña
+function recotizarQuote(quoteId) {
+    const id = quoteId || new URLSearchParams(window.location.search).get('id') || currentQuoteId;
+    if (!id) return;
+    const quote = window.currentViewQuote;
+    if (quote && String(quote.id) === String(id) && isCruceroQuote(quote)) {
+        showAlert('warning', 'La recotización todavía no está disponible para cruceros. Podés duplicar la cotización y editarla.');
+        return;
+    }
+    openRecotizacion(id, 'completa');
+}
+window.recotizarQuote = recotizarQuote;
 
 function scrollToPreview() {
     const resultsPanel = document.getElementById('results-panel');
@@ -2612,7 +2684,8 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         window.currentPdfUrl = url;
         window.currentPdfFileName = currentPdfFileName;
 
-        sessionStorage.removeItem('detailedQuoteFormState');
+        sessionStorage.removeItem(window.tabStorageKey('detailedQuoteFormState'));
+        clearRecotizacionBaseline();
         navigateTo('/ver-cotizacion?id=' + currentQuoteId);
     } catch (err) {
         if (err.name === 'AbortError') return;
@@ -3101,7 +3174,8 @@ window.confirmNewQuote = confirmNewQuote;
 
 
 function resetForm() {
-    sessionStorage.removeItem('detailedQuoteFormState');
+    sessionStorage.removeItem(window.tabStorageKey('detailedQuoteFormState'));
+    clearRecotizacionBaseline();
     // Clear general details
     document.getElementById('nombre_pax').value = '';
     document.getElementById('destino').value = '';
@@ -4055,7 +4129,7 @@ function renderActiveTabTable(customFilteredList = null) {
         displayList.forEach(q => {
             const tr = document.createElement('tr');
             tr.className = 'border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150 cursor-pointer';
-            tr.setAttribute('onclick', `navigateTo('/ver-cotizacion?id=${q.id}')`);
+            bindQuoteRowNavigation(tr, `/ver-cotizacion?id=${q.id}`);
 
             let fechaSalidaFormatted = q.fecha_salida || '';
             if (fechaSalidaFormatted.includes('-')) {
@@ -4103,8 +4177,11 @@ function renderActiveTabTable(customFilteredList = null) {
                 <td class="p-3 hidden md:table-cell">${agentBadgeHtml}</td>
                 <td class="p-3 hidden sm:table-cell">${fechaSalidaFormatted}</td>
                 <td class="p-3 text-right font-semibold text-brand-primary">${currency} ${formatPriceES(totalUSD)}</td>
-                <td class="p-3 flex justify-center">
-                    ${deleteButtonHtml}
+                <td class="p-3">
+                    <div class="flex items-center justify-center gap-0.5">
+                        ${quoteRowActionsHtml('completa', q.id, `/ver-cotizacion?id=${q.id}`)}
+                        ${deleteButtonHtml}
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -4151,7 +4228,7 @@ function renderActiveTabTable(customFilteredList = null) {
         displayList.forEach(q => {
             const tr = document.createElement('tr');
             tr.className = 'border-b border-slate-100 hover:bg-slate-50 transition-colors duration-150 cursor-pointer';
-            tr.setAttribute('onclick', `navigateTo('/cotizacion-rapida?id=${q.id}')`);
+            bindQuoteRowNavigation(tr, `/cotizacion-rapida?id=${q.id}`);
 
             const totalUSD = q.total_cotizacion || 0;
             const fechaCreadoFormatted = formatCreatedAt(q.created_at);
@@ -4204,8 +4281,11 @@ function renderActiveTabTable(customFilteredList = null) {
                 <td class="p-3 hidden md:table-cell">${operatorBadgeHtml}</td>
                 <td class="p-3 hidden md:table-cell">${agentBadgeHtml}</td>
                 <td class="p-3 text-right font-semibold text-brand-primary">${currency} ${formatPriceES(totalUSD)}</td>
-                <td class="p-3 flex justify-center">
-                    ${deleteButtonHtml}
+                <td class="p-3">
+                    <div class="flex items-center justify-center gap-0.5">
+                        ${quoteRowActionsHtml('rapida', q.id, `/cotizacion-rapida?id=${q.id}`)}
+                        ${deleteButtonHtml}
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -4215,6 +4295,43 @@ function renderActiveTabTable(customFilteredList = null) {
     }
 }
 window.renderActiveTabTable = renderActiveTabTable;
+
+// Clic: abre la cotización · Ctrl+clic o clic con la rueda: la abre en una pestaña nueva
+function bindQuoteRowNavigation(tr, path) {
+    tr.addEventListener('click', (e) => {
+        if (e.ctrlKey || e.metaKey) window.openInAppTab(path);
+        else navigateTo(path);
+    });
+    tr.addEventListener('mousedown', (e) => {
+        if (e.button === 1) e.preventDefault();
+    });
+    tr.addEventListener('auxclick', (e) => {
+        if (e.button === 1) {
+            e.preventDefault();
+            window.openInAppTab(path);
+        }
+    });
+}
+
+// Acciones de cada fila de Archivos: recotizar y abrir en otra pestaña
+function quoteRowActionsHtml(kind, id, path) {
+    const recotizarFn = kind === 'rapida' ? `openRecotizacion('${id}', 'rapida')` : `recotizarQuote('${id}')`;
+    return `
+        <button type="button" onclick="event.stopPropagation(); ${recotizarFn}"
+            class="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+            title="Recotizar (se abre en otra pestaña para comparar con la original)">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+        </button>
+        <button type="button" onclick="event.stopPropagation(); openInAppTab('${path}')"
+            class="p-2 text-slate-400 hover:text-brand-primary hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            title="Abrir en una pestaña nueva">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+        </button>`;
+}
 
 function renderSavedQuotesPagination(totalItems, currentPage, totalPages) {
     const container = document.getElementById('db-quotes-pagination-container');
@@ -4484,6 +4601,14 @@ function enableFormEditing(enabled) {
         }
     });
 
+    // En modo lectura no se ofrece guardar los hoteles en "Mis Hoteles"
+    if (!enabled) {
+        form.querySelectorAll('.hotel-save-catalog-prompt').forEach(prompt => {
+            prompt.classList.add('hidden');
+            prompt.classList.remove('flex');
+        });
+    }
+
     // El botón de Generar Cotización permanece habilitado para poder generarla directamente sin editar
     const submitBtn = document.getElementById('btn-generar-preview');
     if (submitBtn) {
@@ -4675,6 +4800,13 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
         // Update edit state and read-only / editing modes
         currentQuoteId = q.id;
         window.currentQuoteOwner = q.agente_nombre;
+
+        // Recotización: se guarda como una cotización nueva y la original queda intacta
+        if (window.pendingRecotizarAsNew) {
+            window.pendingRecotizarAsNew = false;
+            currentQuoteId = null;
+            window.currentQuoteOwner = null;
+        }
 
         if (forceEditMode) {
             enableFormEditing(true);
@@ -4973,11 +5105,17 @@ export async function switchQuoteMode(targetMode, preserveData = true) {
 }
 window.switchQuoteMode = switchQuoteMode;
 
-export function initCotizar() {
+export async function initCotizar() {
     window.switchQuoteMode = switchQuoteMode;
     loadOperadoresDatalist();
     const path = window.location.pathname;
     const modoParam = new URLSearchParams(window.location.search).get('modo');
+
+    const recotizarId = new URLSearchParams(window.location.search).get('recotizar');
+    if (recotizarId) {
+        history.replaceState(null, null, path);
+        if (await startRecotizacion(recotizarId)) return;
+    }
 
     if (path === '/cotizacion-multidestino' || modoParam === 'multidestino') {
         switchQuoteMode('multidestino', false);
@@ -5181,7 +5319,7 @@ export function initCotizarStandard() {
         window.pendingEditQuoteId = null;
         window.pendingEditQuoteEditable = null;
         loadSavedQuoteIntoForm(quoteId, forceEdit);
-    } else if (sessionStorage.getItem('detailedQuoteFormState')) {
+    } else if (sessionStorage.getItem(window.tabStorageKey('detailedQuoteFormState'))) {
         restoreDetailedQuoteFormState();
     } else if (!isFromBridge) {
         // Fresh quote creation: clean any leftovers and enable editing
