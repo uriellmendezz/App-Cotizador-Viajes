@@ -1612,3 +1612,370 @@ html.embedded-tab #app-loader-overlay {
         left: 0;
     }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   COTIZADOR PDF (.quote-studio): estilo plano tipo documento
+   Superficies blancas con borde fino, sin sombras ni efecto vidrio ni
+   elevación al pasar el mouse. Aplica a la cotización estándar, la
+   multidestino y la de solo vuelos, incluidas las tarjetas que se
+   generan por JS (hoteles y paradas).
+   ══════════════════════════════════════════════════════════════════ */
+.quote-studio {
+    --qs-border: #e6e8ec;
+    --qs-border-strong: #d6dae1;
+    --qs-surface: #ffffff;
+    --qs-muted: #f8f9fb;
+    --qs-ink: #0f172a;
+    --qs-label: #64748b;
+    --qs-brand: #ff545d;
+    --qs-brand-soft: rgba(255, 84, 93, 0.12);
+}
+
+/* ── Encabezado de la página ── */
+.quote-studio #segmented-quote-mode {
+    background: #f1f3f6 !important;
+    box-shadow: none !important;
+    border-color: var(--qs-border) !important;
+}
+
+.quote-studio #mode-pill-indicator {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+    border-color: var(--qs-border) !important;
+}
+
+/* ── Secciones del formulario ── */
+.quote-studio #form-container > * + * {
+    margin-top: 20px !important;
+}
+
+.quote-studio #form-container > section {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border) !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+    padding: 28px 32px 32px !important;
+    transition: border-color 0.2s ease !important;
+}
+
+.quote-studio #form-container > section:focus-within {
+    border-color: var(--qs-border-strong) !important;
+}
+
+/* Encabezado de cada sección: número, título y subtítulo */
+.quote-studio #form-container > section > div:first-child {
+    border-bottom: 1px solid var(--qs-border) !important;
+    padding-bottom: 20px !important;
+    margin-bottom: 24px !important;
+}
+
+.quote-studio .qs-step {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background: var(--qs-ink);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.quote-studio .qs-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.quote-studio .qs-title {
+    font-family: "Montserrat", sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--qs-ink);
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+
+.quote-studio .qs-subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+/* Botones de acción del encabezado (+ Agregar tramo / hotel / parada) */
+.quote-studio #form-container > section > div:first-child button {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border-strong) !important;
+    border-radius: 10px !important;
+    color: #334155 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    padding: 8px 14px !important;
+    box-shadow: none !important;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease !important;
+}
+
+.quote-studio #form-container > section > div:first-child button:hover {
+    border-color: var(--qs-brand) !important;
+    color: var(--qs-brand) !important;
+    background: #fff7f7 !important;
+}
+
+/* Separadores internos (equipaje, montos) */
+.quote-studio #form-container section .border-t {
+    border-top-color: var(--qs-border) !important;
+}
+
+/* ── Campos ── */
+.quote-studio #quote-form label.uppercase:not(.hotel-recommended-label) {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.05em !important;
+    color: var(--qs-label) !important;
+}
+
+.quote-studio #quote-form input[type="text"],
+.quote-studio #quote-form input[type="number"],
+.quote-studio #quote-form input[type="date"],
+.quote-studio #quote-form select,
+.quote-studio #quote-form textarea {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border-strong) !important;
+    border-radius: 10px !important;
+    min-height: 44px;
+    color: var(--qs-ink);
+    box-shadow: none !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.quote-studio #quote-form input[type="text"]:hover,
+.quote-studio #quote-form input[type="number"]:hover,
+.quote-studio #quote-form input[type="date"]:hover,
+.quote-studio #quote-form select:hover,
+.quote-studio #quote-form textarea:hover {
+    border-color: #c3c9d2 !important;
+}
+
+.quote-studio #quote-form input[type="text"]:focus,
+.quote-studio #quote-form input[type="number"]:focus,
+.quote-studio #quote-form input[type="date"]:focus,
+.quote-studio #quote-form select:focus,
+.quote-studio #quote-form textarea:focus {
+    border-color: var(--qs-brand) !important;
+    box-shadow: 0 0 0 3px var(--qs-brand-soft) !important;
+    background: var(--qs-surface) !important;
+}
+
+.quote-studio #quote-form input:disabled,
+.quote-studio #quote-form select:disabled,
+.quote-studio #quote-form textarea:disabled {
+    background: var(--qs-muted) !important;
+    color: #64748b;
+}
+
+/* ── Bloques internos: tramos de vuelo, hoteles y paradas ── */
+.quote-studio #flight-segments-container > div,
+.quote-studio .hotel-option-card,
+.quote-studio .hotel-stop-card {
+    background: var(--qs-muted) !important;
+    border: 1px solid var(--qs-border) !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+}
+
+.quote-studio #flight-segments-container > div {
+    padding: 20px !important;
+}
+
+.quote-studio .hotel-option-card,
+.quote-studio .hotel-stop-card {
+    padding: 24px !important;
+}
+
+.quote-studio .hotel-option-card:hover,
+.quote-studio .hotel-stop-card:hover {
+    background: var(--qs-muted) !important;
+}
+
+/* Rótulo de cada tramo (Ida, Vuelta, Intermedio) */
+.quote-studio #flight-segments-container .text-brand-accent {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--qs-ink) !important;
+    font-size: 11px !important;
+    letter-spacing: 0.08em !important;
+}
+
+.quote-studio #flight-segments-container .text-brand-accent::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--qs-brand);
+}
+
+/* Opción recomendada: borde de marca y sello plano */
+.quote-studio .hotel-option-card:has(.recommendation-badge) {
+    background: var(--qs-surface) !important;
+    border-color: rgba(255, 84, 93, 0.45) !important;
+}
+
+.quote-studio .recommendation-badge {
+    top: -10px !important;
+    left: 20px !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    padding: 3px 10px !important;
+    letter-spacing: 0.08em !important;
+}
+
+.quote-studio .hotel-recommended-label:not(.hidden) {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border-strong) !important;
+    color: var(--qs-label) !important;
+    border-radius: 8px !important;
+}
+
+.quote-studio .hotel-recommended-label:not(.hidden):hover {
+    border-color: var(--qs-brand) !important;
+    color: var(--qs-brand) !important;
+}
+
+.quote-studio .remove-hotel-btn,
+.quote-studio .remove-stop-btn {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: #94a3b8 !important;
+    border-radius: 8px !important;
+}
+
+.quote-studio .remove-hotel-btn:hover,
+.quote-studio .remove-stop-btn:hover {
+    background: #fff1f2 !important;
+    border-color: #fecdd3 !important;
+    color: #e11d48 !important;
+}
+
+/* Zonas para soltar capturas e imágenes */
+.quote-studio .dropzone {
+    background: var(--qs-surface) !important;
+    border: 1.5px dashed var(--qs-border-strong) !important;
+    border-radius: 12px !important;
+}
+
+.quote-studio .dropzone:hover,
+.quote-studio .dropzone:focus {
+    border-color: var(--qs-brand) !important;
+    background: #fffafa !important;
+    outline: none;
+}
+
+/* Opciones de equipaje y de traslado */
+.quote-studio .baggage-opt-btn,
+.quote-studio .transfer-opt-btn {
+    border-radius: 12px !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.quote-studio .baggage-opt-btn:not(.active),
+.quote-studio .transfer-opt-btn:not(.active) {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border-strong) !important;
+}
+
+.quote-studio .baggage-opt-btn:not(.active):hover,
+.quote-studio .transfer-opt-btn:not(.active):hover {
+    border-color: #c3c9d2 !important;
+    background: var(--qs-muted) !important;
+}
+
+/* Nota de gastos administrativos */
+.quote-studio #form-container > section:has(> h3) {
+    background: transparent !important;
+    border: 1px dashed var(--qs-border-strong) !important;
+    border-radius: 12px !important;
+    padding: 14px 18px !important;
+}
+
+/* Botón principal */
+.quote-studio #btn-generar-preview {
+    border-radius: 12px !important;
+    box-shadow: none !important;
+    transform: none !important;
+    letter-spacing: 0.06em !important;
+    padding: 15px 28px !important;
+}
+
+.quote-studio #btn-generar-preview:hover {
+    background: #f0434d !important;
+}
+
+/* ── Resumen en tiempo real (columna derecha) ── */
+@media (min-width: 1024px) {
+    .quote-studio #realtime-card:not(.w-12) {
+        background: var(--qs-surface) !important;
+        border: 1px solid var(--qs-border) !important;
+        border-radius: 16px !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+}
+
+.quote-studio #realtime-card:not(.w-12) #toggle-sidebar-btn {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border) !important;
+    box-shadow: none !important;
+    color: #64748b;
+}
+
+.quote-studio #realtime-card:not(.w-12) #toggle-sidebar-btn:hover {
+    border-color: var(--qs-brand) !important;
+    color: var(--qs-brand) !important;
+    background: var(--qs-surface) !important;
+}
+
+.quote-studio #realtime-card-content > h3 {
+    border-bottom-color: var(--qs-border) !important;
+}
+
+.quote-studio #btn-scroll-to-preview,
+.quote-studio #btn-clear-form {
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* Línea para redimensionar las columnas */
+.quote-studio #layout-resizer .resizer-line {
+    background: var(--qs-border) !important;
+}
+
+.quote-studio #layout-resizer:hover .resizer-line {
+    background: var(--qs-brand) !important;
+}
+
+/* ── Vista previa del PDF ── */
+.quote-studio #results-panel {
+    border: 1px solid var(--qs-border) !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+}
+
+.quote-studio #results-panel .shadow-lg,
+.quote-studio #btn-download-pdf {
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* Aviso de edición */
+.quote-studio #editing-indicator {
+    box-shadow: none !important;
+    border-radius: 12px !important;
+}
