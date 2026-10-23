@@ -40,6 +40,8 @@ jobs:
           git lfs track "*.jpeg"
           git lfs track "*.png"
           git lfs track "*.avif"
+          git lfs track "*.webp"
+          git lfs track "*.pdf"
           
           # Agregar todos los archivos al nuevo índice de Git
           git add .
