@@ -1,8 +1,18 @@
 /* Premium Refinements for One Trip Giordano System - Base overrides and animations */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
+/* Escala general de la interfaz. Dentro de una pestaña extra (iframe) no se
+   aplica de nuevo: el iframe ya hereda la escala de la ventana principal. */
+:root {
+    --app-zoom: 0.9;
+}
+
 html {
-    zoom: 0.8;
+    zoom: var(--app-zoom);
+}
+
+html.embedded-tab {
+    zoom: 1;
 }
 
 :root {
@@ -464,8 +474,12 @@ textarea:focus {
     box-shadow: 0 1px 3px 0 rgba(251, 113, 133, 0.05) !important;
 }
 
-/* Collapsible sidebar layout overrides */
-@media (min-width: 1024px) {
+/* Collapsible sidebar layout overrides.
+   Menú adaptable (ver applyResponsiveSidebar en main.js):
+   · 1024px o más: menú completo (o colapsado si el agente lo colapsó).
+   · 640px a 1023px (zoom medio): se compacta solo a íconos, siempre visible.
+   · Menos de 640px (mucho zoom o pantalla chica): menú hamburguesa. */
+@media (min-width: 640px) {
     /* Smooth width transition for sidebar and padding transition for wrapper */
     #app-sidebar {
         width: 220px;
@@ -598,17 +612,24 @@ textarea:focus {
     }
 }
 
-/* App Loader Overlay responsive alignment with sidebar */
+/* App Loader Overlay responsive alignment with sidebar.
+   No tapa el menú lateral ni la barra de pestañas: se puede seguir navegando
+   entre pestañas mientras una cotización se está cargando. */
 #app-loader-overlay {
     position: fixed !important;
-    top: 0;
+    top: 2.5rem;
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 9999;
+    z-index: 30;
 }
 
-@media (min-width: 1024px) {
+html.embedded-tab #app-loader-overlay,
+#app-tabs-bar.hidden ~ #app-main-pane #app-loader-overlay {
+    top: 0;
+}
+
+@media (min-width: 640px) {
     #app-loader-overlay {
         left: 220px;
         transition: left 0.3s ease;
@@ -740,7 +761,7 @@ iframe#ver-pdf-iframe {
 :root {
     --view-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --view-ease-in: cubic-bezier(0.4, 0, 1, 1);
-    --view-leave-ms: 120ms;
+    --view-leave-ms: 80ms;
     --view-enter-ms: 300ms;
 }
 
@@ -1524,4 +1545,437 @@ iframe#ver-pdf-iframe {
     .dash-flight {
         display: none !important;
     }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   PESTAÑAS DE LA APLICACIÓN (static/js/tabs.js)
+   Cada pestaña extra es la app completa dentro de un iframe; adentro
+   se oculta la navegación propia (html.embedded-tab).
+   ══════════════════════════════════════════════════════════════════ */
+html.embedded-tab #app-sidebar,
+html.embedded-tab #sidebar-backdrop,
+html.embedded-tab #app-tabs-bar {
+    display: none !important;
+}
+
+html.embedded-tab #main-content-wrapper {
+    padding-left: 0 !important;
+}
+
+html.embedded-tab #app-loader-overlay {
+    left: 0 !important;
+}
+
+.app-tabs-list {
+    scrollbar-width: none;
+}
+
+.app-tabs-list::-webkit-scrollbar {
+    display: none;
+}
+
+.app-tab-frame {
+    display: block;
+    width: 100%;
+    /* El zoom de html también achica los vh: se compensa para llenar la ventana */
+    height: calc(100vh / var(--app-zoom) - 2.5rem);
+    border: 0;
+    background: #f8fafc;
+}
+
+/* Recotización: el monto más barato de cada par se resalta */
+.recot-cheaper {
+    color: #047857 !important;
+    background-color: #ecfdf5;
+    border-radius: 0.375rem;
+    padding: 0 0.25rem;
+}
+
+/* Menú hamburguesa: solo con mucho zoom o pantallas muy angostas (< 640px) */
+@media (max-width: 639.98px) {
+    #app-sidebar {
+        width: 240px;
+        transform: translateX(-100%) !important;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    body.sidebar-drawer-open #app-sidebar {
+        transform: none !important;
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+    }
+
+    #main-content-wrapper {
+        padding-left: 0 !important;
+    }
+
+    #app-loader-overlay {
+        left: 0;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   COTIZADOR PDF (.quote-studio): estilo plano tipo documento
+   Superficies blancas con borde fino, sin sombras ni efecto vidrio ni
+   elevación al pasar el mouse. Aplica a la cotización estándar, la
+   multidestino y la de solo vuelos, incluidas las tarjetas que se
+   generan por JS (hoteles y paradas).
+   ══════════════════════════════════════════════════════════════════ */
+.quote-studio {
+    --qs-border: #e6e8ec;
+    --qs-border-strong: #d6dae1;
+    --qs-surface: #ffffff;
+    --qs-muted: #f8f9fb;
+    --qs-ink: #0f172a;
+    --qs-label: #64748b;
+    --qs-brand: #ff545d;
+    --qs-brand-soft: rgba(255, 84, 93, 0.12);
+}
+
+/* ── Encabezado de la página ── */
+.quote-studio #segmented-quote-mode {
+    background: #f1f3f6 !important;
+    box-shadow: none !important;
+    border-color: var(--qs-border) !important;
+}
+
+.quote-studio #mode-pill-indicator {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+    border-color: var(--qs-border) !important;
+}
+
+/* ── Secciones del formulario ── */
+.quote-studio #form-container > * + * {
+    margin-top: 20px !important;
+}
+
+.quote-studio #form-container > section {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border) !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+    padding: 28px 32px 32px !important;
+    transition: border-color 0.2s ease !important;
+}
+
+.quote-studio #form-container > section:focus-within {
+    border-color: var(--qs-border-strong) !important;
+}
+
+/* Encabezado de cada sección: número, título y subtítulo */
+.quote-studio #form-container > section > div:first-child {
+    border-bottom: 1px solid var(--qs-border) !important;
+    padding-bottom: 20px !important;
+    margin-bottom: 24px !important;
+}
+
+.quote-studio .qs-step {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background: var(--qs-ink);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.quote-studio .qs-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.quote-studio .qs-title {
+    font-family: "Montserrat", sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--qs-ink);
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+
+.quote-studio .qs-subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+/* Botones de acción del encabezado (+ Agregar tramo / hotel / parada) */
+.quote-studio #form-container > section > div:first-child button {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border-strong) !important;
+    border-radius: 10px !important;
+    color: #334155 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    padding: 8px 14px !important;
+    box-shadow: none !important;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease !important;
+}
+
+.quote-studio #form-container > section > div:first-child button:hover {
+    border-color: var(--qs-brand) !important;
+    color: var(--qs-brand) !important;
+    background: #fff7f7 !important;
+}
+
+/* Separadores internos (equipaje, montos) */
+.quote-studio #form-container section .border-t {
+    border-top-color: var(--qs-border) !important;
+}
+
+/* ── Campos ── */
+.quote-studio #quote-form label.uppercase:not(.hotel-recommended-label) {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.05em !important;
+    color: var(--qs-label) !important;
+}
+
+.quote-studio #quote-form input[type="text"],
+.quote-studio #quote-form input[type="number"],
+.quote-studio #quote-form input[type="date"],
+.quote-studio #quote-form select,
+.quote-studio #quote-form textarea {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border-strong) !important;
+    border-radius: 10px !important;
+    min-height: 44px;
+    color: var(--qs-ink);
+    box-shadow: none !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.quote-studio #quote-form input[type="text"]:hover,
+.quote-studio #quote-form input[type="number"]:hover,
+.quote-studio #quote-form input[type="date"]:hover,
+.quote-studio #quote-form select:hover,
+.quote-studio #quote-form textarea:hover {
+    border-color: #c3c9d2 !important;
+}
+
+.quote-studio #quote-form input[type="text"]:focus,
+.quote-studio #quote-form input[type="number"]:focus,
+.quote-studio #quote-form input[type="date"]:focus,
+.quote-studio #quote-form select:focus,
+.quote-studio #quote-form textarea:focus {
+    border-color: var(--qs-brand) !important;
+    box-shadow: 0 0 0 3px var(--qs-brand-soft) !important;
+    background: var(--qs-surface) !important;
+}
+
+.quote-studio #quote-form input:disabled,
+.quote-studio #quote-form select:disabled,
+.quote-studio #quote-form textarea:disabled {
+    background: var(--qs-muted) !important;
+    color: #64748b;
+}
+
+/* ── Bloques internos: tramos de vuelo, hoteles y paradas ── */
+.quote-studio #flight-segments-container > div,
+.quote-studio .hotel-option-card,
+.quote-studio .hotel-stop-card {
+    background: var(--qs-muted) !important;
+    border: 1px solid var(--qs-border) !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+}
+
+.quote-studio #flight-segments-container > div {
+    padding: 20px !important;
+}
+
+.quote-studio .hotel-option-card,
+.quote-studio .hotel-stop-card {
+    padding: 24px !important;
+}
+
+.quote-studio .hotel-option-card:hover,
+.quote-studio .hotel-stop-card:hover {
+    background: var(--qs-muted) !important;
+}
+
+/* Rótulo de cada tramo (Ida, Vuelta, Intermedio) */
+.quote-studio #flight-segments-container .text-brand-accent {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--qs-ink) !important;
+    font-size: 11px !important;
+    letter-spacing: 0.08em !important;
+}
+
+.quote-studio #flight-segments-container .text-brand-accent::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--qs-brand);
+}
+
+/* Opción recomendada: borde de marca y sello plano */
+.quote-studio .hotel-option-card:has(.recommendation-badge) {
+    background: var(--qs-surface) !important;
+    border-color: rgba(255, 84, 93, 0.45) !important;
+}
+
+.quote-studio .recommendation-badge {
+    top: -10px !important;
+    left: 20px !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    padding: 3px 10px !important;
+    letter-spacing: 0.08em !important;
+}
+
+.quote-studio .hotel-recommended-label:not(.hidden) {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border-strong) !important;
+    color: var(--qs-label) !important;
+    border-radius: 8px !important;
+}
+
+.quote-studio .hotel-recommended-label:not(.hidden):hover {
+    border-color: var(--qs-brand) !important;
+    color: var(--qs-brand) !important;
+}
+
+.quote-studio .remove-hotel-btn,
+.quote-studio .remove-stop-btn {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: #94a3b8 !important;
+    border-radius: 8px !important;
+}
+
+.quote-studio .remove-hotel-btn:hover,
+.quote-studio .remove-stop-btn:hover {
+    background: #fff1f2 !important;
+    border-color: #fecdd3 !important;
+    color: #e11d48 !important;
+}
+
+/* Zonas para soltar capturas e imágenes */
+.quote-studio .dropzone {
+    background: var(--qs-surface) !important;
+    border: 1.5px dashed var(--qs-border-strong) !important;
+    border-radius: 12px !important;
+}
+
+.quote-studio .dropzone:hover,
+.quote-studio .dropzone:focus {
+    border-color: var(--qs-brand) !important;
+    background: #fffafa !important;
+    outline: none;
+}
+
+/* Opciones de equipaje y de traslado */
+.quote-studio .baggage-opt-btn,
+.quote-studio .transfer-opt-btn {
+    border-radius: 12px !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.quote-studio .baggage-opt-btn:not(.active),
+.quote-studio .transfer-opt-btn:not(.active) {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border-strong) !important;
+}
+
+.quote-studio .baggage-opt-btn:not(.active):hover,
+.quote-studio .transfer-opt-btn:not(.active):hover {
+    border-color: #c3c9d2 !important;
+    background: var(--qs-muted) !important;
+}
+
+/* Nota de gastos administrativos */
+.quote-studio #form-container > section:has(> h3) {
+    background: transparent !important;
+    border: 1px dashed var(--qs-border-strong) !important;
+    border-radius: 12px !important;
+    padding: 14px 18px !important;
+}
+
+/* Botón principal */
+.quote-studio #btn-generar-preview {
+    border-radius: 12px !important;
+    box-shadow: none !important;
+    transform: none !important;
+    letter-spacing: 0.06em !important;
+    padding: 15px 28px !important;
+}
+
+.quote-studio #btn-generar-preview:hover {
+    background: #f0434d !important;
+}
+
+/* ── Resumen en tiempo real (columna derecha) ── */
+@media (min-width: 1024px) {
+    .quote-studio #realtime-card:not(.w-12) {
+        background: var(--qs-surface) !important;
+        border: 1px solid var(--qs-border) !important;
+        border-radius: 16px !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+}
+
+.quote-studio #realtime-card:not(.w-12) #toggle-sidebar-btn {
+    background: var(--qs-surface) !important;
+    border: 1px solid var(--qs-border) !important;
+    box-shadow: none !important;
+    color: #64748b;
+}
+
+.quote-studio #realtime-card:not(.w-12) #toggle-sidebar-btn:hover {
+    border-color: var(--qs-brand) !important;
+    color: var(--qs-brand) !important;
+    background: var(--qs-surface) !important;
+}
+
+.quote-studio #realtime-card-content > h3 {
+    border-bottom-color: var(--qs-border) !important;
+}
+
+.quote-studio #btn-scroll-to-preview,
+.quote-studio #btn-clear-form {
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* Línea para redimensionar las columnas */
+.quote-studio #layout-resizer .resizer-line {
+    background: var(--qs-border) !important;
+}
+
+.quote-studio #layout-resizer:hover .resizer-line {
+    background: var(--qs-brand) !important;
+}
+
+/* ── Vista previa del PDF ── */
+.quote-studio #results-panel {
+    border: 1px solid var(--qs-border) !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+}
+
+.quote-studio #results-panel .shadow-lg,
+.quote-studio #btn-download-pdf {
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* Aviso de edición */
+.quote-studio #editing-indicator {
+    box-shadow: none !important;
+    border-radius: 12px !important;
 }

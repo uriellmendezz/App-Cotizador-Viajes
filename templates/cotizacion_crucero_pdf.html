@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Cotización de Crucero - {{ nombre_pax }} - {{ destino }}</title>
+    <style>
+        /* ══════════════════════════════════════════════════════════════════
+           FUENTES MONTSERRAT — @font-face local
+           ══════════════════════════════════════════════════════════════════ */
+        @font-face { font-family: 'Montserrat'; src: url('{{ font_regular }}') format('truetype'); font-weight: 400; }
+        @font-face { font-family: 'Montserrat'; src: url('{{ font_medium }}') format('truetype'); font-weight: 500; }
+        @font-face { font-family: 'Montserrat'; src: url('{{ font_semibold }}') format('truetype'); font-weight: 600; }
+        @font-face { font-family: 'Montserrat'; src: url('{{ font_bold }}') format('truetype'); font-weight: 700; }
+        @font-face { font-family: 'Montserrat'; src: url('{{ font_extrabold }}') format('truetype'); font-weight: 800; }
+        @font-face { font-family: 'Montserrat'; src: url('{{ font_black }}') format('truetype'); font-weight: 900; }
+
+        @page {
+            size: A4 portrait;
+            margin: 10mm 15mm 22mm 15mm;
+
+            @bottom-left {
+                content: element(legal);
+                width: 100%;
+            }
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            color: #343434;
+            font-size: 9pt;
+            line-height: 1.45;
+            letter-spacing: -0.01em;
+        }
+
+        img { max-width: 100%; display: block; }
+
+        /* ── 1. Cabecera ─────────────────────────────────────────────────── */
+        .header { margin-top: -18px; margin-bottom: 10px; }
+        .header-date { font-size: 6pt; color: #94a3b8; font-weight: 500; margin-bottom: 6px; line-height: 1; }
+        .header-banner img { width: 100%; height: auto; }
+
+        /* ── 2. Título ───────────────────────────────────────────────────── */
+        .title-section { text-align: center; margin: 8px 0 14px 0; }
+        .kicker {
+            display: inline-block;
+            font-size: 7pt;
+            font-weight: 800;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: #ff545d;
+            margin-bottom: 4px;
+        }
+        .destination-title {
+            font-weight: 900;
+            font-size: {{ destino_font_size }};
+            text-transform: uppercase;
+            letter-spacing: -0.03em;
+            line-height: 1.05;
+        }
+        .proposal-subtitle { font-size: 9.5pt; font-weight: 500; color: #64748b; margin-top: 6px; }
+
+        /* ── 3. Ficha rápida del crucero ─────────────────────────────────── */
+        .facts {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 4px;
+        }
+        .facts td {
+            width: 25%;
+            padding: 8px 10px;
+            vertical-align: top;
+            border-left: 1px solid #f1f5f9;
+        }
+        .facts td:first-child { border-left: none; }
+        .fact-label {
+            font-size: 6.2pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #94a3b8;
+        }
+        .fact-value { font-size: 9.5pt; font-weight: 800; color: #343434; line-height: 1.25; margin-top: 1px; }
+        .fact-sub { font-size: 7pt; font-weight: 500; color: #64748b; }
+
+        /* ── Encabezados de sección ──────────────────────────────────────── */
+        .section-heading {
+            font-weight: 900;
+            font-size: 10pt;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid #343434;
+            padding-bottom: 3px;
+            margin-top: 16px;
+            margin-bottom: 9px;
+        }
+
+        /* ── 4. Servicios incluidos ──────────────────────────────────────── */
+        .services-list { width: 100%; border-collapse: collapse; }
+        .services-list tr { border-bottom: 1px solid #f1f5f9; }
+        .services-list tr:last-child { border-bottom: none; }
+        .services-list td { padding: 3.5px 6px; font-size: 8.6pt; vertical-align: middle; }
+        .services-list .svc-icon { width: 22px; text-align: center; }
+        .services-list .svc-icon svg { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
+        .services-list .svc-text { color: #475569; font-weight: 500; }
+
+        /* ══════════════════════════════════════════════════════════════════
+           5. LÍNEA DE TIEMPO — pasos conectados por líneas punteadas
+           ══════════════════════════════════════════════════════════════════ */
+        .timeline { margin-top: 4px; }
+
+        .tl-item {
+            position: relative;
+            padding-left: 46px;
+            padding-bottom: 13px;
+            break-inside: avoid;
+        }
+
+        /* Línea punteada que une cada nodo con el siguiente */
+        .tl-item::before {
+            content: "";
+            position: absolute;
+            left: 14px;
+            top: 0;
+            bottom: 0;
+            border-left: 2.5px dotted #cbd5e1;
+        }
+        .tl-item.tl-first::before { top: 16px; }
+        .tl-item.tl-last::before { bottom: auto; height: 16px; }
+        .tl-item.tl-first.tl-last::before { display: none; }
+
+        .tl-node {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 31px;
+            height: 31px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 2px solid #ff545d;
+            text-align: center;
+            padding-top: 6px;
+        }
+        .tl-node svg { width: 15px; height: 15px; display: inline-block; }
+        .tl-node.tl-node-strong { background: #ff545d; }
+        .tl-node.tl-node-soft { border-color: #cbd5e1; }
+
+        .tl-date {
+            font-size: 6.8pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #ff545d;
+            line-height: 1.2;
+            padding-top: 1px;
+        }
+        .tl-title { font-size: 10.5pt; font-weight: 800; color: #343434; line-height: 1.25; }
+        .tl-detail { font-size: 8pt; color: #64748b; font-weight: 500; margin-top: 1px; }
+        .tl-head { min-height: 31px; margin-bottom: 6px; }
+
+        .tl-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 7px;
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        /* Vuelos */
+        .flight-img {
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 6px;
+            background: #ffffff;
+        }
+        .flight-img img { width: 100%; height: 92px; object-fit: contain; }
+
+        /* Hoteles */
+        .hotel-table { width: 100%; border-collapse: collapse; }
+        .hotel-table td { vertical-align: top; }
+        .hotel-photo { width: 34%; }
+        .hotel-photo img { width: 100%; height: 104px; object-fit: cover; }
+        .hotel-info { padding: 9px 12px; }
+        .hotel-name { font-size: 10pt; font-weight: 800; color: #343434; }
+        .stars { font-family: 'DejaVu Sans', sans-serif; font-size: 10pt; letter-spacing: -2px; color: #ffb800; margin-left: 4px; }
+        .hotel-city { font-size: 7.5pt; color: #94a3b8; font-weight: 600; margin-top: 1px; }
+        .badges { margin-top: 6px; }
+        .badge {
+            display: inline-block;
+            font-size: 7pt;
+            font-weight: 600;
+            color: #475569;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 2px 6px;
+            margin: 0 3px 3px 0;
+            white-space: nowrap;
+        }
+        .badge svg { width: 9px; height: 9px; display: inline-block; vertical-align: -1px; margin-right: 2px; }
+        .hotel-desc { font-size: 7.3pt; color: #64748b; margin-top: 4px; line-height: 1.4; }
+
+        /* Crucero */
+        .cruise-card { border: 1.5px solid #ff545d; border-radius: 8px; overflow: hidden; }
+        .cruise-top { width: 100%; border-collapse: collapse; break-inside: avoid; }
+        .cruise-top td { vertical-align: top; }
+        .cruise-photo { width: 40%; }
+        .cruise-photo img { width: 100%; height: 128px; object-fit: cover; }
+        .cruise-info { padding: 9px 14px; }
+        .ship-name { font-size: 13pt; font-weight: 900; letter-spacing: -0.02em; line-height: 1.15; }
+        .ship-line { font-size: 7.5pt; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+        .cruise-specs { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .cruise-specs td { padding: 2.5px 0; font-size: 7.8pt; vertical-align: top; border-bottom: 1px solid #f1f5f9; }
+        .cruise-specs tr:last-child td { border-bottom: none; }
+        .spec-label { color: #94a3b8; font-weight: 600; width: 38%; }
+        .spec-value { color: #343434; font-weight: 700; }
+
+        .itinerary-wrap { width: 100%; border-collapse: collapse; border-top: 1px solid #f1f5f9; }
+        .itinerary-wrap > tbody > tr > td { vertical-align: top; padding: 9px 14px 10px 14px; }
+        .itinerary-title {
+            font-size: 7pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        /* Mini línea de tiempo del itinerario: escalas unidas con puntos */
+        .port { position: relative; padding-left: 16px; padding-bottom: 3.5px; break-inside: avoid; }
+        .port::before {
+            content: "";
+            position: absolute;
+            left: 3.5px;
+            top: 0;
+            bottom: 0;
+            border-left: 1.5px dotted #cbd5e1;
+        }
+        .port.port-first::before { top: 6px; }
+        .port.port-last::before { bottom: auto; height: 6px; }
+        .port-dot {
+            position: absolute;
+            left: 0;
+            top: 3px;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #ff545d;
+        }
+        .port.port-sea .port-dot { background: #ffffff; border: 1.5px solid #cbd5e1; }
+        .port-table { width: 100%; border-collapse: collapse; }
+        .port-table td { vertical-align: top; font-size: 7.6pt; line-height: 1.3; }
+        .port-day { width: 106px; padding-right: 8px; color: #94a3b8; font-weight: 700; text-transform: uppercase; font-size: 6.6pt; padding-top: 1px; white-space: nowrap; }
+        .port-day span { font-weight: 600; margin-left: 3px; }
+        .port-city { font-weight: 700; color: #343434; }
+        .port-country { color: #94a3b8; font-weight: 500; }
+        .port.port-sea .port-city { color: #94a3b8; font-weight: 600; font-style: italic; }
+        .port-hours { width: 72px; text-align: right; color: #475569; font-weight: 600; white-space: nowrap; }
+
+        .map-col { width: 41%; }
+        .map-col img { width: 100%; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .map-note { font-size: 6.2pt; color: #94a3b8; margin-top: 4px; line-height: 1.3; }
+
+        /* ── 6. Total ────────────────────────────────────────────────────── */
+        .total-card {
+            width: 100%;
+            border-collapse: separate;
+            border: 1px solid #e2e8f0;
+            border-radius: 7px;
+            margin-top: 6px;
+            break-inside: avoid;
+        }
+        .total-card td { padding: 10px 18px; vertical-align: middle; }
+        .total-title { font-size: 9.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+        .total-subtitle { font-size: 7.3pt; color: #64748b; margin-top: 2px; }
+        .total-right { text-align: right; white-space: nowrap; }
+        .total-pp { font-size: 14pt; font-weight: 900; color: #ff545d; line-height: 1.1; }
+        .total-pp .currency { font-size: 9.5pt; font-weight: 700; color: #94a3b8; }
+        .total-base { font-size: 7.3pt; color: #94a3b8; font-weight: 600; }
+        .total-final { font-size: 8.5pt; font-weight: 700; margin-top: 2px; }
+
+        /* ── 7. Legales (pie de cada página) ─────────────────────────────── */
+        .legal-footer { position: running(legal); }
+        .validity-notice {
+            font-size: 7pt;
+            color: #64748b;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .legal-footer p { font-size: 5.8pt; color: #94a3b8; line-height: 1.3; text-align: justify; }
+    </style>
+</head>
+
+{# ── Íconos ──────────────────────────────────────────────────────────────── #}
+{% macro icon(name, color) -%}
+{%- if name == 'barco' -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="{{ color }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/><path d="M12 2v3"/></svg>
+{%- elif name == 'ancla' -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="{{ color }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><circle cx="12" cy="5" r="3"/></svg>
+{%- elif name == 'bebidas' -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="{{ color }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"/><path d="M7 10h10"/><path d="M12 15v7"/><path d="M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z"/></svg>
+{%- elif name == 'check' -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="{{ color }}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+{%- elif name == 'despegue' -%}{{ svg_avion_despegando.replace('<svg', '<svg fill="' ~ color ~ '"') }}
+{%- elif name == 'aterrizaje' -%}{{ svg_avion_aterrizando.replace('<svg', '<svg fill="' ~ color ~ '"') }}
+{%- elif name == 'vuelos' -%}{{ svg_vuelos.replace('<svg', '<svg fill="' ~ color ~ '"') }}
+{%- elif name == 'hotel' -%}{{ svg_cama.replace('<svg', '<svg fill="' ~ color ~ '"') }}
+{%- elif name == 'traslado' or name == 'traslados' -%}{{ svg_traslados.replace('<svg', '<svg fill="' ~ color ~ '"') }}
+{%- elif name == 'luna' -%}{{ svg_luna.replace('<svg', '<svg fill="' ~ color ~ '"') }}
+{%- elif name == 'cafe' -%}{{ svg_cafe.replace('<svg', '<svg fill="' ~ color ~ '"') }}
+{%- elif name == 'persona' -%}{{ svg_persona.replace('<svg', '<svg fill="' ~ color ~ '"') }}
+{%- endif -%}
+{%- endmacro %}
+
+<body>
+    <!-- ═══════════════ PIE DE PÁGINA (se repite en cada hoja) ═══════════════ -->
+    <div class="legal-footer">
+        {% if validez_cotizacion %}
+        <div class="validity-notice">Cotización válida hasta el {{ validez_cotizacion }}</div>
+        {% endif %}
+        <p>
+            *TARIFAS SUJETAS A DISPONIBILIDAD AL MOMENTO DE RESERVAR. EL ITINERARIO Y LOS HORARIOS DE LOS PUERTOS PUEDEN
+            SER MODIFICADOS POR LA NAVIERA. *EL PASAPORTE DEBE TENER UNA VIGENCIA MÍNIMA DE 6 MESES DESDE EL DESEMBARQUE;
+            ES DEBER DEL PASAJERO CONOCER LA DOCUMENTACIÓN, VISADOS Y REQUISITOS SANITARIOS DE CADA PUERTO.
+            *LAS PROPINAS Y CARGOS DE SERVICIO A BORDO NO ESTÁN INCLUIDOS SALVO QUE SE INDIQUE. *ONE TRIP, EN SU CARÁCTER
+            DE INTERMEDIARIO, NO SE HACE RESPONSABLE POR LAS POLÍTICAS DE REPROGRAMACIÓN O CANCELACIÓN DE NAVIERAS, LÍNEAS
+            AÉREAS U OTROS PROVEEDORES DE SERVICIOS TURÍSTICOS.
+        </p>
+    </div>
+
+    <!-- ═══════════════ 1. CABECERA ═══════════════ -->
+    <div class="header">
+        <div class="header-date">{{ fecha_generacion }}</div>
+        <div class="header-banner">
+            {% if banner_path %}<img src="{{ banner_path }}" alt="One Trip">{% endif %}
+        </div>
+    </div>
+
+    <!-- ═══════════════ 2. TÍTULO ═══════════════ -->
+    <div class="title-section">
+        <div class="kicker">Propuesta de crucero</div>
+        <h1 class="destination-title">{{ destino }}</h1>
+        <div class="proposal-subtitle">
+            Propuesta para {{ nombre_pax }}{% if fecha_salida_label %} con salida el {{ fecha_salida_label }}{% endif %}
+        </div>
+    </div>
+
+    <!-- ═══════════════ 3. FICHA RÁPIDA ═══════════════ -->
+    <table class="facts">
+        <tr>
+            <td>
+                <div class="fact-label">Barco</div>
+                <div class="fact-value">{{ crucero.barco or '-' }}</div>
+                {% if crucero.naviera %}<div class="fact-sub">{{ crucero.naviera }}</div>{% endif %}
+            </td>
+            <td>
+                <div class="fact-label">Duración</div>
+                <div class="fact-value">{{ crucero.noches_label or '-' }}</div>
+                {% if crucero.escalas %}<div class="fact-sub">{{ crucero.escalas }} {{ 'escala' if crucero.escalas == 1 else 'escalas' }}</div>{% endif %}
+            </td>
+            <td>
+                <div class="fact-label">Cabina</div>
+                <div class="fact-value">{{ crucero.cabina or '-' }}</div>
+                {% if crucero.cabina_tamano %}<div class="fact-sub">{{ crucero.cabina_tamano }}</div>{% endif %}
+            </td>
+            <td>
+                <div class="fact-label">Pasajeros</div>
+                <div class="fact-value">{{ cantidad_pasajeros }}</div>
+                {% if crucero.embarque_ciudad %}<div class="fact-sub">Sale de {{ crucero.embarque_ciudad }}</div>{% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <!-- ═══════════════ 4. SERVICIOS INCLUIDOS ═══════════════ -->
+    <div class="section-heading">Servicios incluidos</div>
+    <table class="services-list">
+        {% for tipo, texto in servicios %}
+        <tr>
+            <td class="svc-icon">{{ icon(tipo, '#ff545d') }}</td>
+            <td class="svc-text">{{ texto }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <!-- ═══════════════ 5. LÍNEA DE TIEMPO ═══════════════ -->
+    <div class="section-heading">Tu viaje, paso a paso</div>
+    <div class="timeline">
+        {% for step in timeline %}
+        <div class="tl-item{% if loop.first %} tl-first{% endif %}{% if loop.last %} tl-last{% endif %}{% if step.tipo == 'crucero' %} tl-cruise{% endif %}">
+            {% if step.tipo == 'crucero' %}
+            <div class="tl-node tl-node-strong">{{ icon(step.icono, '#ffffff') }}</div>
+            {% elif step.tipo == 'traslado' %}
+            <div class="tl-node tl-node-soft">{{ icon(step.icono, '#64748b') }}</div>
+            {% else %}
+            <div class="tl-node">{{ icon(step.icono, '#ff545d') }}</div>
+            {% endif %}
+
+            <div class="tl-head">
+                {% if step.fecha %}<div class="tl-date">{{ step.fecha }}</div>{% endif %}
+                <div class="tl-title">{{ step.titulo }}</div>
+                {% if step.detalle %}<div class="tl-detail">{{ step.detalle }}</div>{% endif %}
+            </div>
+
+            {% if step.tipo == 'vuelo' and step.imagen %}
+            <div class="flight-img"><img src="{{ step.imagen }}" alt="{{ step.titulo }}"></div>
+
+            {% elif step.tipo == 'hotel' %}
+            {% set h = step.hotel %}
+            <div class="tl-card">
+                <table class="hotel-table">
+                    <tr>
+                        {% if h.imagen_path %}
+                        <td class="hotel-photo"><img src="{{ h.imagen_path }}" alt="{{ h.nombre }}"></td>
+                        {% endif %}
+                        <td class="hotel-info">
+                            <div>
+                                <span class="hotel-name">{{ h.nombre }}</span>
+                                {% if h.stars_count %}<span class="stars">{% for i in range(h.stars_count) %}★{% endfor %}</span>{% endif %}
+                            </div>
+                            {% if h.ciudad %}<div class="hotel-city">{{ h.ciudad }}</div>{% endif %}
+                            <div class="badges">
+                                {% if h.noches_label %}<span class="badge">{{ icon('luna', '#475569') }}{{ h.noches_label }}</span>{% endif %}
+                                {% if h.habitacion %}<span class="badge">{{ icon('hotel', '#475569') }}{{ h.habitacion }}</span>{% endif %}
+                                {% if h.regimen %}<span class="badge">{{ icon('cafe', '#475569') }}{{ h.regimen }}</span>{% endif %}
+                            </div>
+                            {% if h.fecha_checkin_label and h.fecha_checkout_label %}
+                            <div class="hotel-desc">Check-in {{ h.fecha_checkin_label }} · Check-out {{ h.fecha_checkout_label }}</div>
+                            {% endif %}
+                            {% if h.descripcion %}<div class="hotel-desc">{{ h.descripcion }}</div>{% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            {% elif step.tipo == 'crucero' %}
+            <div class="cruise-card">
+                <table class="cruise-top">
+                    <tr>
+                        {% if crucero.imagen_cabina_path %}
+                        <td class="cruise-photo"><img src="{{ crucero.imagen_cabina_path }}" alt="Cabina"></td>
+                        {% endif %}
+                        <td class="cruise-info">
+                            {% if crucero.naviera %}<div class="ship-line">{{ crucero.naviera }}</div>{% endif %}
+                            <div class="ship-name">{{ crucero.barco or 'Crucero' }}</div>
+                            <table class="cruise-specs">
+                                {% if crucero.noches_label %}
+                                <tr><td class="spec-label">Duración</td><td class="spec-value">{{ crucero.noches_label }} a bordo</td></tr>
+                                {% endif %}
+                                {% if crucero.cabina %}
+                                <tr><td class="spec-label">Cabina</td><td class="spec-value">{{ crucero.cabina }}{% if crucero.cabina_tamano %} · {{ crucero.cabina_tamano }}{% endif %}</td></tr>
+                                {% endif %}
+                                <tr><td class="spec-label">Embarque</td><td class="spec-value">{{ crucero.puerto_embarque }}{% if crucero.hora_embarque %} · {{ crucero.hora_embarque }} hs{% endif %}</td></tr>
+                                <tr><td class="spec-label">Desembarque</td><td class="spec-value">{{ crucero.puerto_desembarque }}{% if crucero.hora_desembarque %} · {{ crucero.hora_desembarque }} hs{% endif %}</td></tr>
+                                <tr><td class="spec-label">Bebidas</td><td class="spec-value">{{ crucero.paquete_bebidas or 'No incluye paquete de bebidas' }}</td></tr>
+                                {% if crucero.incluye %}
+                                <tr><td class="spec-label">Incluye</td><td class="spec-value">{{ crucero.incluye }}</td></tr>
+                                {% endif %}
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                {% if itinerario %}
+                <table class="itinerary-wrap">
+                    <tr>
+                        <td>
+                            <div class="itinerary-title">Itinerario día por día</div>
+                            {% for p in itinerario %}
+                            <div class="port{% if loop.first %} port-first{% endif %}{% if loop.last %} port-last{% endif %}{% if p.navegacion %} port-sea{% endif %}">
+                                <div class="port-dot"></div>
+                                <table class="port-table">
+                                    <tr>
+                                        <td class="port-day">Día {{ p.dia }}<span>{{ p.dia_semana }} {{ p.fecha }}</span></td>
+                                        <td>
+                                            <span class="port-city">{{ p.ciudad }}</span>{% if p.pais %}<span class="port-country">, {{ p.pais }}</span>{% endif %}
+                                        </td>
+                                        <td class="port-hours">
+                                            {% if p.llegada and p.salida %}{{ p.llegada }} – {{ p.salida }}
+                                            {% elif p.salida %}Sale {{ p.salida }}
+                                            {% elif p.llegada %}Llega {{ p.llegada }}
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                            {% endfor %}
+                        </td>
+                        {% if crucero.imagen_mapa_path %}
+                        <td class="map-col">
+                            <img src="{{ crucero.imagen_mapa_path }}" alt="Ruta del crucero">
+                            <div class="map-note">Los horarios de llegada y salida de cada puerto pueden ser modificados por la naviera.</div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                </table>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ═══════════════ 6. TOTAL ═══════════════ -->
+    <table class="total-card">
+        <tr>
+            <td>
+                <div class="total-title">Total del viaje en crucero</div>
+                <div class="total-subtitle">{{ total_incluye }}</div>
+            </td>
+            <td class="total-right">
+                <div class="total-pp"><span class="currency">{{ moneda }}</span> {{ format_price(precio_persona_general) }}</div>
+                <div class="total-base">
+                    {% if cantidad_pasajeros == 1 %}por pasajero{% else %}por persona — {{ cantidad_pasajeros }} pasajeros{% endif %}
+                </div>
+                {% if cantidad_pasajeros != 1 %}
+                <div class="total-final">Total: {{ moneda }} {{ format_price(costo_total_general) }}</div>
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

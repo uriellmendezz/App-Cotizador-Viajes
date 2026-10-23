@@ -1,4 +1,4 @@
-<div class="max-w-[99%] mx-auto space-y-6">
+<div class="quote-studio max-w-[99%] mx-auto space-y-6">
     <!-- Back button -->
     <div class="pt-2">
         <button onclick="navigateTo('/hacer-cotizacion');" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-700 transition-colors cursor-pointer select-none">
@@ -93,9 +93,11 @@
                     class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
                     <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                         <span
-                            class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">1</span>
-                        <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Datos generales del
-                            viaje</h2>
+                            class="qs-step">1</span>
+                        <div class="qs-heading">
+                                <h2 class="qs-title">Datos generales del viaje</h2>
+                                <p class="qs-subtitle">Pasajero, destino y condiciones de la propuesta.</p>
+                            </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -221,8 +223,11 @@
                     <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
                         <div class="flex items-center gap-3">
                             <span
-                                class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">2</span>
-                            <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Vuelos</h2>
+                                class="qs-step">2</span>
+                            <div class="qs-heading">
+                                <h2 class="qs-title">Vuelos</h2>
+                                <p class="qs-subtitle">Fechas, capturas de cada tramo, equipaje incluido y costos aéreos.</p>
+                            </div>
                         </div>
                         <button type="button" id="btn-toggle-flight-segment"
                             class="px-4 py-2 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-full font-bold text-xs text-slate-600 uppercase tracking-wider transition-all duration-300 cursor-pointer"
@@ -451,8 +456,11 @@
                     <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
                         <div class="flex items-center gap-3">
                             <span
-                                class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">3</span>
-                            <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Alojamiento</h2>
+                                class="qs-step">3</span>
+                            <div class="qs-heading">
+                                <h2 class="qs-title">Alojamiento</h2>
+                                <p class="qs-subtitle">Hasta tres opciones de hotel. La recomendada encabeza la propuesta.</p>
+                            </div>
                         </div>
                         <button type="button"
                             class="px-4 py-2 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-full font-bold text-xs text-slate-600 uppercase tracking-wider transition-all duration-300"
@@ -469,8 +477,11 @@
                     class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
                     <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                         <span
-                            class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">4</span>
-                        <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Traslados</h2>
+                            class="qs-step">4</span>
+                        <div class="qs-heading">
+                                <h2 class="qs-title">Traslados</h2>
+                                <p class="qs-subtitle">Tipo de servicio y costo de los traslados.</p>
+                            </div>
                     </div>
 
                     <!-- Transfer Option Buttons (Mutually Exclusive) -->
@@ -743,8 +754,11 @@
                     class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
                     <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                         <span
-                            class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">1</span>
-                        <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Datos generales del itinerario</h2>
+                            class="qs-step">1</span>
+                        <div class="qs-heading">
+                                <h2 class="qs-title">Datos generales del itinerario</h2>
+                                <p class="qs-subtitle">Pasajeros, recorrido y condiciones de la propuesta.</p>
+                            </div>
                     </div>
 
                     <!-- Fila 1: Pasajero y Ruta / Destinos (Aprovechando ancho completo en 2 columnas) -->
@@ -875,8 +889,11 @@
                     <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
                         <div class="flex items-center gap-3">
                             <span
-                                class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">2</span>
-                            <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Vuelos</h2>
+                                class="qs-step">2</span>
+                            <div class="qs-heading">
+                                <h2 class="qs-title">Vuelos</h2>
+                                <p class="qs-subtitle">Fechas, capturas de cada tramo, equipaje incluido y costos aéreos.</p>
+                            </div>
                         </div>
                         <button type="button" id="btn-toggle-flight-segment"
                             class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-600 transition-colors cursor-pointer"
@@ -1067,10 +1084,10 @@
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 mb-6 gap-3">
                         <div class="flex items-center gap-3">
                             <span
-                                class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">3</span>
-                            <div>
-                                <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Itinerario de Alojamientos (Paradas)</h2>
-                                <p class="text-xs text-slate-400">Cada parada consecutiva suma su costo al total del itinerario.</p>
+                                class="qs-step">3</span>
+                            <div class="qs-heading">
+                                <h2 class="qs-title">Itinerario de Alojamientos</h2>
+                                <p class="qs-subtitle">Cada parada suma su costo al total del itinerario.</p>
                             </div>
                         </div>
                         <button type="button"
@@ -1088,8 +1105,11 @@
                     class="bg-white/80 border border-slate-200/60 rounded-2xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-all duration-300">
                     <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
                         <span
-                            class="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary flex items-center justify-center font-display font-bold text-sm">4</span>
-                        <h2 class="font-display font-medium text-lg text-slate-800 tracking-tight">Traslados</h2>
+                            class="qs-step">4</span>
+                        <div class="qs-heading">
+                                <h2 class="qs-title">Traslados</h2>
+                                <p class="qs-subtitle">Tipo de servicio y costo de los traslados.</p>
+                            </div>
                     </div>
 
                     <div class="flex flex-col gap-3 mb-6">

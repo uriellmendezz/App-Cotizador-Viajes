@@ -277,6 +277,9 @@ export function applyHotelToCard(card, hotel, foto) {
         dropzone.querySelectorAll(':scope > svg, :scope > span').forEach(el => { el.style.display = 'none'; });
     }
 
+    // El hotel ya está en el catálogo: se oculta la sugerencia de guardarlo
+    refreshCardSavePrompt(card);
+
     if (typeof window.updateRealTimeSummary === 'function') window.updateRealTimeSummary();
     if (typeof window.updateHotelBadges === 'function') window.updateHotelBadges();
     if (typeof window.saveDetailedQuoteFormState === 'function') window.saveDetailedQuoteFormState();
@@ -291,6 +294,173 @@ window.openHotelPickerForCard = function (btn) {
         window.showAlert?.('success', `Se cargaron los datos de "${hotel.nombre}" desde tu catálogo.`, true);
     });
 };
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Guardar en "Mis Hoteles" los alojamientos cargados a mano en una cotización
+// (Cotización PDF estándar, multidestino y Cotización Rápida)
+// ──────────────────────────────────────────────────────────────────────────────
+
+const CATALOG_NAMES_TTL_MS = 60 * 1000;
+let catalogNamesPromise = null;
+let catalogNamesLoadedAt = 0;
+// Nombres que el agente decidió no guardar durante esta sesión
+const dismissedHotelNames = new Set();
+
+// "Hotel Bahía Príncipe" y "bahia principe" cuentan como el mismo alojamiento
+export function normalizeHotelName(name) {
+    return String(name || '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .replace(/^hotel\s+/, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Los nombres por defecto ("Hotel", "Alojamiento Adicional", "Opción 1"...) no se ofrecen para guardar
+const GENERIC_HOTEL_NAME_RE = /^(hotel|alojamiento|opci[oó]n|parada)(\s+(adicional|(parada\s+)?\d+))?$/i;
+
+export function isSaveableHotelName(name) {
+    const clean = String(name || '').trim();
+    return clean.length >= 3 && !GENERIC_HOTEL_NAME_RE.test(clean);
+}
+
+// Set con los nombres normalizados del catálogo (null si no se pudo consultar, ej. invitados)
+function loadCatalogHotelNames() {
+    const expired = Date.now() - catalogNamesLoadedAt > CATALOG_NAMES_TTL_MS;
+    if (!catalogNamesPromise || expired) {
+        catalogNamesLoadedAt = Date.now();
+        catalogNamesPromise = fetchHotelList()
+            .then(list => new Set(list.map(h => normalizeHotelName(h.nombre))))
+            .catch(() => null);
+    }
+    return catalogNamesPromise;
+}
+
+/** true si conviene ofrecer guardar ese nombre en el catálogo. */
+export async function shouldOfferSaveHotel(name) {
+    if (!isSaveableHotelName(name)) return false;
+    const key = normalizeHotelName(name);
+    if (dismissedHotelNames.has(key)) return false;
+    const names = await loadCatalogHotelNames();
+    return !!names && !names.has(key);
+}
+
+export function dismissSaveHotel(name) {
+    dismissedHotelNames.add(normalizeHotelName(name));
+}
+
+export async function saveHotelToCatalog(data) {
+    const res = await window.authenticatedFetch('/api/hoteles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'No se pudo guardar el hotel en el catálogo.');
+    }
+    const saved = await res.json();
+    const names = await loadCatalogHotelNames();
+    if (names) names.add(normalizeHotelName(data.nombre));
+    return saved;
+}
+
+// ── Tarjetas de hotel de la Cotización PDF ──
+
+const CARD_SELECTOR = '.hotel-option-card, .hotel-stop-card';
+
+function ensureSavePrompt(card) {
+    let prompt = card.querySelector('.hotel-save-catalog-prompt');
+    if (prompt) return prompt;
+    const nombreInput = card.querySelector('.hotel-nombre-val');
+    if (!nombreInput) return null;
+    prompt = document.createElement('div');
+    prompt.className = 'hotel-save-catalog-prompt hidden mt-1.5 items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100';
+    prompt.innerHTML = `
+        <span class="text-[10px] font-semibold text-emerald-800 truncate">¿Guardar este alojamiento en Mis Hoteles?</span>
+        <span class="flex items-center gap-1 shrink-0">
+            <button type="button" data-save-hotel
+                class="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer">Guardar</button>
+            <button type="button" data-dismiss-hotel title="No guardar"
+                class="p-0.5 rounded-md text-emerald-700/50 hover:text-emerald-800 hover:bg-emerald-100 transition-all cursor-pointer">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </span>`;
+    nombreInput.insertAdjacentElement('afterend', prompt);
+    prompt.querySelector('[data-save-hotel]').addEventListener('click', () => saveCardHotelToCatalog(card));
+    prompt.querySelector('[data-dismiss-hotel]').addEventListener('click', () => {
+        dismissSaveHotel(nombreInput.value);
+        showPrompt(prompt, false);
+    });
+    return prompt;
+}
+
+function showPrompt(prompt, visible) {
+    if (!prompt) return;
+    prompt.classList.toggle('hidden', !visible);
+    prompt.classList.toggle('flex', visible);
+}
+
+/** Muestra u oculta la sugerencia de guardar el hotel de una tarjeta. */
+export async function refreshCardSavePrompt(card) {
+    const nombreInput = card?.querySelector('.hotel-nombre-val');
+    if (!nombreInput) return;
+    const name = nombreInput.value;
+    const offer = await shouldOfferSaveHotel(name) && !nombreInput.disabled;
+    // El nombre (o el modo lectura) pudo cambiar mientras se consultaba el catálogo
+    if (nombreInput.value !== name) return;
+    if (!offer) {
+        showPrompt(card.querySelector('.hotel-save-catalog-prompt'), false);
+        return;
+    }
+    showPrompt(ensureSavePrompt(card), true);
+}
+
+async function saveCardHotelToCatalog(card) {
+    const nombre = card.querySelector('.hotel-nombre-val')?.value.trim() || '';
+    if (!nombre) return;
+    const btn = card.querySelector('.hotel-save-catalog-prompt [data-save-hotel]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+    const foto = card.querySelector('.hotel-imagen-val-1, .hotel-imagen-val')?.value || '';
+    const destino = card.querySelector('.hotel-destino-val')?.value.trim()
+        || document.getElementById('destino')?.value.trim() || '';
+    const habitacion = typeof window.getHabitacionValueFromCard === 'function'
+        ? (window.getHabitacionValueFromCard(card) || '') : '';
+
+    try {
+        await saveHotelToCatalog({
+            nombre,
+            destino,
+            estrellas: starsFromString(card.querySelector('.hotel-estrellas-val')?.value) || 4,
+            regimen: card.querySelector('.hotel-regimen-val')?.value || '',
+            habitacion,
+            descripcion: (card.querySelector('.hotel-descripcion-val')?.value || '').slice(0, MAX_DESCRIPCION_HOTEL),
+            fotos: safeImageSrc(foto) ? [foto] : []
+        });
+        showPrompt(card.querySelector('.hotel-save-catalog-prompt'), false);
+        window.showAlert?.('success', `"${nombre}" se guardó en Mis Hoteles.`, true);
+    } catch (err) {
+        window.showAlert?.('warning', err.message, true);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+    }
+}
+
+// Se revisa al terminar de escribir el nombre (blur) o tras una pausa al tipear
+let savePromptTimer = null;
+document.addEventListener('focusout', (e) => {
+    const input = e.target.closest?.('.hotel-nombre-val');
+    const card = input?.closest(CARD_SELECTOR);
+    if (card) refreshCardSavePrompt(card);
+});
+document.addEventListener('input', (e) => {
+    const input = e.target.closest?.('.hotel-nombre-val');
+    const card = input?.closest(CARD_SELECTOR);
+    if (!card) return;
+    clearTimeout(savePromptTimer);
+    savePromptTimer = setTimeout(() => refreshCardSavePrompt(card), 900);
+});
 
 // Markup del botón para insertar junto a la etiqueta "Nombre del Hotel"
 export const HOTEL_PICKER_BUTTON_HTML = `

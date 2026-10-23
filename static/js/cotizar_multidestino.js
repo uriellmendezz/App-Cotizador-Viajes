@@ -1,4 +1,5 @@
 // cotizar_multidestino.js - Controlador para Cotizaciones Multidestino (Operador AND)
+import { getRecotizacionBaseline, clearRecotizacionBaseline, renderRecotizacionSummary, modelFromSummaryConfig } from './comparador.js';
 
 let stopCount = 0;
 let currentQuoteId = null;
@@ -1151,7 +1152,7 @@ function updateRealTimeSummary() {
         };
     });
 
-    renderMultidestinoSummaryHTML({
+    const summaryConfig = {
         currency,
         cantPax,
         flightsCost,
@@ -1161,7 +1162,15 @@ function updateRealTimeSummary() {
         operadorVuelos: document.getElementById('operador_vuelos')?.value.trim() || '',
         operadorTraslados: document.getElementById('operador_traslados')?.value.trim() || '',
         hotelList
-    }, container);
+    };
+
+    // Recotización: la tabla muestra el valor anterior junto al nuevo
+    const recotizacionBaseline = getRecotizacionBaseline();
+    if (recotizacionBaseline) {
+        renderRecotizacionSummary(recotizacionBaseline, modelFromSummaryConfig(summaryConfig, 'multidestino'), container);
+    } else {
+        renderMultidestinoSummaryHTML(summaryConfig, container);
+    }
 }
 window.updateRealTimeSummary = updateRealTimeSummary;
 
@@ -1321,6 +1330,8 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
                 const savedQuote = await saveRes.json();
                 currentQuoteId = savedQuote.id;
                 payload.id = currentQuoteId;
+                // La recotización quedó guardada como cotización nueva
+                clearRecotizacionBaseline();
                 console.log("Auto-save multidestino completed successfully. ID:", currentQuoteId);
             }
         }
@@ -1501,10 +1512,12 @@ async function loadMultidestinoQuoteIntoForm(quoteId, forceEditMode = true) {
 
         if (!isMultidestino) {
             const esSoloVuelos = window.isSoloVuelosQuote ? window.isSoloVuelosQuote(q) : false;
+            const esCrucero = window.isCruceroQuote ? window.isCruceroQuote(q) : false;
             window.pendingEditQuoteId = quoteId;
             window.pendingEditQuoteEditable = forceEditMode;
             window.hideLoader ? window.hideLoader() : null;
-            navigateTo((esSoloVuelos ? '/cotizacion-vuelos?id=' : '/cotizacion-completa?id=') + quoteId);
+            const ruta = esCrucero ? '/cotizacion-crucero?id=' : (esSoloVuelos ? '/cotizacion-vuelos?id=' : '/cotizacion-completa?id=');
+            navigateTo(ruta + quoteId);
             return;
         }
 
@@ -1656,6 +1669,13 @@ async function loadMultidestinoQuoteIntoForm(quoteId, forceEditMode = true) {
         window.currentQuoteOwner = q.agente_nombre;
         isReadOnlyMode = false;
 
+        // Recotización: se guarda como una cotización nueva y la original queda intacta
+        if (window.pendingRecotizarAsNew) {
+            window.pendingRecotizarAsNew = false;
+            currentQuoteId = null;
+            window.currentQuoteOwner = null;
+        }
+
         updateEditingIndicator();
         updateRealTimeSummary();
         window.hideLoader ? window.hideLoader() : null;
@@ -1694,6 +1714,7 @@ function confirmNewQuote() {
 window.confirmNewQuote = confirmNewQuote;
 
 function resetMultidestinoForm() {
+    clearRecotizacionBaseline();
     ['nombre_pax', 'destino', 'cantidad_pasajeros', 'monto_vuelos', 'fee_aereo_monto', 'monto_traslados'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -2009,6 +2030,8 @@ export async function initCotizarMultidestino() {
     if (quoteIdToLoad) {
         await loadMultidestinoQuoteIntoForm(quoteIdToLoad, forceEdit);
     } else {
+        // Formulario nuevo: no hay cotización anterior con la cual comparar
+        clearRecotizacionBaseline();
         const hotelsContainer = document.getElementById("hotels-container");
         if (hotelsContainer && hotelsContainer.children.length === 0) {
             // Add 2 initial stops for multidestino by default!

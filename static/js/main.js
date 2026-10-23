@@ -1,3 +1,38 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// PESTAÑAS: cuando la app corre dentro de una pestaña extra (iframe creado por
+// tabs.js) se oculta la navegación propia y se avisa al contenedor de cada ruta.
+// ──────────────────────────────────────────────────────────────────────────────
+const IS_EMBEDDED_TAB = (() => {
+    try {
+        return window.self !== window.top && !!window.frameElement?.classList.contains('app-tab-frame');
+    } catch (e) {
+        return false;
+    }
+})();
+window.IS_EMBEDDED_TAB = IS_EMBEDDED_TAB;
+if (IS_EMBEDDED_TAB) document.documentElement.classList.add('embedded-tab');
+
+// sessionStorage es compartido por todas las pestañas internas (mismo documento
+// principal), así que cada pestaña usa sus propias claves para el estado de formularios
+function tabStorageKey(key) {
+    return IS_EMBEDDED_TAB ? `${key}::${window.frameElement.dataset.tabId}` : key;
+}
+window.tabStorageKey = tabStorageKey;
+
+// Abre una ruta en una pestaña nueva de la app (si las pestañas están disponibles)
+function openInAppTab(path, options = {}) {
+    try {
+        const tabs = window.top.AppTabs;
+        if (tabs) {
+            tabs.open(path, options);
+            return true;
+        }
+    } catch (e) {}
+    navigateTo(path);
+    return false;
+}
+window.openInAppTab = openInAppTab;
+
 // Clean up legacy session keys on initialization
 ['authToken', 'loggedInUser', 'userRole', 'userSucursalId', 'userSucursalNombre'].forEach(key => {
     try { localStorage.removeItem(key); } catch (e) {}
@@ -41,12 +76,52 @@ function isAdminPath(path = window.location.pathname) {
 }
 window.isAdminPath = isAdminPath;
 
-// Initialize sidebar collapse state on desktop early
-if (window.innerWidth >= 1024) {
-    if (localStorage.getItem('sidebarCollapsed') === 'true') {
-        document.body.classList.add('sidebar-collapsed');
+// ──────────────────────────────────────────────────────────────────────────────
+// MENÚ LATERAL ADAPTABLE (el ancho disponible baja al hacer zoom en el navegador)
+//  · 'full'    (>= 1024px): menú completo, o colapsado si el agente lo eligió.
+//  · 'compact' (640-1023px): se compacta solo a íconos y sigue visible.
+//  · 'drawer'  (< 640px): menú hamburguesa que se abre desde la barra de pestañas.
+// Los cortes coinciden con los @media de styles.css.
+// ──────────────────────────────────────────────────────────────────────────────
+const SIDEBAR_DRAWER_MAX = 640;
+const SIDEBAR_COMPACT_MAX = 1024;
+
+function getSidebarMode() {
+    const w = window.innerWidth;
+    if (w < SIDEBAR_DRAWER_MAX) return 'drawer';
+    if (w < SIDEBAR_COMPACT_MAX) return 'compact';
+    return 'full';
+}
+window.getSidebarMode = getSidebarMode;
+
+function setDrawerOpen(open) {
+    document.body.classList.toggle('sidebar-drawer-open', !!open);
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (backdrop) {
+        backdrop.classList.toggle('hidden', !open);
+        backdrop.classList.toggle('block', !!open);
     }
 }
+window.setDrawerOpen = setDrawerOpen;
+
+let lastSidebarMode = null;
+function applyResponsiveSidebar() {
+    const mode = getSidebarMode();
+    if (mode === lastSidebarMode) return;
+    lastSidebarMode = mode;
+
+    let userCollapsed = false;
+    try { userCollapsed = localStorage.getItem('sidebarCollapsed') === 'true'; } catch (e) {}
+    document.body.classList.toggle('sidebar-collapsed', mode === 'compact' || (mode === 'full' && userCollapsed));
+    if (mode !== 'drawer') setDrawerOpen(false);
+
+    const innerChevron = document.getElementById('sidebar-inner-chevron');
+    if (innerChevron) innerChevron.classList.toggle('rotate-180', document.body.classList.contains('sidebar-collapsed'));
+}
+window.applyResponsiveSidebar = applyResponsiveSidebar;
+
+applyResponsiveSidebar();
+window.addEventListener('resize', applyResponsiveSidebar);
 
 // Session Management Helpers
 function decodeTokenPayload(token) {
@@ -460,7 +535,9 @@ const routeNames = {
     '/cotizacion-completa': 'Cotización PDF',
     '/cotizacion-multidestino': 'Cotización PDF',
     '/cotizacion-vuelos': 'Cotización PDF',
+    '/cotizacion-crucero': 'Cotización de Crucero',
     '/editar': 'Archivos',
+    '/comparar': 'Comparar Cotizaciones',
     '/paquetes': 'Paquetes Promocionales',
     '/configuracion': 'Configuración',
     '/ver-cotizacion': 'Ver Cotización',
@@ -470,6 +547,10 @@ const routeNames = {
 
 // SPA Router implementation
 async function navigateTo(url) {
+    if (document.body.classList.contains('sidebar-drawer-open')) setDrawerOpen(false);
+    // Con una pestaña extra activa, el menú lateral navega dentro de esa pestaña
+    if (!IS_EMBEDDED_TAB && window.AppTabs?.navigateActiveFrame(url)) return;
+
     const currentPath = window.location.pathname;
     // Push current path to history stack before leaving
     if (currentPath && currentPath !== url && currentPath !== '/login') {
@@ -525,7 +606,95 @@ function confirmLogout() {
 window.confirmLogout = confirmLogout;
 
 // Duración de la salida de vista. Debe coincidir con --view-leave-ms en styles.css
-const VIEW_LEAVE_MS = 120;
+const VIEW_LEAVE_MS = 80;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CARGA RÁPIDA DE VISTAS Y MÓDULOS
+// Antes cada navegación volvía a descargar la vista y el JS completo. Ahora el
+// texto se descarga una vez por sesión y queda en memoria, compartido con las
+// pestañas extra (que así abren sin volver a descargar nada).
+// Cada navegación sigue creando una instancia nueva del módulo (como antes, con
+// su estado limpio) a partir del texto en memoria, sin pasar por la red.
+// Cambiar APP_VERSION al publicar cambios en los módulos compartidos.
+// ──────────────────────────────────────────────────────────────────────────────
+const APP_VERSION = '2.5.1';
+window.APP_VERSION = APP_VERSION;
+
+const appCaches = (() => {
+    if (IS_EMBEDDED_TAB) {
+        try {
+            if (window.top.__appCaches) return window.top.__appCaches;
+        } catch (e) {}
+    }
+    const caches = { views: new Map(), modules: new Map() };
+    window.__appCaches = caches;
+    return caches;
+})();
+
+function cachedText(cache, key, url, transform) {
+    if (!cache.has(key)) {
+        const promise = fetch(url)
+            .then(res => {
+                if (!res.ok) throw new Error(`No se pudo cargar ${key} (${res.status})`);
+                return res.text();
+            })
+            .then(text => (transform ? transform(text, key) : text));
+        // Si falla no queda en caché, así se reintenta en la próxima navegación
+        promise.catch(() => cache.delete(key));
+        cache.set(key, promise);
+    }
+    return cache.get(key);
+}
+
+function loadViewHtml(path) {
+    return cachedText(appCaches.views, path, `${path}?v=${APP_VERSION}`);
+}
+
+// Los imports relativos ('./x.js') y absolutos ('/static/...') se reescriben a URLs
+// completas con versión: el módulo se ejecuta desde un blob, que no tiene ruta propia
+function rewriteModuleSource(src, path) {
+    const origin = window.location.origin;
+    const dir = origin + path.slice(0, path.lastIndexOf('/') + 1);
+    return src
+        .replace(/(\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)(['"])\.\/([^'"?]+)\2/g,
+            (m, pre, q, file) => `${pre}${q}${dir}${file}?v=${APP_VERSION}${q}`)
+        .replace(/(\bimport\s*\(\s*)(['"])\/(?!\/)/g, `$1$2${origin}/`)
+        + `\n//# sourceURL=${origin}${path}`;
+}
+
+function loadModuleSource(path) {
+    return cachedText(appCaches.modules, path, `${path}?v=${APP_VERSION}`, rewriteModuleSource);
+}
+
+async function importFresh(path) {
+    const src = await loadModuleSource(path);
+    const blobUrl = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    try {
+        return await import(blobUrl);
+    } finally {
+        URL.revokeObjectURL(blobUrl);
+    }
+}
+window.importFresh = importFresh;
+
+// Precarga en segundo plano de las secciones más usadas (solo descarga, no ejecuta)
+let isPrefetchScheduled = false;
+function prefetchCommonRoutes() {
+    if (isPrefetchScheduled || IS_EMBEDDED_TAB) return;
+    isPrefetchScheduled = true;
+    const run = () => {
+        ['/inicio', '/cotizacion-rapida', '/cotizacion-completa', '/editar', '/ver-cotizacion', '/comparar']
+            .forEach(p => {
+                const r = routes[p];
+                if (!r) return;
+                loadViewHtml(r.html).catch(() => {});
+                if (r.js) loadModuleSource(r.js).catch(() => {});
+            });
+        loadModuleSource('/static/js/cotizar_multidestino.js').catch(() => {});
+    };
+    if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 3000 });
+    else setTimeout(run, 1500);
+}
 
 const routes = {
     '/login': { html: '/static/views/login.html', js: '/static/js/login.js', init: 'initLogin' },
@@ -536,8 +705,10 @@ const routes = {
     '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/cotizacion-multidestino': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/cotizacion-vuelos': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
+    '/cotizacion-crucero': { html: '/static/views/cotizar_crucero.html', js: '/static/js/cotizar_crucero.js', init: 'initCotizarCrucero' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
     '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
+    '/comparar': { html: '/static/views/comparar.html', js: '/static/js/comparar.js', init: 'initComparar' },
     '/paquetes': { html: '/static/views/paquetes.html', js: '/static/js/paquetes.js', init: 'initPaquetes' },
     '/configuracion': { html: '/static/views/configuracion.html', js: '/static/js/configuracion.js', init: 'initConfiguracion' },
     '/administrar': { html: '/static/views/administrar.html', js: '/static/js/administrar.js', init: 'initAdministrar' },
@@ -550,9 +721,16 @@ let isConfigLoaded = false;
 async function loadHeaderConfig() {
     if (isConfigLoaded || !window.authToken) return;
     try {
-        const res = await authenticatedFetch('/api/config');
-        if (res.ok) {
-            const config = await res.json();
+        // Las pestañas extra reutilizan la configuración ya cargada por la ventana principal
+        let config = null;
+        if (IS_EMBEDDED_TAB) {
+            try { config = window.top.agencyConfig || null; } catch (e) {}
+        }
+        if (!config) {
+            const res = await authenticatedFetch('/api/config');
+            if (res.ok) config = await res.json();
+        }
+        if (config) {
 
             // Set agency colors dynamically on root
             document.documentElement.style.setProperty('--primary-color', config.colores[0]);
@@ -669,6 +847,18 @@ async function router() {
                     isExpired = true;
                 }
             }
+            // Las pestañas extra toman la sesión de la ventana principal (sin otra llamada de refresco)
+            if ((!_agentAccessToken || isExpired) && IS_EMBEDDED_TAB) {
+                try {
+                    const topToken = window.top.getAgentToken?.();
+                    const topPayload = topToken ? decodeTokenPayload(topToken) : null;
+                    if (topPayload && (!topPayload.exp || topPayload.exp * 1000 > Date.now())) {
+                        setAgentSession(topToken, window.top.loggedInUser);
+                        isExpired = false;
+                        isAgentSessionChecked = true;
+                    }
+                } catch (e) {}
+            }
             if ((!_agentAccessToken || isExpired) && !isAgentSessionChecked) {
                 isAgentSessionChecked = true;
                 try {
@@ -763,13 +953,15 @@ async function router() {
     // Handle Sidebar and Mobile Header visibility based on route
     const sidebarEl = document.getElementById('app-sidebar');
     const wrapperEl = document.getElementById('main-content-wrapper');
-    const headerEl = document.getElementById('app-top-header');
+    const headerEl = document.getElementById('app-tabs-bar');
 
     if (sidebarEl && wrapperEl) {
-        if (normalizedPath === '/login' || normalizedPath === '/admin-login' || normalizedPath === '/admin') {
+        if (IS_EMBEDDED_TAB || normalizedPath === '/login' || normalizedPath === '/admin-login' || normalizedPath === '/admin') {
             sidebarEl.classList.add('hidden');
             if (headerEl) headerEl.classList.add('hidden');
             wrapperEl.classList.remove('lg:pl-[220px]');
+            // Las pestañas extra también necesitan la configuración de la agencia
+            if (IS_EMBEDDED_TAB && normalizedPath !== '/login') loadHeaderConfig();
         } else {
             sidebarEl.classList.remove('hidden');
             if (headerEl) headerEl.classList.remove('hidden');
@@ -827,15 +1019,14 @@ async function router() {
             void appEl.offsetHeight;
             appEl.classList.add('view-leave');
 
-            // Fetch content concurrently
-            const fetchPromise = fetch(route.html + '?v=' + Date.now());
+            // La vista y el código se piden en paralelo (quedan en memoria para la próxima vez)
+            const viewPromise = loadViewHtml(route.html);
+            if (route.js) loadModuleSource(route.js).catch(() => {});
 
             // Se espera exactamente lo que dura la salida (ver --view-leave-ms)
             await new Promise(resolve => setTimeout(resolve, VIEW_LEAVE_MS));
 
-            const response = await fetchPromise;
-            if (!response.ok) throw new Error(`Failed to load view ${route.html}`);
-            const html = await response.text();
+            const html = await viewPromise;
 
             // Inject new HTML content
             appEl.innerHTML = html;
@@ -860,7 +1051,7 @@ async function router() {
 
             // Import and run dynamic module JS script
             if (route.js) {
-                const module = await import(route.js + '?v=' + Date.now());
+                const module = await importFresh(route.js);
                 const initFunc = module[route.init];
                 if (initFunc && typeof initFunc === 'function') {
                     initFunc();
@@ -890,7 +1081,19 @@ async function router() {
         // Update dynamic back button after content loads
         updateBackButton();
 
+        if (normalizedPath !== '/login' && normalizedPath !== '/admin-login') prefetchCommonRoutes();
+
     }
+
+    // Avisar a la barra de pestañas qué sección quedó abierta
+    try {
+        const fullPath = window.location.pathname + window.location.search;
+        if (IS_EMBEDDED_TAB) {
+            window.top.AppTabs?.onFrameRouted(window.frameElement, fullPath, normalizedPath);
+        } else {
+            window.AppTabs?.onMainRouted(fullPath, normalizedPath);
+        }
+    } catch (e) {}
 }
 window.router = router;
 
@@ -903,8 +1106,9 @@ function updateNavActiveState(path) {
     let btnId = '';
     if (path === '/inicio' || path === '/') btnId = 'sidebar-btn-inicio';
     else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
-    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino' || path === '/cotizacion-vuelos') btnId = 'sidebar-btn-full-quote';
+    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino' || path === '/cotizacion-vuelos' || path === '/cotizacion-crucero') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
+    else if (path === '/comparar') btnId = 'sidebar-btn-comparar';
     else if (path === '/paquetes') btnId = 'sidebar-btn-paquetes';
     else if (path === '/configuracion') btnId = 'sidebar-btn-configuracion';
     else if (path === '/admin') btnId = 'sidebar-btn-admin';
@@ -914,6 +1118,7 @@ function updateNavActiveState(path) {
         activeBtn.classList.add('sidebar-item-active');
     }
 }
+window.updateNavActiveState = updateNavActiveState;
 
 // User session auth operations
 async function logoutAgent(notifyServer = true) {
@@ -935,7 +1140,14 @@ async function logoutAgent(notifyServer = true) {
     const mobileLogo = document.getElementById('mobile-logo');
     if (mobileLogo) mobileLogo.src = '/assets/Logo%20ONE%20TRIP.png';
 
-    window.location.replace('/login');
+    // Al cerrar sesión desde una pestaña interna se cierra la app completa
+    let target = window;
+    if (IS_EMBEDDED_TAB) {
+        try { window.top.AppTabs?.reset(); target = window.top; } catch (e) {}
+    } else {
+        window.AppTabs?.reset();
+    }
+    target.location.replace('/login');
 }
 window.logoutAgent = logoutAgent;
 
@@ -981,49 +1193,11 @@ document.addEventListener('click', e => {
 // popstate handling for back/forward browser buttons
 window.addEventListener('popstate', router);
 
-// Header date & time dynamic clock
-window.lastDateTimeString = "";
-function updateHeaderDateTime() {
-    const elements = document.querySelectorAll('.nav-date-time-text');
-    if (elements.length === 0) return;
-
-    const now = new Date();
-    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-
-    const dayName = days[now.getDay()];
-    const day = now.getDate();
-    const monthName = months[now.getMonth()];
-    const year = now.getFullYear();
-
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-
-    const dateTimeString = `${dayName}, ${day} de ${monthName} de ${year} - ${hours}:${minutes}`;
-
-    if (dateTimeString !== window.lastDateTimeString) {
-        if (!window.lastDateTimeString) {
-            elements.forEach(el => el.innerText = dateTimeString);
-            window.lastDateTimeString = dateTimeString;
-        } else {
-            elements.forEach(el => el.classList.add('opacity-0', 'scale-95'));
-            setTimeout(() => {
-                elements.forEach(el => el.innerText = dateTimeString);
-                window.lastDateTimeString = dateTimeString;
-                elements.forEach(el => el.classList.remove('opacity-0', 'scale-95'));
-            }, 200);
-        }
-    }
-}
-window.updateHeaderDateTime = updateHeaderDateTime;
-
 // Initialize application routing
 document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.classList.remove('dark');
     try { localStorage.removeItem('ot_theme'); } catch (e) {}
     router();
-    updateHeaderDateTime();
-    setInterval(updateHeaderDateTime, 1000);
 });
 
 // Global keyboard shortcuts (Ctrl + Alt + 9: cotizaciones · Ctrl + Alt + 0: paquetes)
@@ -1033,6 +1207,9 @@ window.addEventListener('keydown', async (e) => {
         if ((path === '/cotizacion-completa' || path === '/cotizacion-vuelos') && typeof window.fillTestData === 'function') {
             e.preventDefault();
             await window.fillTestData();
+        } else if (path === '/cotizacion-crucero' && typeof window.fillCruceroTestData === 'function') {
+            e.preventDefault();
+            await window.fillCruceroTestData();
         } else if (path === '/cotizacion-rapida' && typeof window.fillQuickTestData === 'function') {
             e.preventDefault();
             await window.fillQuickTestData();
@@ -1321,43 +1498,22 @@ window.closeConfirmModal = closeConfirmModal;
 
 // Sidebar toggle behavior (mobile drawer and desktop collapse)
 function toggleSidebar(force) {
-    const isMobile = window.innerWidth < 1024;
+    const mode = getSidebarMode();
     const innerChevron = document.getElementById('sidebar-inner-chevron');
 
-    if (isMobile) {
-        // Mobile drawer behavior
-        const sidebar = document.getElementById('app-sidebar');
-        const backdrop = document.getElementById('sidebar-backdrop');
-        if (!sidebar || !backdrop) return;
-
-        const isOpen = sidebar.classList.contains('translate-x-0');
-        const shouldOpen = typeof force === 'boolean' ? force : !isOpen;
-
-        if (shouldOpen) {
-            sidebar.classList.remove('-translate-x-full');
-            sidebar.classList.add('translate-x-0');
-            backdrop.classList.remove('hidden');
-            backdrop.classList.add('block');
-        } else {
-            sidebar.classList.add('-translate-x-full');
-            sidebar.classList.remove('translate-x-0');
-            backdrop.classList.remove('block');
-            backdrop.classList.add('hidden');
-        }
+    if (mode === 'drawer') {
+        // Menú hamburguesa: abrir o cerrar el panel
+        const isOpen = document.body.classList.contains('sidebar-drawer-open');
+        setDrawerOpen(typeof force === 'boolean' ? force : !isOpen);
     } else {
-        // Desktop collapse inline behavior
+        // Colapsar a íconos. En modo compacto se puede desplegar un momento,
+        // pero solo se guarda la preferencia elegida en pantalla amplia.
         const body = document.body;
         const shouldCollapse = typeof force === 'boolean' ? !force : !body.classList.contains('sidebar-collapsed');
 
-        if (shouldCollapse) {
-            body.classList.add('sidebar-collapsed');
-            localStorage.setItem('sidebarCollapsed', 'true');
-            if (innerChevron) innerChevron.classList.add('rotate-180');
-        } else {
-            body.classList.remove('sidebar-collapsed');
-            localStorage.setItem('sidebarCollapsed', 'false');
-            if (innerChevron) innerChevron.classList.remove('rotate-180');
-        }
+        body.classList.toggle('sidebar-collapsed', shouldCollapse);
+        if (mode === 'full') localStorage.setItem('sidebarCollapsed', shouldCollapse ? 'true' : 'false');
+        if (innerChevron) innerChevron.classList.toggle('rotate-180', shouldCollapse);
     }
 
     updateHomeButtonVisibility();
@@ -1365,13 +1521,13 @@ function toggleSidebar(force) {
 window.toggleSidebar = toggleSidebar;
 
 function updateHomeButtonVisibility() {
-    const isMobile = window.innerWidth < 1024;
+    const isMobile = getSidebarMode() === 'drawer';
     const homeBtn = document.getElementById('top-nav-inicio-btn');
     if (!homeBtn) return;
 
     if (isMobile) {
         const sidebar = document.getElementById('app-sidebar');
-        const isOpen = sidebar && sidebar.classList.contains('translate-x-0');
+        const isOpen = document.body.classList.contains('sidebar-drawer-open');
         if (isOpen) {
             homeBtn.classList.add('hidden');
         } else {

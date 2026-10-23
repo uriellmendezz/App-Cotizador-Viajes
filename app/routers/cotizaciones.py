@@ -16,7 +16,7 @@ from app.parser import parse_excel_or_csv
 from app.database import save_cotizacion, get_cotizaciones, get_cotizacion_by_id, delete_cotizacion, get_cotizaciones_full, get_operadores_usados
 from app.google_slides.mcp import create_presentation_from_template
 from app.google_slides.generator import create_quotation_presentation
-from app.pdf_generator import generate_pdf
+from app.pdf_generator import generate_pdf, generate_cruise_pdf, extract_crucero
 
 load_dotenv()
 
@@ -212,13 +212,69 @@ def is_solo_vuelos_quote(data: dict) -> bool:
     return False
 
 
+def is_crucero_quote(data: dict) -> bool:
+    """
+    Checks if a quote is a cruise ('crucero'): the cruise comes from the
+    operator's PDF and flights, pre/post hotels and transfers are optional.
+    """
+    if not isinstance(data, dict):
+        return False
+    if str(data.get("tipo_cotizacion", "")).strip().lower() == "crucero":
+        return True
+    hoteles_raw = data.get("hoteles", [])
+    if isinstance(hoteles_raw, list):
+        for h in hoteles_raw:
+            if isinstance(h, dict) and str(h.get("tipo_cotizacion", "")).strip().lower() == "crucero":
+                return True
+    return False
+
+
 def quote_type_label(data: dict) -> str:
-    """Modality label exposed to the frontend: multidestino / solo_vuelos / estandar."""
+    """Modality label exposed to the frontend: crucero / multidestino / solo_vuelos / estandar."""
+    if is_crucero_quote(data):
+        return "crucero"
     if is_multidestino_quote(data):
         return "multidestino"
     if is_solo_vuelos_quote(data):
         return "solo_vuelos"
     return "estandar"
+
+
+def crucero_net_cost(crucero: dict) -> float:
+    """Net cost of the cruise itself: cabin fare + port taxes / tips + drinks package."""
+    return (
+        safe_float(crucero.get("costo_neto"))
+        + safe_float(crucero.get("costo_tasas"))
+        + safe_float(crucero.get("costo_bebidas"))
+    )
+
+
+def _apply_crucero_totals(quote: dict, hoteles: list, monto_vuelos: float, fee_aereo: float,
+                          monto_traslados: float, gastos_iva: float, cant_pax: int, redondear: bool) -> None:
+    """
+    Cruise quote (AND logic, one consolidated price): flights + air fee + cruise
+    + pre/post hotels + transfers, with the 5% admin fee over the non-air services.
+    """
+    suma_hoteles = 0.0
+    for hotel in hoteles:
+        costo_h = safe_float(hotel.get("costo_neto")) if "costo_neto" in hotel else safe_float(hotel.get("costo", 0.0))
+        hotel["costo_neto"] = costo_h
+        hotel["costo"] = costo_h
+        hotel["precio_persona"] = round(costo_h / cant_pax, 2) if cant_pax > 0 else costo_h
+        hotel["redondear"] = redondear
+        hotel["tipo_cotizacion"] = "crucero"
+        suma_hoteles += costo_h
+
+    terrestre = crucero_net_cost(extract_crucero(quote)) + suma_hoteles + monto_traslados
+    gastos_admin = terrestre * 0.05
+    costo_total = monto_vuelos + fee_aereo + terrestre + gastos_admin + gastos_iva
+    precio_persona = costo_total / cant_pax if cant_pax > 0 else costo_total
+
+    if redondear:
+        rounded_pp = math.ceil(precio_persona / 10.0) * 10
+        quote["costo_total"], quote["precio_persona"] = rounded_pp * cant_pax, rounded_pp
+    else:
+        quote["costo_total"], quote["precio_persona"] = round(costo_total, 2), round(precio_persona, 2)
 
 
 def _solo_vuelos_totals(monto_vuelos: float, fee_aereo: float, gastos_iva: float,
@@ -709,6 +765,9 @@ def api_cotizar(quote: dict, current_user: dict = Depends(get_current_active_age
     quote["base_habitacion"] = base_habitacion
     
     noches_alojamiento = _calculate_noches_and_format_hotels(quote)
+    noches_crucero = safe_int(extract_crucero(quote).get("noches"), 0) if is_crucero_quote(quote) else 0
+    if noches_crucero > 0:
+        noches_alojamiento = "1 noche" if noches_crucero == 1 else f"{noches_crucero} noches"
     quote["noches_alojamiento"] = noches_alojamiento
     
     quote["fecha_vuelo_ida"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_ida"))
@@ -812,8 +871,12 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
     
     hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
 
-    is_solo_vuelos = is_solo_vuelos_quote(quote)
-    if is_solo_vuelos:
+    is_crucero = is_crucero_quote(quote)
+    is_solo_vuelos = False if is_crucero else is_solo_vuelos_quote(quote)
+    if is_crucero:
+        # Crucero: vuelos, alojamientos pre/post y traslados son opcionales
+        quote["tipo_cotizacion"] = "crucero"
+    elif is_solo_vuelos:
         # Solo servicios aéreos: alojamientos y traslados quedan fuera del cálculo
         quote["tipo_cotizacion"] = "solo_vuelos"
         hoteles = []
@@ -824,11 +887,13 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
 
     redondear = extract_redondear(quote)
     quote["redondear"] = redondear
-    is_multidestino = False if is_solo_vuelos else is_multidestino_quote(quote)
+    is_multidestino = False if (is_solo_vuelos or is_crucero) else is_multidestino_quote(quote)
     if is_multidestino:
         quote["tipo_cotizacion"] = "multidestino"
 
-    if is_solo_vuelos:
+    if is_crucero:
+        _apply_crucero_totals(quote, hoteles, monto_vuelos, fee_aereo, monto_traslados, gastos_iva, cant_pax, redondear)
+    elif is_solo_vuelos:
         quote["costo_total"], quote["precio_persona"] = _solo_vuelos_totals(
             monto_vuelos, fee_aereo, gastos_iva, cant_pax, redondear
         )
@@ -890,6 +955,8 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
                 h["tipo_cotizacion"] = "multidestino"
             elif is_solo_vuelos:
                 h["tipo_cotizacion"] = "solo_vuelos"
+            elif is_crucero:
+                h["tipo_cotizacion"] = "crucero"
 
     base_habitacion = "Single"
     if cant_pax == 2: base_habitacion = "Doble"
@@ -899,6 +966,9 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
     quote["base_habitacion"] = base_habitacion
     
     noches_alojamiento = _calculate_noches_and_format_hotels(quote)
+    noches_crucero = safe_int(extract_crucero(quote).get("noches"), 0) if is_crucero_quote(quote) else 0
+    if noches_crucero > 0:
+        noches_alojamiento = "1 noche" if noches_crucero == 1 else f"{noches_crucero} noches"
     quote["noches_alojamiento"] = noches_alojamiento
     
     quote["fecha_vuelo_ida"] = format_to_dd_mm_yy(quote.get("fecha_vuelo_ida"))
@@ -929,11 +999,15 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
         
     origen = quote.get("origen", "Córdoba")
     destino = quote.get("destino", "Destino")
+    if is_crucero:
+        # Los vuelos de un crucero llegan a la ciudad del puerto, no a la región del título
+        puerto = str(extract_crucero(quote).get("puerto_embarque") or "").split(",")[0].strip()
+        destino = puerto or destino
     pax_str = "un pasajero" if cant_pax == 1 else f"{cant_pax} pasajeros"
     quote["detalle_vuelo_completo"] = f"Vuelos desde {origen} hacia {destino} para {pax_str}.{baggage_str}"
-    
+
     try:
-        pdf_bytes = generate_pdf(quote)
+        pdf_bytes = generate_cruise_pdf(quote) if is_crucero else generate_pdf(quote)
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
@@ -1053,7 +1127,8 @@ def api_exportar_cotizaciones_csv(current_user: dict = Depends(get_current_activ
             q.get("destino") or "",
             q.get("origen") or "",
             q.get("cantidad_pasajeros") or "",
-            "Solo vuelos" if is_solo_vuelos_quote(q)
+            "Crucero" if is_crucero_quote(q)
+            else "Solo vuelos" if is_solo_vuelos_quote(q)
             else ("Multidestino" if len(hoteles) > 1 and all(h.get("destino") for h in hoteles) else "Estándar"),
             extract_currency(q.get("hoteles") or []),
             _csv_date(q.get("fecha_salida")),
@@ -1182,8 +1257,11 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
     
     hoteles = [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
 
-    is_solo_vuelos = is_solo_vuelos_quote(payload)
-    if is_solo_vuelos:
+    is_crucero = is_crucero_quote(payload)
+    is_solo_vuelos = False if is_crucero else is_solo_vuelos_quote(payload)
+    if is_crucero:
+        payload["tipo_cotizacion"] = "crucero"
+    elif is_solo_vuelos:
         # Solo servicios aéreos: alojamientos y traslados quedan fuera del cálculo
         payload["tipo_cotizacion"] = "solo_vuelos"
         hoteles = []
@@ -1192,11 +1270,13 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
 
     redondear = extract_redondear(payload)
     payload["redondear"] = redondear
-    is_multidestino = False if is_solo_vuelos else is_multidestino_quote(payload)
+    is_multidestino = False if (is_solo_vuelos or is_crucero) else is_multidestino_quote(payload)
     if is_multidestino:
         payload["tipo_cotizacion"] = "multidestino"
 
-    if is_solo_vuelos:
+    if is_crucero:
+        _apply_crucero_totals(payload, hoteles, monto_vuelos, fee_aereo, monto_traslados, gastos_iva, cant_pax, redondear)
+    elif is_solo_vuelos:
         payload["costo_total"], payload["precio_persona"] = _solo_vuelos_totals(
             monto_vuelos, fee_aereo, gastos_iva, cant_pax, redondear
         )
@@ -1252,6 +1332,8 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
             payload["costo_total"] = primary_hotel["costo"]
             payload["precio_persona"] = primary_hotel["precio_persona"]
 
+    # El bloque del crucero no tiene columna propia: viaja dentro de la entrada METADATA
+    crucero_data = extract_crucero(payload) if is_crucero else None
     meta_found = False
     for h in hoteles_raw:
         if isinstance(h, dict) and h.get("nombre") in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO"):
@@ -1260,6 +1342,9 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
                 h["tipo_cotizacion"] = "multidestino"
             elif is_solo_vuelos:
                 h["tipo_cotizacion"] = "solo_vuelos"
+            elif is_crucero:
+                h["tipo_cotizacion"] = "crucero"
+                h["crucero"] = crucero_data
             meta_found = True
             break
     if not meta_found:
@@ -1272,6 +1357,9 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
             meta_dict["tipo_cotizacion"] = "multidestino"
         elif is_solo_vuelos:
             meta_dict["tipo_cotizacion"] = "solo_vuelos"
+        elif is_crucero:
+            meta_dict["tipo_cotizacion"] = "crucero"
+            meta_dict["crucero"] = crucero_data
         hoteles_raw.append(meta_dict)
         
     base_habitacion = "Single"
@@ -1282,6 +1370,9 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
     payload["base_habitacion"] = base_habitacion
     
     noches_alojamiento = _calculate_noches_and_format_hotels(payload)
+    noches_crucero = safe_int(extract_crucero(payload).get("noches"), 0) if is_crucero_quote(payload) else 0
+    if noches_crucero > 0:
+        noches_alojamiento = "1 noche" if noches_crucero == 1 else f"{noches_crucero} noches"
     payload["noches_alojamiento"] = noches_alojamiento
     
     payload["fecha_vuelo_ida"] = format_to_dd_mm_yy(payload.get("fecha_vuelo_ida"))

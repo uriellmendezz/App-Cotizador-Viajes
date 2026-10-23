@@ -258,6 +258,17 @@
             </div>
         </div>
 
+        <!-- Recotización: montos de la cotización anterior vs. los nuevos (comparador.js) -->
+        <div id="quick-recotizar-card" class="hidden bg-white border border-amber-200/80 rounded-3xl p-6 shadow-sm">
+            <h3 class="text-sm font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2 mb-4">
+                <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Anterior vs. nueva
+            </h3>
+            <div id="quick-recotizar-container"></div>
+        </div>
+
         <!-- Financiación en cuotas -->
         <div id="quick-cuotas-card" class="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -272,6 +283,18 @@
                     <button type="button" id="btn-cuotas-total" onclick="setQuickCuotasScope('total')" class="px-3.5 py-1 rounded-lg text-xs font-bold transition-all text-slate-500 hover:text-slate-800 select-none cursor-pointer">Total</button>
                 </div>
             </div>
+            <!-- Calculadora: el agente agrega la cantidad de cuotas que quiera ver (3 y 6 por defecto) -->
+            <div class="flex flex-wrap items-center gap-2 mb-4 px-3 py-2.5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60">
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Calcular en</span>
+                <input type="number" id="quick-cuotas-input" min="1" max="48" step="1" placeholder="Ej. 4"
+                    onkeydown="if (event.key === 'Enter') { event.preventDefault(); addQuickPlanCuotas(); }"
+                    class="w-20 px-2 py-1.5 text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-primary text-center">
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">cuotas</span>
+                <button type="button" onclick="addQuickPlanCuotas()"
+                    class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black uppercase tracking-wider rounded-lg transition-all active:scale-95 cursor-pointer">Agregar</button>
+                <button type="button" id="quick-cuotas-reset" onclick="resetQuickPlanesCuotas()"
+                    class="hidden ml-auto text-[10px] font-bold text-slate-400 hover:text-brand-primary transition-colors cursor-pointer">Restablecer 3 y 6</button>
+            </div>
             <div id="quick-cuotas-content"></div>
         </div>
 
@@ -284,6 +307,14 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                 </svg>
                 <span id="btn-copy-quick-quote-text">Copiar Cotización</span>
+            </button>
+            <button type="button" id="btn-recotizar-quick" onclick="window.recotizarCurrentQuickQuote()"
+                class="hidden px-5 py-3.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/90 font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer items-center justify-center gap-2"
+                title="Recotizar: se abre en otra pestaña y compara los montos con esta cotización">
+                <svg class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Recotizar
             </button>
             <button type="button" id="btn-save-quick-only"
                 class="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer">
