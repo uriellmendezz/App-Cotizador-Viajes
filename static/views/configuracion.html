@@ -42,6 +42,20 @@
             </div>
         </button>
 
+        <button type="button" data-config-open="comisiones"
+            class="group text-left bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+                <span class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5L5 19M7.5 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm9 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" /></svg>
+                </span>
+                <span id="config-count-comisiones" class="text-[10px] font-black uppercase tracking-widest text-slate-400"></span>
+            </div>
+            <div class="space-y-1">
+                <h2 class="font-display font-bold text-sm text-slate-800 tracking-tight">Comisiones de Operadores</h2>
+                <p class="text-xs text-slate-500 font-medium leading-relaxed">Porcentaje de comisión de cada operador por servicios terrestres, aéreos y paquetes enteros.</p>
+            </div>
+        </button>
+
         <button type="button" data-config-open="exportar"
             class="group text-left bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col gap-3">
             <div class="flex items-center justify-between">
@@ -89,6 +103,14 @@
 
         <div id="config-airlines-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             <div class="col-span-full text-center text-xs font-semibold text-slate-400 py-16">Cargando aerolíneas...</div>
+        </div>
+    </section>
+
+    <!-- ═══════════ PANEL: COMISIONES DE OPERADORES ═══════════ -->
+    <section id="config-panel-comisiones" class="hidden space-y-6">
+        <p class="text-xs text-slate-500 font-medium max-w-2xl">Estos porcentajes se usan en los <strong class="text-slate-700">Paquetes Promocionales</strong> para calcular la comisión de cada operador. Tocá el lápiz de un porcentaje para modificarlo.</p>
+        <div id="config-comisiones-list" class="space-y-4">
+            <div class="text-center text-xs font-semibold text-slate-400 py-16">Cargando comisiones...</div>
         </div>
     </section>
 

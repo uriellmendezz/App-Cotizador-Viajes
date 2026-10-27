@@ -3,7 +3,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException
 from app.routers.auth import get_current_active_agent
 from app.database import (
-    TABLE_HOTELES, TABLE_PAQUETES, TABLE_AEROLINEAS,
+    TABLE_HOTELES, TABLE_PAQUETES, TABLE_AEROLINEAS, TABLE_COMISIONES,
     list_rows, get_row_by_id, save_row, delete_row
 )
 
@@ -18,6 +18,10 @@ DATA_IMAGE_RE = re.compile(r"^data:image/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+
 # Logos incluidos en el repositorio, que el agente puede elegir en vez de subir uno
 LOGOS_DIR = os.path.join(BASE_DIR, "assets", "logos_aerolineas")
 LOGO_PATH_RE = re.compile(r"^/assets/logos_aerolineas/[A-Za-z0-9_.-]+$")
+
+# Operadores mayoristas con los que trabaja la agencia (los logos viven en /assets)
+OPERADORES = ("ola", "delfos", "360")
+CAMPOS_COMISION = ("pct_terrestre", "pct_aereo", "pct_paquete")
 
 def _is_data_image(value) -> bool:
     return isinstance(value, str) and bool(DATA_IMAGE_RE.match(value))
@@ -130,6 +134,60 @@ def api_delete_hotel(hotel_id: str, current_user: dict = Depends(get_current_act
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# COMISIONES DE OPERADORES (Configuración > Comisiones de Operadores)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _comisiones_por_operador(current_user: dict) -> dict:
+    rows = list_rows(TABLE_COMISIONES, current_user.get("sucursal_id"), current_user.get("id"))
+    # list_rows viene ordenado de más nuevo a más viejo: ante duplicados gana el último guardado
+    return {r["operador"]: r for r in reversed(rows) if r.get("operador") in OPERADORES}
+
+def _comision_view(operador: str, row: dict | None) -> dict:
+    row = row or {}
+    return {
+        "operador": operador,
+        **{campo: float(row.get(campo) or 0) for campo in CAMPOS_COMISION},
+    }
+
+@router.get("/comisiones")
+def api_list_comisiones(current_user: dict = Depends(get_current_active_agent)):
+    """Siempre devuelve los tres operadores; los que aún no se configuraron van en 0%."""
+    _require_agent(current_user)
+    guardadas = _comisiones_por_operador(current_user)
+    return [_comision_view(op, guardadas.get(op)) for op in OPERADORES]
+
+@router.put("/comisiones/{operador}")
+def api_update_comision(operador: str, payload: dict, current_user: dict = Depends(get_current_active_agent)):
+    """Actualiza uno o más porcentajes de un operador (crea la fila si no existía)."""
+    _require_agent(current_user)
+    if operador not in OPERADORES:
+        raise HTTPException(status_code=404, detail="Operador no encontrado.")
+
+    cambios = {}
+    for campo in CAMPOS_COMISION:
+        if campo not in payload:
+            continue
+        try:
+            valor = float(payload[campo])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="El porcentaje debe ser un número.")
+        if not 0 <= valor <= 100:
+            raise HTTPException(status_code=400, detail="El porcentaje debe estar entre 0 y 100.")
+        cambios[campo] = round(valor, 2)
+    if not cambios:
+        raise HTTPException(status_code=400, detail="No hay porcentajes para actualizar.")
+
+    existente = _comisiones_por_operador(current_user).get(operador)
+    if existente:
+        saved = save_row(TABLE_COMISIONES, cambios, existente["id"])
+    else:
+        saved = save_row(TABLE_COMISIONES, {"operador": operador, **cambios, **_ownership_fields(current_user)})
+    if not saved:
+        raise HTTPException(status_code=500, detail="No se pudo guardar la comisión. Verifique que la tabla 'comisiones_operadores' exista en la base de datos.")
+    return _comision_view(operador, saved)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # PAQUETES PROMOCIONALES (Redes Sociales)
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -137,6 +195,13 @@ def _normalize_paquete(payload: dict) -> dict:
     data = dict(payload.get("data")) if isinstance(payload.get("data"), dict) else {}
     if data.get("hotel_foto") and not _is_data_image(data["hotel_foto"]):
         data["hotel_foto"] = ""
+    # Paquete prearmado de un operador, o paquete propio cotizado por la agencia
+    data["tipo"] = "operador" if data.get("tipo") == "operador" else "propio"
+    for campo in ("operador", "operador_vuelos", "operador_terrestre"):
+        if data.get(campo) not in OPERADORES:
+            data[campo] = ""
+    if data["tipo"] == "operador" and not data["operador"]:
+        raise HTTPException(status_code=400, detail="Elegí el operador del paquete.")
     titulo = str(payload.get("titulo") or data.get("titulo") or "").strip()
     if not titulo:
         raise HTTPException(status_code=400, detail="El título del paquete es obligatorio.")
@@ -156,6 +221,8 @@ def _paquete_summary(row: dict) -> dict:
     """List view: drops the full form payload, keeping only what the cards need."""
     data = row.get("data") or {}
     summary = {k: v for k, v in row.items() if k != "data"}
+    summary["tipo"] = data.get("tipo") or "propio"
+    summary["operador"] = data.get("operador") or ""
     summary["portada"] = data.get("hotel_foto") or ""
     summary["hotel_nombre"] = data.get("hotel_nombre") or ""
     summary["hotel_estrellas"] = data.get("hotel_estrellas") or 0
