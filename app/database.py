@@ -1,4 +1,5 @@
 import os
+import threading
 from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -9,22 +10,25 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-_client = None
+# El cliente HTTP de Supabase no es seguro entre hilos: FastAPI atiende los endpoints
+# síncronos en un pool de hilos y el frontend dispara varias consultas a la vez, lo que en
+# Windows termina en "[WinError 10035]" (operación de socket no bloqueante). Cada hilo usa
+# su propio cliente, con su propia conexión.
+_local = threading.local()
 
 def get_supabase_client() -> Client:
-    """Initialize and return the Supabase client."""
-    global _client
-    if _client is not None:
-        return _client
-        
+    """Initialize and return the Supabase client of the current thread."""
+    client = getattr(_local, "client", None)
+    if client is not None:
+        return client
+
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("Supabase Config: SUPABASE_URL or SUPABASE_KEY is missing. Database persistence is disabled.")
         return None
-        
+
     try:
-        _client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("Supabase Client: Initialized successfully.")
-        return _client
+        _local.client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        return _local.client
     except Exception as e:
         print(f"Supabase Client Error: Failed to initialize. Details: {e}")
         return None
@@ -358,6 +362,7 @@ def delete_cotizacion_rapida(quote_id) -> bool:
 TABLE_HOTELES = "hoteles_catalogo"
 TABLE_PAQUETES = "paquetes_promocionales"
 TABLE_AEROLINEAS = "aerolineas_catalogo"
+TABLE_COMISIONES = "comisiones_operadores"
 
 def _scope_query(query, sucursal_id: str = None, agente_id: str = None):
     """Restricts a query to the branch, or to the agent when it has no branch assigned."""

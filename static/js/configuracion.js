@@ -3,9 +3,12 @@ import {
     REGIMENES, HABITACIONES, MAX_FOTOS_HOTEL, MAX_DESCRIPCION_HOTEL,
     escapeHtml, safeImageSrc, starsToString, resizeImageFile, fetchHotelList, fetchHotel
 } from './hotel_catalog.js';
+import { OPERADORES, LOGO_OPERADOR_CLASS, TIPOS_COMISION, fetchComisiones, saveComision, fmtPct } from './operadores.js';
 
 let hotels = [];
 let airlines = [];
+let comisiones = {};
+let editingComision = null; // { operador, campo } mientras se edita un porcentaje
 let logosSugeridos = [];
 let editingId = null;
 let editingAirlineId = null;
@@ -28,15 +31,15 @@ export async function initConfiguracion() {
     document.getElementById('config-btn-new-airline').addEventListener('click', () => openAirlineEditor());
     document.getElementById('config-hotel-search').addEventListener('input', renderGrid);
 
-    // Ambos catálogos se cargan al entrar para poder mostrar el conteo en el menú
-    await Promise.all([loadHotels(), loadAirlines()]);
+    // Los catálogos se cargan al entrar para poder mostrar el conteo en el menú
+    await Promise.all([loadHotels(), loadAirlines(), loadComisiones()]);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Navegación entre el menú y cada panel
 // ──────────────────────────────────────────────────────────────────────────────
 
-const PANELES = ['hoteles', 'aerolineas', 'exportar'];
+const PANELES = ['hoteles', 'aerolineas', 'comisiones', 'exportar'];
 
 // Texto del encabezado de la página para el menú y cada sección
 const ENCABEZADOS = {
@@ -57,6 +60,12 @@ const ENCABEZADOS = {
         tagCls: 'text-sky-600 bg-sky-50',
         titulo: 'Catálogo de Aerolíneas',
         desc: 'Cargá aerolíneas con su logo para identificar los vuelos en las cotizaciones rápidas.'
+    },
+    comisiones: {
+        tag: 'Configuración',
+        tagCls: 'text-amber-600 bg-amber-50',
+        titulo: 'Comisiones de Operadores',
+        desc: 'Porcentaje de comisión de cada operador por servicios terrestres, aéreos y paquetes enteros.'
     },
     exportar: {
         tag: 'Configuración',
@@ -113,6 +122,11 @@ function actualizarConteos() {
     if (elH) elH.textContent = etiqueta(hotels.length, 'hotel', 'hoteles');
     const elA = document.getElementById('config-count-aerolineas');
     if (elA) elA.textContent = etiqueta(airlines.length, 'aerolínea', 'aerolíneas');
+    const elC = document.getElementById('config-count-comisiones');
+    if (elC) {
+        const configurados = OPERADORES.filter(o => TIPOS_COMISION.some(t => comisiones[o.id]?.[t.campo] > 0)).length;
+        elC.textContent = configurados ? `${configurados} de ${OPERADORES.length}` : 'Sin configurar';
+    }
 }
 
 async function loadHotels() {
@@ -188,6 +202,111 @@ function confirmDelete(id) {
             }
         }
     });
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Comisiones de Operadores
+// ──────────────────────────────────────────────────────────────────────────────
+
+async function loadComisiones() {
+    const list = document.getElementById('config-comisiones-list');
+    try {
+        comisiones = await fetchComisiones();
+        renderComisiones();
+        actualizarConteos();
+    } catch (err) {
+        if (list) list.innerHTML = `<div class="text-center text-xs font-semibold text-rose-500 py-16">${escapeHtml(err.message)}</div>`;
+    }
+}
+
+const PENCIL_SVG = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.768-6.768a2.5 2.5 0 113.536 3.536L12.536 16.5 8 18l1-5z" /></svg>';
+
+function renderComisionCell(op, tipo) {
+    const valor = comisiones[op.id]?.[tipo.campo] ?? 0;
+    const editando = editingComision?.operador === op.id && editingComision?.campo === tipo.campo;
+    const cuerpo = editando ? `
+        <div class="flex items-center gap-2">
+            <div class="relative flex-1 min-w-0">
+                <input type="number" data-comision-input min="0" max="100" step="0.01" value="${valor || ''}" placeholder="0"
+                    class="w-full border border-brand-primary rounded-lg pl-3 pr-7 py-1.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-brand-primary/10 bg-white">
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">%</span>
+            </div>
+            <button type="button" data-comision-save title="Guardar" class="p-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-all cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            </button>
+            <button type="button" data-comision-cancel title="Cancelar" class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>` : `
+        <div class="flex items-center justify-between gap-2">
+            <span class="text-2xl font-black text-slate-900 font-display">${fmtPct(valor)}</span>
+            <button type="button" data-comision-edit="${op.id}:${tipo.campo}" title="Editar porcentaje" aria-label="Editar ${escapeHtml(tipo.label)} de ${escapeHtml(op.nombre)}"
+                class="p-2 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-brand-primary hover:border-brand-primary transition-all cursor-pointer">${PENCIL_SVG}</button>
+        </div>`;
+    return `
+        <div class="rounded-xl bg-slate-50 border border-slate-200/70 p-4 flex flex-col gap-2">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${tipo.label}</span>
+            ${cuerpo}
+        </div>`;
+}
+
+function renderComisiones() {
+    const list = document.getElementById('config-comisiones-list');
+    if (!list) return;
+
+    list.innerHTML = OPERADORES.map(op => `
+        <div class="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center gap-5">
+            <div class="lg:w-48 h-16 shrink-0 flex items-center justify-center lg:justify-start">
+                <img src="${op.logo}" alt="${escapeHtml(op.nombre)}" class="${LOGO_OPERADOR_CLASS}">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+                ${TIPOS_COMISION.map(t => renderComisionCell(op, t)).join('')}
+            </div>
+        </div>`).join('');
+
+    list.querySelectorAll('[data-comision-edit]').forEach(btn => btn.addEventListener('click', () => {
+        const [operador, campo] = btn.dataset.comisionEdit.split(':');
+        editingComision = { operador, campo };
+        renderComisiones();
+        list.querySelector('[data-comision-input]')?.select();
+    }));
+    list.querySelector('[data-comision-save]')?.addEventListener('click', guardarComision);
+    list.querySelector('[data-comision-cancel]')?.addEventListener('click', cancelarComision);
+    list.querySelector('[data-comision-input]')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); guardarComision(); }
+        if (e.key === 'Escape') cancelarComision();
+    });
+}
+
+function cancelarComision() {
+    editingComision = null;
+    renderComisiones();
+}
+
+async function guardarComision() {
+    if (!editingComision) return;
+    const { operador, campo } = editingComision;
+    const input = document.querySelector('#config-comisiones-list [data-comision-input]');
+    const valor = input?.value === '' ? 0 : parseFloat(input?.value);
+    if (!Number.isFinite(valor) || valor < 0 || valor > 100) {
+        window.showAlert('warning', 'Ingresá un porcentaje entre 0 y 100.', true);
+        input?.focus();
+        return;
+    }
+
+    window.showLoader('Guardando comisión...');
+    try {
+        const saved = await saveComision(operador, { [campo]: valor });
+        comisiones[operador] = { ...comisiones[operador], ...saved };
+        editingComision = null;
+        renderComisiones();
+        actualizarConteos();
+        window.showAlert('success', 'Comisión actualizada.');
+    } catch (err) {
+        window.showAlert('error', err.message);
+    } finally {
+        window.hideLoader();
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
