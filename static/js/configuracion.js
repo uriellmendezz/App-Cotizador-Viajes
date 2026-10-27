@@ -897,10 +897,16 @@ async function saveHotel() {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.detail || 'No se pudo guardar el hotel.');
         }
+        const saved = await res.json();
         const wasEditing = !!editingId;
         closeEditor();
         await loadHotels();
-        window.showAlert('success', wasEditing ? `Hotel "${nombre}" actualizado.` : `Hotel "${nombre}" agregado al catálogo.`);
+        // El backend unifica el nombre con el hotel ya registrado y normaliza el destino
+        const est = saved.estandarizacion || {};
+        const nombreFinal = saved.nombre || nombre;
+        const destinoFinal = est.lugar ? ` (${est.lugar})` : '';
+        const aviso = est.cambio ? ` Se guardó como "${nombreFinal}"${destinoFinal}.` : '';
+        window.showAlert('success', (wasEditing ? `Hotel "${nombre}" actualizado.` : `Hotel "${nombre}" agregado al catálogo.`) + aviso);
     } catch (err) {
         window.showAlert('error', err.message, true);
     } finally {

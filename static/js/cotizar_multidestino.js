@@ -712,7 +712,7 @@ function addHotelStop(data = null) {
                     <span>Destino / Ciudad de la Parada</span>
                     <span class="text-brand-primary font-black">*</span>
                 </label>
-                <input type="text" class="hotel-destino-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Madrid" value="${destinoVal}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
+                <input type="text" data-lugar class="hotel-destino-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Madrid" value="${destinoVal}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
             </div>
             <div class="flex flex-col gap-1">
                 <div class="flex items-center justify-between gap-2">

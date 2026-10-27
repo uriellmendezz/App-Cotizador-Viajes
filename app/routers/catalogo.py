@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.routers.auth import get_current_active_agent
 from app.database import (
     TABLE_HOTELES, TABLE_PAQUETES, TABLE_AEROLINEAS, TABLE_COMISIONES,
-    list_rows, get_row_by_id, save_row, delete_row
+    list_rows, get_row_by_id, save_row, delete_row, find_scoped_rows
+)
+from app.lugares_hoteles import (
+    normalizar_destino, describir_lugar, identificar_hotel, buscar_hotel,
+    sugerir_lugares, coincide_con_lo_escrito
 )
 
 router = APIRouter(prefix="/api", tags=["catalogo"])
@@ -94,11 +98,62 @@ def _hotel_summary(row: dict) -> dict:
     summary["total_fotos"] = len(fotos)
     return summary
 
+def _vincular_hotel(data: dict, current_user: dict, ficha_id=None, hotel_actual_id=None) -> dict:
+    """
+    Normaliza el destino (tabla `lugares`) e identifica el hotel (tabla `hoteles`):
+    la ficha queda con el nombre y destino estándar y apunta al hotel con `hotel_id`.
+    Devuelve el detalle de lo que se estandarizó para avisarle al usuario.
+    """
+    original = {"nombre": data["nombre"], "destino": data["destino"]}
+    try:
+        lugar = normalizar_destino(data["destino"])
+        hotel = identificar_hotel(data["nombre"], lugar["id"] if lugar else None, hotel_actual_id)
+    except Exception as e:
+        # Sin las tablas nuevas (migración 008 pendiente) o sin conexión, la ficha se guarda igual
+        print(f"Catálogo: no se pudo normalizar '{data['nombre']}' ({data['destino']}): {e}")
+        return {}
+
+    if lugar:
+        data["destino"] = lugar["nombre"]
+    if hotel:
+        data["hotel_id"] = hotel["id"]
+        data["nombre"] = hotel["nombre"]
+        # Otro nombre del mismo hotel ya cargado en el catálogo de la sucursal
+        repetidos = [r for r in find_scoped_rows(TABLE_HOTELES, "hotel_id", hotel["id"],
+                                                 current_user.get("sucursal_id"), current_user.get("id"))
+                     if str(r["id"]) != str(ficha_id)]
+        if repetidos:
+            raise HTTPException(status_code=409, detail=(
+                f'"{original["nombre"]}" es el mismo hotel que "{repetidos[0]["nombre"]}", '
+                "que ya está en tu catálogo."))
+
+    return {
+        "nombre_original": original["nombre"],
+        "destino_original": original["destino"],
+        "nombre": data["nombre"],
+        "destino": data["destino"],
+        "lugar": describir_lugar(lugar),
+        "pais": (lugar or {}).get("pais", ""),
+        "cambio": data["nombre"] != original["nombre"] or data["destino"] != original["destino"],
+    }
+
 @router.get("/hoteles")
 def api_list_hoteles(current_user: dict = Depends(get_current_active_agent)):
     _require_agent(current_user)
     rows = list_rows(TABLE_HOTELES, current_user.get("sucursal_id"), current_user.get("id"))
     return [_hotel_summary(r) for r in rows]
+
+@router.get("/hoteles/identificar")
+def api_identificar_hotel(nombre: str, destino: str = "", current_user: dict = Depends(get_current_active_agent)):
+    """Consulta (sin guardar nada nuevo de hoteles) a qué hotel ya registrado corresponde un nombre en un destino."""
+    _require_agent(current_user)
+    try:
+        lugar = normalizar_destino(destino)
+        hotel = buscar_hotel(nombre, lugar["id"] if lugar else None)
+    except Exception as e:
+        print(f"Hoteles: no se pudo identificar '{nombre}' ({destino}): {e}")
+        raise HTTPException(status_code=503, detail="No se pudo identificar el hotel en este momento.")
+    return {"lugar": lugar, "hotel": hotel, "es_conocido": bool(hotel)}
 
 @router.get("/hoteles/{hotel_id}")
 def api_get_hotel(hotel_id: str, current_user: dict = Depends(get_current_active_agent)):
@@ -109,20 +164,56 @@ def api_get_hotel(hotel_id: str, current_user: dict = Depends(get_current_active
 def api_create_hotel(payload: dict, current_user: dict = Depends(get_current_active_agent)):
     _require_agent(current_user)
     data = _normalize_hotel(payload)
+    estandarizacion = _vincular_hotel(data, current_user)
     data.update(_ownership_fields(current_user))
     saved = save_row(TABLE_HOTELES, data)
     if not saved:
         raise HTTPException(status_code=500, detail="No se pudo guardar el hotel. Verifique que la tabla 'hoteles_catalogo' exista en la base de datos.")
-    return saved
+    return {**saved, "estandarizacion": estandarizacion}
 
 @router.put("/hoteles/{hotel_id}")
 def api_update_hotel(hotel_id: str, payload: dict, current_user: dict = Depends(get_current_active_agent)):
     _require_agent(current_user)
     existing = _get_scoped_row(TABLE_HOTELES, hotel_id, current_user, "hotel")
-    saved = save_row(TABLE_HOTELES, _normalize_hotel(payload), existing["id"])
+    data = _normalize_hotel(payload)
+    estandarizacion = _vincular_hotel(data, current_user, existing["id"], existing.get("hotel_id"))
+    saved = save_row(TABLE_HOTELES, data, existing["id"])
     if not saved:
         raise HTTPException(status_code=500, detail="No se pudo actualizar el hotel.")
-    return saved
+    return {**saved, "estandarizacion": estandarizacion}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# LUGARES (destinos normalizados con OpenStreetMap)
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Disponibles también para invitados: los campos de origen y destino están en todas las cotizaciones
+
+@router.get("/lugares/sugerencias")
+def api_sugerir_lugares(q: str = "", current_user: dict = Depends(get_current_active_agent)):
+    """Lugares ya normalizados que coinciden con lo escrito (no consulta la API externa)."""
+    try:
+        return sugerir_lugares(q)
+    except Exception as e:
+        print(f"Lugares: no se pudieron sugerir lugares para '{q}': {e}")
+        return []
+
+@router.get("/lugares/normalizar")
+def api_normalizar_lugar(q: str, current_user: dict = Depends(get_current_active_agent)):
+    """
+    'pta cana' -> {nombre: 'Punta Cana', pais: 'República Dominicana', coincide: true, ...}.
+    `coincide` indica si es el mismo lugar que se escribió (solo cambia la ortografía), y por lo
+    tanto si el campo se puede reemplazar sin cambiar lo que el usuario quiso decir.
+    """
+    try:
+        lugar = normalizar_destino(q)
+    except Exception as e:
+        print(f"Lugares: no se pudo normalizar '{q}': {e}")
+        raise HTTPException(status_code=503, detail="No se pudo normalizar el destino en este momento.")
+    if not lugar:
+        raise HTTPException(status_code=400, detail="Ingresá un destino.")
+    lugar = {k: v for k, v in lugar.items() if k != "alias"}
+    return {**lugar, "descripcion": describir_lugar(lugar), "coincide": coincide_con_lo_escrito(q, lugar)}
 
 @router.delete("/hoteles/{hotel_id}")
 def api_delete_hotel(hotel_id: str, current_user: dict = Depends(get_current_active_agent)):
