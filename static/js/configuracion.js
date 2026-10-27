@@ -25,6 +25,7 @@ export async function initConfiguracion() {
 
     setupMenu();
     setupEditor();
+    setupHotelView();
     setupAirlineEditor();
     document.getElementById('config-btn-export-csv').addEventListener('click', exportarCotizacionesCsv);
     document.getElementById('config-btn-new-hotel').addEventListener('click', () => openEditor());
@@ -156,7 +157,8 @@ function renderGrid() {
     }
 
     grid.innerHTML = list.map(h => `
-        <div class="group bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
+        <div data-view-hotel="${h.id}" role="button" tabindex="0" title="Ver ficha del hotel"
+            class="group bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col cursor-pointer focus:outline-none focus:ring-4 focus:ring-brand-primary/10">
             <div class="relative h-40 bg-slate-100 overflow-hidden">
                 ${safeImageSrc(h.portada) ? `<img src="${safeImageSrc(h.portada)}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">` : '<div class="w-full h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-slate-400">Sin fotos</div>'}
                 ${h.total_fotos > 1 ? `<span class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-slate-950/60 text-white text-[10px] font-bold">${h.total_fotos} fotos</span>` : ''}
@@ -173,8 +175,111 @@ function renderGrid() {
             </div>
         </div>`).join('');
 
-    grid.querySelectorAll('[data-edit-hotel]').forEach(btn => btn.addEventListener('click', () => openEditor(btn.dataset.editHotel)));
-    grid.querySelectorAll('[data-delete-hotel]').forEach(btn => btn.addEventListener('click', () => confirmDelete(btn.dataset.deleteHotel)));
+    // stopPropagation: los botones no deben abrir además la ficha del hotel
+    grid.querySelectorAll('[data-edit-hotel]').forEach(btn => btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEditor(btn.dataset.editHotel);
+    }));
+    grid.querySelectorAll('[data-delete-hotel]').forEach(btn => btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        confirmDelete(btn.dataset.deleteHotel);
+    }));
+    grid.querySelectorAll('[data-view-hotel]').forEach(card => {
+        card.addEventListener('click', () => openHotelView(card.dataset.viewHotel));
+        card.addEventListener('keydown', (e) => {
+            if (e.target !== card || (e.key !== 'Enter' && e.key !== ' ')) return;
+            e.preventDefault();
+            openHotelView(card.dataset.viewHotel);
+        });
+    });
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Ficha del hotel (modal de solo lectura)
+// ──────────────────────────────────────────────────────────────────────────────
+
+let viewingHotelId = null;
+let viewFotos = [];
+
+function setupHotelView() {
+    const modal = document.getElementById('config-hotel-view-modal');
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal || e.target.closest('[data-close-hotel-view]')) closeHotelView();
+    });
+    document.getElementById('hotel-view-edit-btn').addEventListener('click', () => {
+        const id = viewingHotelId;
+        closeHotelView();
+        openEditor(id);
+    });
+}
+
+function isHotelViewOpen() {
+    const modal = document.getElementById('config-hotel-view-modal');
+    return !!modal && !modal.classList.contains('pointer-events-none');
+}
+
+async function openHotelView(id) {
+    window.showLoader('Cargando hotel...');
+    let hotel;
+    try {
+        hotel = await fetchHotel(id);
+    } catch (err) {
+        window.showAlert('error', err.message);
+        return;
+    } finally {
+        window.hideLoader();
+    }
+
+    viewingHotelId = id;
+    viewFotos = Array.isArray(hotel.fotos) ? hotel.fotos.filter(safeImageSrc) : [];
+    const sinDato = '<span class="text-slate-400 font-medium">Sin especificar</span>';
+
+    document.getElementById('hotel-view-nombre').textContent = hotel.nombre || '';
+    document.getElementById('hotel-view-estrellas').textContent = starsToString(hotel.estrellas);
+    document.getElementById('hotel-view-destino').innerHTML = hotel.destino ? escapeHtml(hotel.destino) : sinDato;
+    document.getElementById('hotel-view-regimen').innerHTML = hotel.regimen ? escapeHtml(hotel.regimen) : sinDato;
+    document.getElementById('hotel-view-habitacion').innerHTML = hotel.habitacion ? escapeHtml(hotel.habitacion) : sinDato;
+    document.getElementById('hotel-view-descripcion').innerHTML = hotel.descripcion
+        ? escapeHtml(hotel.descripcion) : '<span class="text-slate-400">Este hotel no tiene descripción.</span>';
+
+    document.getElementById('hotel-view-sin-fotos').classList.toggle('hidden', viewFotos.length > 0);
+    renderHotelViewThumbs();
+    showHotelViewFoto(0);
+
+    document.getElementById('config-hotel-view-modal').classList.remove('opacity-0', 'pointer-events-none');
+    setTimeout(() => document.querySelector('#config-hotel-view-modal [data-close-hotel-view]')?.focus(), 50);
+}
+
+function renderHotelViewThumbs() {
+    const thumbs = document.getElementById('hotel-view-thumbs');
+    thumbs.classList.toggle('hidden', viewFotos.length < 2);
+    thumbs.innerHTML = viewFotos.length < 2 ? '' : viewFotos.map((f, i) => `
+        <button type="button" data-view-foto="${i}" title="Ver foto ${i + 1}"
+            class="aspect-[4/3] rounded-lg overflow-hidden border-2 border-transparent hover:border-slate-300 transition-all cursor-pointer">
+            <img src="${f}" alt="" class="w-full h-full object-cover">
+        </button>`).join('');
+    thumbs.querySelectorAll('[data-view-foto]').forEach(btn => btn.addEventListener('click', () => {
+        showHotelViewFoto(parseInt(btn.dataset.viewFoto, 10));
+    }));
+}
+
+function showHotelViewFoto(index) {
+    const img = document.getElementById('hotel-view-foto');
+    const counter = document.getElementById('hotel-view-foto-counter');
+    const foto = viewFotos[index];
+    img.classList.toggle('hidden', !foto);
+    img.src = foto || '';
+    counter.classList.toggle('hidden', viewFotos.length < 2);
+    counter.textContent = `${index + 1} / ${viewFotos.length}`;
+    document.querySelectorAll('#hotel-view-thumbs [data-view-foto]').forEach((btn, i) => {
+        btn.classList.toggle('border-brand-primary', i === index);
+        btn.classList.toggle('border-transparent', i !== index);
+    });
+}
+
+function closeHotelView() {
+    document.getElementById('config-hotel-view-modal')?.classList.add('opacity-0', 'pointer-events-none');
+    viewingHotelId = null;
 }
 
 function confirmDelete(id) {
@@ -623,7 +728,9 @@ function isEditorOpen() {
 }
 
 function onKeydown(e) {
-    if (e.key === 'Escape' && isEditorOpen()) closeEditor();
+    if (e.key !== 'Escape') return;
+    if (isEditorOpen()) closeEditor();
+    else if (isHotelViewOpen()) closeHotelView();
 }
 
 async function onPaste(e) {

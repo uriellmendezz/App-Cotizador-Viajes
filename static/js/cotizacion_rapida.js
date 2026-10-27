@@ -1,4 +1,4 @@
-import { openHotelPicker, REGIMENES, escapeHtml, shouldOfferSaveHotel, saveHotelToCatalog } from './hotel_catalog.js';
+import { openHotelPicker, REGIMENES, escapeHtml } from './hotel_catalog.js';
 import { buildQuoteModel, computePrices, fetchQuote, openRecotizacion, renderRecotizacionSummary } from './comparador.js';
 
 let isQuickFeeLocked = true;
@@ -1099,53 +1099,9 @@ function applyHotelToQuickRow(tr, hotel) {
     }
 
     renderQuickRowSummary(tr);
-    refreshQuickRowSaveHotel(tr);
     calculateQuickQuote();
     saveQuickQuoteFormState();
 }
-
-/**
- * Muestra el botón "Guardar en Mis Hoteles" cuando el alojamiento de la fila
- * tiene un nombre real que todavía no está en el catálogo.
- */
-async function refreshQuickRowSaveHotel(tr) {
-    const btn = tr?.querySelector('.quick-row-save-hotel');
-    const labelInput = tr?.querySelector('.quick-row-label');
-    if (!btn || !labelInput) return;
-    const name = labelInput.value;
-    const offer = await shouldOfferSaveHotel(name) && !isQuickReadOnlyMode;
-    // El nombre (o el modo lectura) pudo cambiar mientras se consultaba el catálogo
-    if (labelInput.value !== name) return;
-    btn.classList.toggle('hidden', !offer);
-    btn.classList.toggle('inline-flex', offer);
-}
-
-async function saveQuickRowHotelToCatalog(el) {
-    const tr = getQuickMainRow(el);
-    const nombre = (tr?.querySelector('.quick-row-label')?.value || '').trim();
-    if (!tr || !nombre) return;
-
-    el.disabled = true;
-    try {
-        const saved = await saveHotelToCatalog({
-            nombre,
-            destino: (document.getElementById('rapido-destino')?.value || '').trim(),
-            estrellas: parseInt(tr.querySelector('.quick-row-estrellas')?.value, 10) || 4,
-            regimen: tr.querySelector('.quick-row-regimen')?.value || ''
-        });
-        const hiddenId = tr.querySelector('.quick-row-hotel-id');
-        if (hiddenId && saved?.id) hiddenId.value = saved.id;
-        el.classList.add('hidden');
-        el.classList.remove('inline-flex');
-        saveQuickQuoteFormState();
-        window.showAlert?.('success', `"${nombre}" se guardó en Mis Hoteles. Podés sumarle fotos y descripción desde Configuración.`, true);
-    } catch (err) {
-        window.showAlert?.('warning', err.message, true);
-    } finally {
-        el.disabled = false;
-    }
-}
-window.saveQuickRowHotelToCatalog = saveQuickRowHotelToCatalog;
 
 /** Abre el catalogo de hoteles para la fila del boton. */
 function openQuickHotelPicker(el) {
@@ -1298,12 +1254,6 @@ function addQuickBudgetRow(data = null) {
                 <div class="flex flex-col min-w-0 flex-1">
                     <div class="flex items-center gap-1 min-w-0">
                         ${labelCellHtml}
-                        ${selectedTipo === 'hotel' ? `
-                        <button type="button" onclick="saveQuickRowHotelToCatalog(this)" title="Guardar este alojamiento en Mis Hoteles"
-                            class="quick-row-save-hotel hidden items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer flex-shrink-0">
-                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-                            Guardar en Mis Hoteles
-                        </button>` : ''}
                     </div>
                     ${tieneDetalles ? '<div class="quick-row-summary text-[10px] font-bold text-slate-500 truncate pl-1"></div>' : ''}
                 </div>
@@ -1384,10 +1334,6 @@ function addQuickBudgetRow(data = null) {
         labelInput.addEventListener('input', () => {
             saveQuickQuoteFormState();
         });
-        if (selectedTipo === 'hotel') {
-            labelInput.addEventListener('blur', () => refreshQuickRowSaveHotel(tr));
-            refreshQuickRowSaveHotel(tr);
-        }
     }
 
     const btnDelete = tr.querySelector('.btn-delete-row');
@@ -2503,7 +2449,6 @@ export function enableQuickFormEditing(enabled) {
         panel.classList.toggle('pointer-events-none', !enabled);
         panel.classList.toggle('opacity-60', !enabled);
     });
-    document.querySelectorAll('#quick-budget-body tr.quick-row').forEach(tr => refreshQuickRowSaveHotel(tr));
 
     // Enable/disable rows
     const rows = document.querySelectorAll('#quick-budget-body tr.quick-row');
