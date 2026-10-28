@@ -875,7 +875,7 @@ async function fetchTestFile(url, name) {
 
 /**
  * Crucero desde el PDF de prueba del operador (pasa por la extracción real) y
- * vuelos, alojamientos y fotos de prueba de la Cotización Completa, con
+ * vuelos, alojamientos y fotos de prueba de la Cotización, con
  * alojamiento pre y post crucero, vuelos y traslados.
  */
 async function fillCruceroTestData() {

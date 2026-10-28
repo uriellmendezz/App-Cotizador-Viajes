@@ -1,5 +1,5 @@
 // hotel_catalog.js - Utilidades compartidas del Catálogo de Hoteles
-// Lo usan: Configuración (alta de hoteles), Cotización PDF (selector en tarjetas) y Paquetes Promocionales.
+// Lo usan: Configuración (alta de hoteles), Cotización (selector en tarjetas) y Paquetes Promocionales.
 
 export const REGIMENES = ["All Inclusive", "Desayuno incluido", "Solo alojamiento", "Media Pensión", "Desayuno y Cena incluidos"];
 export const HABITACIONES = ["Estándar", "Suite", "Vista Mar", "Superior", "Deluxe"];
@@ -220,7 +220,7 @@ export async function openHotelPicker(onSelect) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Integración con las tarjetas de hotel de la Cotización PDF (estándar y multidestino)
+// Integración con las tarjetas de hotel de la Cotización (estándar y multidestino)
 // ──────────────────────────────────────────────────────────────────────────────
 
 function ensureOption(select, value, label = value) {
@@ -297,7 +297,7 @@ window.openHotelPickerForCard = function (btn) {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Guardar en "Mis Hoteles" los alojamientos cargados a mano en una cotización
-// (Cotización PDF estándar, multidestino y Cotización Rápida)
+// (Cotización estándar, multidestino y Cotización Rápida)
 // ──────────────────────────────────────────────────────────────────────────────
 
 const CATALOG_NAMES_TTL_MS = 60 * 1000;
@@ -365,7 +365,7 @@ export async function saveHotelToCatalog(data) {
     return saved;
 }
 
-// ── Tarjetas de hotel de la Cotización PDF ──
+// ── Tarjetas de hotel de la Cotización ──
 
 const CARD_SELECTOR = '.hotel-option-card, .hotel-stop-card';
 

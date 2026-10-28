@@ -60,7 +60,7 @@ const ENCABEZADOS = {
         tag: 'Configuración',
         tagCls: 'text-sky-600 bg-sky-50',
         titulo: 'Catálogo de Aerolíneas',
-        desc: 'Cargá aerolíneas con su logo para identificar los vuelos en las cotizaciones rápidas.'
+        desc: 'Cargá aerolíneas con su logo para identificar los vuelos en los presupuestos.'
     },
     comisiones: {
         tag: 'Configuración',

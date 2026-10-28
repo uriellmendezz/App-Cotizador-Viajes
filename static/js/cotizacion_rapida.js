@@ -696,7 +696,7 @@ export function initCotizacionRapida() {
         btnReset.onclick = () => {
             window.showCustomConfirm({
                 title: '¿Limpiar tabla?',
-                desc: '¿Estás seguro de que deseas restablecer la cotización rápida a los valores por defecto? Se perderán todos los cambios no guardados.',
+                desc: '¿Estás seguro de que deseas restablecer el presupuesto a los valores por defecto? Se perderán todos los cambios no guardados.',
                 btnText: 'Sí, Limpiar',
                 confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
                 callback: () => {
@@ -1697,7 +1697,7 @@ function renderQuickRecotizacion(currency, paxCount) {
     const current = {
         id: null,
         tipo: 'rapida',
-        tipoLabel: 'Cotización rápida',
+        tipoLabel: 'Presupuesto',
         nombre: (document.getElementById('rapido-pasajero')?.value || '').trim() || 'Nueva cotización',
         currency,
         cantPax: paxCount,
@@ -1856,7 +1856,7 @@ function calculateQuickQuote() {
 async function saveQuickQuote(andRedirect = false) {
     const passengerName = (document.getElementById('rapido-pasajero')?.value || '').trim();
     if (!passengerName) {
-        window.showAlert('warning', 'La cotización rápida debe tener un título obligatorio.');
+        window.showAlert('warning', 'El presupuesto debe tener un título obligatorio.');
         return;
     }
     const paxCount = parseInt(document.getElementById('rapido-pax-count')?.value) || 2;
@@ -1965,7 +1965,7 @@ async function saveQuickQuote(andRedirect = false) {
     }
 
     window.changeFavicon('loading');
-    window.showLoader("Guardando cotización rápida...");
+    window.showLoader("Guardando presupuesto...");
     const signal = window.getAbortSignal(true);
 
     try {
@@ -1991,7 +1991,7 @@ async function saveQuickQuote(andRedirect = false) {
         }
 
         window.changeFavicon('success');
-        window.showAlert('success', 'Cotización rápida guardada correctamente.');
+        window.showAlert('success', 'Presupuesto guardado correctamente.');
 
         if (andRedirect) {
             // Keep quote payload in memory to pre-load detailed quote tab
@@ -2046,7 +2046,7 @@ async function loadQuickBudgetsList() {
         <tr>
             <td colspan="6" class="p-8 text-center text-slate-400">
                 <span class="inline-block animate-spin border-2 border-brand-primary border-t-transparent rounded-full w-4 h-4 mr-2"></span>
-                Cargando cotizaciones rápidas...
+                Cargando presupuestos...
             </td>
         </tr>
     `;
@@ -2054,7 +2054,7 @@ async function loadQuickBudgetsList() {
     const signal = window.getAbortSignal(true);
     try {
         const res = await window.authenticatedFetch('/api/presupuestos', { signal });
-        if (!res.ok) throw new Error("Error al obtener las cotizaciones rápidas de la base de datos.");
+        if (!res.ok) throw new Error("Error al obtener los presupuestos de la base de datos.");
         const budgets = await res.json();
 
         allSavedQuickBudgets = budgets;
@@ -2065,7 +2065,7 @@ async function loadQuickBudgetsList() {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="p-8 text-center text-rose-500 font-bold">
-                    Error al cargar las cotizaciones rápidas: ${err.message}
+                    Error al cargar los presupuestos: ${err.message}
                 </td>
             </tr>
         `;
@@ -2082,7 +2082,7 @@ function renderQuickBudgetsTable(budgetsList) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="p-8 text-center text-slate-400 font-semibold">
-                    No se encontraron cotizaciones rápidas.
+                    No se encontraron presupuestos.
                 </td>
             </tr>
         `;
@@ -2117,7 +2117,7 @@ function renderQuickBudgetsTable(budgetsList) {
         const isOwner = currentUser && quoteOwner && (currentUser === quoteOwner);
 
         const deleteButtonHtml = isOwner ? `
-            <button type="button" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" title="Eliminar cotización rápida" onclick="deleteQuickBudget('${q.id}', event)">
+            <button type="button" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" title="Eliminar presupuesto" onclick="deleteQuickBudget('${q.id}', event)">
                 <svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
@@ -2152,8 +2152,8 @@ function renderQuickBudgetsTable(budgetsList) {
 async function deleteQuickBudget(quoteId, event) {
     if (event) event.stopPropagation();
     window.showCustomConfirm({
-        title: '¿Eliminar cotización rápida?',
-        desc: '¿Estás seguro de que deseas eliminar esta cotización rápida? Esta acción no se puede deshacer.',
+        title: '¿Eliminar presupuesto?',
+        desc: '¿Estás seguro de que deseas eliminar este presupuesto? Esta acción no se puede deshacer.',
         btnText: 'Sí, Eliminar',
         confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
         callback: () => executeDeleteQuickBudget(quoteId)
@@ -2168,10 +2168,10 @@ async function executeDeleteQuickBudget(quoteId) {
         });
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.detail || "No se pudo eliminar la cotización rápida.");
+            throw new Error(errData.detail || "No se pudo eliminar el presupuesto.");
         }
 
-        window.showAlert('success', 'Cotización rápida eliminada correctamente.');
+        window.showAlert('success', 'Presupuesto eliminado correctamente.');
         loadQuickBudgetsList();
     } catch (err) {
         window.showAlert('warning', 'Error: ' + err.message);
@@ -2183,7 +2183,7 @@ async function loadQuickBudgetIntoForm(quoteId, { keepRecotizacion = false } = {
     if (!keepRecotizacion) window.quickRecotizacionBaseline = null;
     const cleanId = quoteId ? String(quoteId).trim().replace(/[^a-zA-Z0-9_-]/g, '') : null;
     if (!cleanId) {
-        window.showAlert('warning', 'ID de cotización rápida no válido.');
+        window.showAlert('warning', 'ID de presupuesto no válido.');
         history.replaceState(null, null, '/cotizacion-rapida');
         return;
     }
@@ -2200,14 +2200,14 @@ async function loadQuickBudgetIntoForm(quoteId, { keepRecotizacion = false } = {
         history.replaceState(null, null, `/cotizacion-rapida?id=${cleanId}`);
     }
 
-    window.showLoader("Cargando cotización rápida...");
+    window.showLoader("Cargando presupuesto...");
     const signal = window.getAbortSignal(true);
 
     try {
         const res = await window.authenticatedFetch(`/api/presupuestos/${cleanId}`, { signal });
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.detail || "Presupuesto rápido no encontrado.");
+            throw new Error(errData.detail || "Presupuesto no encontrado.");
         }
         const q = await res.json();
         currentQuickQuoteId = q.id;
@@ -2304,11 +2304,11 @@ async function loadQuickBudgetIntoForm(quoteId, { keepRecotizacion = false } = {
 
         // Update document title dynamically
         const appName = (window.agencyConfig && window.agencyConfig.nombre_agencia) || 'One Trip';
-        document.title = `Cotización Rápida #${q.id} | ${appName}`;
+        document.title = `Presupuesto #${q.id} | ${appName}`;
 
     } catch (err) {
         if (err.name === 'AbortError') return;
-        window.showAlert('warning', 'No se pudo cargar la cotización rápida: ' + err.message);
+        window.showAlert('warning', 'No se pudo cargar el presupuesto: ' + err.message);
         currentQuickQuoteId = null;
         window.currentQuickQuoteOwner = null;
         isQuickReadOnlyMode = false;
@@ -2388,7 +2388,7 @@ async function fillQuickTestData() {
 
     calculateQuickQuote();
 
-    window.showAlert('success', '✔ Montos de prueba cargados correctamente en Cotización Rápida.');
+    window.showAlert('success', '✔ Montos de prueba cargados correctamente en el Presupuesto.');
 }
 window.fillQuickTestData = fillQuickTestData;
 
@@ -2580,7 +2580,7 @@ export function updateQuickEditingIndicator() {
             (window.userId && quoteOwner && (window.userId.toLowerCase() === quoteOwner));
 
         if (isQuickReadOnlyMode) {
-            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando cotización rápida guardada (ID #${currentQuickQuoteId})</span>`;
+            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Visualizando presupuesto guardado (ID #${currentQuickQuoteId})</span>`;
 
             const editBtnHtml = isOwner ? `
                 <button type="button" onclick="window.enableQuickFormEditing(true)" class="px-3 py-1 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-brand-primary/20">Editar Cotización</button>
@@ -2592,7 +2592,7 @@ export function updateQuickEditingIndicator() {
                 <button type="button" onclick="window.closeSavedQuickQuoteView()" class="px-3 py-1 bg-white hover:bg-amber-100 text-slate-800 border border-slate-200 rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider">Cerrar</button>
             `;
         } else {
-            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Editando cotización rápida guardada (ID #${currentQuickQuoteId})</span>`;
+            indicatorText.innerHTML = `<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Editando presupuesto guardado (ID #${currentQuickQuoteId})</span>`;
 
             actionsContainer.innerHTML = `
                 <button type="button" onclick="window.saveQuickQuoteChanges()" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-all cursor-pointer text-[10px] uppercase tracking-wider shadow-sm shadow-emerald-600/20">Guardar cambios</button>
@@ -2616,7 +2616,7 @@ export function duplicateCurrentQuickQuote() {
         paxInput.value = 'Copia de ' + paxInput.value;
     }
     enableQuickFormEditing(true);
-    window.showAlert('success', 'Cotización rápida duplicada como nueva. Los cambios se guardarán como un registro nuevo.');
+    window.showAlert('success', 'Presupuesto duplicado como nuevo. Los cambios se guardarán como un registro nuevo.');
     updateQuickEditingIndicator();
     updateSaveButtonState();
     saveQuickQuoteFormState();
@@ -3026,7 +3026,7 @@ export async function copySavedQuickBudgetAsText(quoteId, event) {
 
     try {
         const res = await window.authenticatedFetch(`/api/presupuestos/${quoteId}`);
-        if (!res.ok) throw new Error("No se pudo obtener la cotización rápida.");
+        if (!res.ok) throw new Error("No se pudo obtener el presupuesto.");
         const q = await res.json();
 
         const hoteles = (q.hoteles || []).map(h => ({

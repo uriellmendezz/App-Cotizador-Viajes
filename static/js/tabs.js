@@ -55,7 +55,7 @@
         return 'Nueva pestaña';
     }
 
-    // "Cotización PDF | One Trip" -> "Cotización PDF"
+    // "Cotización | One Trip" -> "Cotización"
     function cleanTitle(title, path) {
         const base = String(title || '').split(' | ')[0].trim();
         return base || routeName(path);

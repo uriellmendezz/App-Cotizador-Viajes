@@ -3862,7 +3862,7 @@ async function loadSavedQuotesList() {
         ]);
 
         if (!resQuotes.ok) throw new Error("Error al obtener las cotizaciones detalladas.");
-        if (!resQuick.ok) throw new Error("Error al obtener los presupuestos rápidos.");
+        if (!resQuick.ok) throw new Error("Error al obtener los presupuestos.");
 
         allSavedQuotes = await resQuotes.json();
         allSavedQuickQuotes = await resQuick.json();
@@ -3910,12 +3910,12 @@ function updateTabButtonsUI() {
     if (!tabDetalladas || !tabRapidos) return;
 
     if (savedQuotesActiveTab === 'detalladas') {
-        tabDetalladas.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-slate-200 bg-white text-slate-800 -mb-[1px] relative z-20 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
-        tabRapidos.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mb-[1px] relative z-10 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        tabDetalladas.className = "px-6 py-3 text-xs font-bold rounded-t-2xl border-t border-x border-slate-200 bg-white text-slate-800 -mb-[1px] relative z-20 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        tabRapidos.className = "px-6 py-3 text-xs font-bold rounded-t-2xl border-t border-x border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mb-[1px] relative z-10 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
         if (searchInput) searchInput.placeholder = "Buscar por pasajero o destino...";
     } else {
-        tabDetalladas.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mb-[1px] relative z-10 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
-        tabRapidos.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-slate-200 bg-white text-slate-800 -mb-[1px] relative z-20 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        tabDetalladas.className = "px-6 py-3 text-xs font-bold rounded-t-2xl border-t border-x border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mb-[1px] relative z-10 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        tabRapidos.className = "px-6 py-3 text-xs font-bold rounded-t-2xl border-t border-x border-slate-200 bg-white text-slate-800 -mb-[1px] relative z-20 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
         if (searchInput) searchInput.placeholder = "Buscar por pasajero...";
     }
 }
@@ -4022,7 +4022,7 @@ function renderAgentFilters() {
     if (agentsMap.size === 0) return;
 
     const label = document.createElement('span');
-    label.className = 'text-[10px] font-bold text-slate-450 uppercase tracking-wider mr-1';
+    label.className = 'text-[10px] font-bold text-slate-450 mr-1';
     label.innerText = 'Filtrar Agente:';
     container.appendChild(label);
 
@@ -4092,7 +4092,7 @@ function renderActiveTabTable(customFilteredList = null) {
     if (savedQuotesActiveTab === 'detalladas') {
         // Detailed headers (no text for delete column header)
         thead.innerHTML = `
-            <tr class="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+            <tr class="border-b border-slate-200 text-slate-400 font-bold text-[10px]">
                 <th class="p-3 hidden sm:table-cell">Fecha Creado</th>
                 <th class="p-3">Pasajero</th>
                 <th class="p-3">Destino</th>
@@ -4192,7 +4192,7 @@ function renderActiveTabTable(customFilteredList = null) {
     } else {
         // Quick Budgets headers (no text for delete column header)
         thead.innerHTML = `
-            <tr class="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+            <tr class="border-b border-slate-200 text-slate-400 font-bold text-[10px]">
                 <th class="p-3 hidden sm:table-cell">Fecha Creado</th>
                 <th class="p-3">Pasajero</th>
                 <th class="p-3 hidden md:table-cell">Operador</th>
@@ -4213,7 +4213,7 @@ function renderActiveTabTable(customFilteredList = null) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="6" class="p-8 text-center text-slate-400 font-semibold">
-                        No se encontraron presupuestos rápidos.
+                        No se encontraron presupuestos.
                     </td>
                 </tr>
             `;
@@ -4475,7 +4475,7 @@ function filterSavedQuotes(resetPage = true) {
 
 async function deleteSavedQuickQuote(quoteId) {
     showCustomConfirm({
-        title: '¿Eliminar cotización rápida?',
+        title: '¿Eliminar presupuesto?',
         desc: 'Esta acción borrará el registro de Supabase de forma definitiva. No se puede deshacer.',
         btnText: 'Sí, Eliminar',
         confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
@@ -4486,9 +4486,9 @@ async function deleteSavedQuickQuote(quoteId) {
                 });
                 if (!res.ok) {
                     const errData = await res.json().catch(() => ({}));
-                    throw new Error(errData.detail || "No se pudo eliminar la cotización rápida.");
+                    throw new Error(errData.detail || "No se pudo eliminar el presupuesto.");
                 }
-                showAlert('success', 'Cotización rápida eliminada con éxito.');
+                showAlert('success', 'Presupuesto eliminado con éxito.');
                 loadSavedQuotesList();
             } catch (e) {
                 showAlert('warning', 'Error al eliminar: ' + e.message);

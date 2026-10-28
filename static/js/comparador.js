@@ -29,11 +29,11 @@ export const CONCEPTOS = [
 ];
 
 const TIPO_LABELS = {
-    estandar: 'Cotización PDF',
+    estandar: 'Cotización',
     multidestino: 'Multidestino',
     vuelos: 'Solo vuelos',
     crucero: 'Crucero',
-    rapida: 'Cotización rápida'
+    rapida: 'Presupuesto'
 };
 
 const num = (v) => {
