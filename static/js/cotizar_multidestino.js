@@ -712,7 +712,7 @@ function addHotelStop(data = null) {
                     <span>Destino / Ciudad de la Parada</span>
                     <span class="text-brand-primary font-black">*</span>
                 </label>
-                <input type="text" class="hotel-destino-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Madrid" value="${destinoVal}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
+                <input type="text" data-lugar class="hotel-destino-val border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" required placeholder="Ej. Madrid" value="${destinoVal}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
             </div>
             <div class="flex flex-col gap-1">
                 <div class="flex items-center justify-between gap-2">
@@ -1513,10 +1513,14 @@ async function loadMultidestinoQuoteIntoForm(quoteId, forceEditMode = true) {
         if (!isMultidestino) {
             const esSoloVuelos = window.isSoloVuelosQuote ? window.isSoloVuelosQuote(q) : false;
             const esCrucero = window.isCruceroQuote ? window.isCruceroQuote(q) : false;
+            const esGrupal = window.isGrupalQuote ? window.isGrupalQuote(q) : false;
             window.pendingEditQuoteId = quoteId;
             window.pendingEditQuoteEditable = forceEditMode;
             window.hideLoader ? window.hideLoader() : null;
-            const ruta = esCrucero ? '/cotizacion-crucero?id=' : (esSoloVuelos ? '/cotizacion-vuelos?id=' : '/cotizacion-completa?id=');
+            const ruta = esCrucero ? '/cotizacion-crucero?id='
+                : esSoloVuelos ? '/cotizacion-vuelos?id='
+                : esGrupal ? '/cotizacion-grupal?id='
+                : '/cotizacion-completa?id=';
             navigateTo(ruta + quoteId);
             return;
         }

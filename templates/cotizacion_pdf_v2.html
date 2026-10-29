@@ -558,6 +558,74 @@
             white-space: nowrap;
         }
 
+        /* GRUPAL / FAMILY PLAN: un recuadro de precio por cada base de habitación */
+        .group-note {
+            font-size: 7.5pt;
+            color: #64748b;
+            font-weight: 600;
+            margin: -2px 0 8px 0;
+        }
+
+        body.grupal-layout .hotel-desc {
+            max-width: 100%;
+        }
+
+        .group-bases {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .group-base-box {
+            flex: 1 1 0;
+            min-width: 22%;
+            border: 1px solid #e2e8f0;
+            border-top: 2px solid #ff545d;
+            border-radius: 5px;
+            background: #f8fafc;
+            padding: 4px 7px 5px 7px;
+            text-align: center;
+            break-inside: avoid;
+        }
+
+        .group-base-label {
+            font-size: 6.8pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #475569;
+            white-space: nowrap;
+        }
+
+        .group-base-pp {
+            font-size: 11pt;
+            font-weight: 900;
+            color: #ff545d;
+            line-height: 1.15;
+            white-space: nowrap;
+        }
+
+        .group-base-pp .currency {
+            font-size: 7.5pt;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+
+        .group-base-sub {
+            font-size: 6.5pt;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        .group-base-total {
+            font-size: 7.5pt;
+            color: #343434;
+            font-weight: 700;
+            white-space: nowrap;
+            margin-top: 1px;
+        }
+
         .reco-badge {
             position: absolute;
             top: 0;
@@ -1027,7 +1095,7 @@
 </head>
 
 <body
-    class="{% if is_solo_vuelos %}solo-vuelos-layout{% if has_vuelo_3 %} solo-vuelos-3-tramos{% endif %}{% elif is_multidestino %}multidestino-layout multi-{{ hoteles|length }}-layout{% elif hoteles|length == 1 %}single-hotel-layout{% elif hoteles|length == 2 %}two-hotels-layout{% elif hoteles|length == 3 %}three-hotels-layout{% endif %}">
+    class="{% if is_solo_vuelos %}solo-vuelos-layout{% if has_vuelo_3 %} solo-vuelos-3-tramos{% endif %}{% elif is_multidestino %}multidestino-layout multi-{{ hoteles|length }}-layout{% elif hoteles|length == 1 %}single-hotel-layout{% elif hoteles|length == 2 %}two-hotels-layout{% elif hoteles|length == 3 %}three-hotels-layout{% endif %}{% if is_grupal %} grupal-layout{% endif %}">
 
     <!-- ═══════════════ 1. CABECERA ═══════════════ -->
     <div class="header">
@@ -1170,6 +1238,9 @@
         {% else %}
         <div class="section-heading">Opciones de Alojamiento</div>
         {% endif %}
+        {% if is_grupal %}
+        <div class="group-note">Precios por persona según la cantidad de pasajeros por habitación. Incluyen vuelos, alojamiento{% if monto_traslados > 0 %}, traslados{% endif %} y gastos de gestión.</div>
+        {% endif %}
 
         {% for hotel in hoteles %}
         <div class="hotel-card">
@@ -1234,7 +1305,23 @@
                     {% endif %}
                 </div>
 
-                {% if not is_multidestino %}
+                {% if is_grupal %}
+                <!-- Group pricing: one box per room base -->
+                <div class="group-bases">
+                    {% for base in hotel.bases %}
+                    <div class="group-base-box">
+                        <div class="group-base-label">Base {{ base.label }}</div>
+                        <div class="group-base-pp">
+                            <span class="currency">{{ moneda|default('USD') }}</span> {{ format_price(base.precio_persona) }}
+                        </div>
+                        <div class="group-base-sub">por persona</div>
+                        {% if base.pax > 1 %}
+                        <div class="group-base-total">Total: {{ moneda|default('USD') }} {{ format_price(base.costo) }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% elif not is_multidestino %}
                 <!-- Pricing -->
                 <div class="hotel-pricing">
                     <div class="hotel-price-pp">

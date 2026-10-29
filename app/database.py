@@ -422,6 +422,20 @@ def list_rows(table: str, sucursal_id: str = None, agente_id: str = None) -> lis
         print(f"Supabase Client: Failed to list '{table}'. Details: {e}")
         return []
 
+def find_scoped_rows(table: str, field: str, value, sucursal_id: str = None, agente_id: str = None,
+                     columns: str = "id, nombre") -> list:
+    """Rows of the branch/agent where `field` equals `value` (only the given columns, to skip heavy photos)."""
+    client = get_supabase_client()
+    if not client:
+        return []
+    try:
+        query = _scope_query(client.table(table).select(columns).eq(field, value), sucursal_id, agente_id)
+        response = query.execute()
+        return response.data if response and hasattr(response, 'data') and response.data else []
+    except Exception as e:
+        print(f"Supabase Client: Failed to search '{table}' by {field}. Details: {e}")
+        return []
+
 def get_row_by_id(table: str, row_id) -> dict | None:
     """Retrieves a single row of a catalog table by its ID."""
     client = get_supabase_client()

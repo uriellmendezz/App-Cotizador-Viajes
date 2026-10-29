@@ -185,6 +185,14 @@ Es un panel con opciones, no una única pantalla. El menú muestra una tarjeta p
 - **Persistencia**: se guarda en la tabla `cotizaciones` sin columnas nuevas; el bloque `crucero` viaja dentro de la entrada `METADATA_COTIZACION` de `hoteles` (con `tipo_cotizacion: "crucero"`) y cada hotel lleva `etapa: "pre" | "post"`.
 - **PDF**: `templates/cotizacion_crucero_pdf.html` (`generate_cruise_pdf`) arma una línea de tiempo vertical con los pasos unidos por líneas punteadas: vuelo de ida → hotel pre → traslado → embarque (cabina, itinerario y mapa) → desembarque → traslado → hotel post → vuelo de regreso, y cierra con la tarjeta del total.
 
+### N. Cotización Grupal / Family Plan (`/cotizacion-grupal`)
+- Cuarta modalidad del selector de la Cotización PDF (Estándar, Multidestino, Solo Vuelos, **Grupal**). Usa el mismo formulario estándar.
+- **Vuelos, fee y traslados se cargan para todo el grupo** (ej. 12 pasajeros) y se prorratean por persona; debajo de cada monto se ve cuánto corresponde a cada pasajero.
+- **Bases de habitación**: cada hotel (hasta 2) reemplaza el campo "Costo" por una lista de bases (Single, Doble, Triple, Cuádruple... hasta 8 pax), cada una con el costo total de la habitación. Las filas sin monto se ignoran y cada hotel necesita al menos una base.
+- **Fórmula por base de N personas**: `alojamiento de la base + (vuelo + fee + traslados + IVA por persona) × N + 5% de gastos administrativos sobre (alojamiento + traslados de la base)`, con redondeo opcional del precio por persona. Se calcula en `_apply_grupal_totals` (backend) y en `computeBasePrices` de `comparador.js` (tabla resumen, recotización y comparador).
+- **PDF**: cada hotel muestra un recuadro por base con el precio por persona y el total de la habitación, para que el agente arme después el precio de cada familia según cómo esté compuesta.
+- **Persistencia**: sin columnas nuevas. `tipo_cotizacion: "grupal"` viaja en la entrada `METADATA_COTIZACION` y en cada hotel, junto con `bases: [{pax, label, costo_neto, costo, precio_persona}]`. El `costo_total`/`precio_persona` de la fila (listados, CSV) es el de la primera base del hotel recomendado.
+
 ---
 
 ### K. Pestañas de la Aplicación (`static/js/tabs.js`)

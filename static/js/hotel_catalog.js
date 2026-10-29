@@ -1,5 +1,5 @@
 // hotel_catalog.js - Utilidades compartidas del Catálogo de Hoteles
-// Lo usan: Configuración (alta de hoteles), Cotización PDF (selector en tarjetas) y Paquetes Promocionales.
+// Lo usan: Configuración (alta de hoteles), Cotización (selector en tarjetas) y Paquetes Promocionales.
 
 export const REGIMENES = ["All Inclusive", "Desayuno incluido", "Solo alojamiento", "Media Pensión", "Desayuno y Cena incluidos"];
 export const HABITACIONES = ["Estándar", "Suite", "Vista Mar", "Superior", "Deluxe"];
@@ -220,7 +220,7 @@ export async function openHotelPicker(onSelect) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Integración con las tarjetas de hotel de la Cotización PDF (estándar y multidestino)
+// Integración con las tarjetas de hotel de la Cotización (estándar y multidestino)
 // ──────────────────────────────────────────────────────────────────────────────
 
 function ensureOption(select, value, label = value) {
@@ -297,7 +297,7 @@ window.openHotelPickerForCard = function (btn) {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Guardar en "Mis Hoteles" los alojamientos cargados a mano en una cotización
-// (Cotización PDF estándar, multidestino y Cotización Rápida)
+// (Cotización estándar, multidestino y Cotización Rápida)
 // ──────────────────────────────────────────────────────────────────────────────
 
 const CATALOG_NAMES_TTL_MS = 60 * 1000;
@@ -365,7 +365,7 @@ export async function saveHotelToCatalog(data) {
     return saved;
 }
 
-// ── Tarjetas de hotel de la Cotización PDF ──
+// ── Tarjetas de hotel de la Cotización ──
 
 const CARD_SELECTOR = '.hotel-option-card, .hotel-stop-card';
 
@@ -374,19 +374,20 @@ function ensureSavePrompt(card) {
     if (prompt) return prompt;
     const nombreInput = card.querySelector('.hotel-nombre-val');
     if (!nombreInput) return null;
+    // Va al final de la tarjeta: se guarda una vez cargados todos los datos e imagen
     prompt = document.createElement('div');
-    prompt.className = 'hotel-save-catalog-prompt hidden mt-1.5 items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100';
+    prompt.className = 'hotel-save-catalog-prompt hidden items-center justify-between gap-3 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100';
     prompt.innerHTML = `
-        <span class="text-[10px] font-semibold text-emerald-800 truncate">¿Guardar este alojamiento en Mis Hoteles?</span>
+        <span class="text-[11px] font-semibold text-emerald-800">¿Guardar este alojamiento en Mis Hoteles? Se guardan los datos, la descripción y la imagen cargados.</span>
         <span class="flex items-center gap-1 shrink-0">
             <button type="button" data-save-hotel
-                class="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer">Guardar</button>
+                class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer">Guardar hotel</button>
             <button type="button" data-dismiss-hotel title="No guardar"
                 class="p-0.5 rounded-md text-emerald-700/50 hover:text-emerald-800 hover:bg-emerald-100 transition-all cursor-pointer">
                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
         </span>`;
-    nombreInput.insertAdjacentElement('afterend', prompt);
+    card.appendChild(prompt);
     prompt.querySelector('[data-save-hotel]').addEventListener('click', () => saveCardHotelToCatalog(card));
     prompt.querySelector('[data-dismiss-hotel]').addEventListener('click', () => {
         dismissSaveHotel(nombreInput.value);
@@ -443,7 +444,7 @@ async function saveCardHotelToCatalog(card) {
     } catch (err) {
         window.showAlert?.('warning', err.message, true);
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Guardar hotel'; }
     }
 }
 

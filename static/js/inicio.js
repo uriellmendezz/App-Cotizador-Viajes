@@ -398,7 +398,7 @@ function renderGrafico(items) {
 
         const fecha = capitalizar(fmtDiaSemana.format(d.fecha));
         const detalle = d.total
-            ? `${fecha} · ${d.completas} completa${d.completas === 1 ? '' : 's'}, ${d.rapidas} rápida${d.rapidas === 1 ? '' : 's'}`
+            ? `${fecha} · ${d.completas} cotizaci${d.completas === 1 ? 'ón' : 'ones'}, ${d.rapidas} presupuesto${d.rapidas === 1 ? '' : 's'}`
             : fecha;
         tooltip.innerHTML = `<strong>${d.total} ${d.total === 1 ? 'cotización' : 'cotizaciones'}</strong><span>${detalle}</span>`;
 
@@ -494,7 +494,7 @@ function renderActividad(items) {
                     <tr class="dash-row" data-i="${i}" tabindex="0">
                         <td class="cell-client" title="${escapeHtml(it.cliente)}">${escapeHtml(it.cliente)}</td>
                         <td title="${escapeHtml(it.destino)}">${it.destino ? escapeHtml(it.destino) : '<span style="color:var(--ink-3)">—</span>'}</td>
-                        <td class="col-optional fit"><span class="dash-type ${it.tipo}">${it.tipo === 'rapida' ? 'Rápida' : 'Completa'}</span></td>
+                        <td class="col-optional fit"><span class="dash-type ${it.tipo}">${it.tipo === 'rapida' ? 'Presupuesto' : 'Cotización'}</span></td>
                         <td class="col-optional fit">${it.salida ? `${it.salida.getDate()} ${fmtMesCorto.format(it.salida).replace('.', '')}` : '—'}</td>
                         <td class="num fit" style="color:var(--ink)">${escapeHtml(it.moneda)} ${fmtEntero.format(Math.round(it.monto))}</td>
                         <td class="col-optional num fit">${tiempoRelativo(it.creada)}</td>

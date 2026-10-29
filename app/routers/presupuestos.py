@@ -30,7 +30,7 @@ def api_save_cotizacion_rapida(payload: dict, current_user: dict = Depends(get_c
     payload["agente_nombre"] = current_user.get("nombre")
     saved = save_cotizacion_rapida(payload)
     if not saved:
-        raise HTTPException(status_code=500, detail="No se pudo guardar el presupuesto rápido en la base de datos.")
+        raise HTTPException(status_code=500, detail="No se pudo guardar el presupuesto en la base de datos.")
     return saved
 
 @router.get("")
@@ -55,14 +55,14 @@ def api_get_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get_cu
         quote_id_typed = quote_id
     quote = get_cotizacion_rapida_by_id(quote_id_typed)
     if not quote:
-        raise HTTPException(status_code=404, detail="Presupuesto rápido no encontrado.")
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado.")
         
     # Check branch isolation (only enforce if both user and quote have sucursal_id)
     if current_user.get("rol") != "ADMIN_GLOBAL":
         quote_suc = quote.get("sucursal_id")
         user_suc = current_user.get("sucursal_id")
         if quote_suc and user_suc and str(quote_suc) != str(user_suc):
-            raise HTTPException(status_code=403, detail="No tienes permisos para acceder a este presupuesto rápido.")
+            raise HTTPException(status_code=403, detail="No tienes permisos para acceder a este presupuesto.")
             
     resolved = resolve_agent_names([quote], current_user)
     return resolved[0]
@@ -77,7 +77,7 @@ def api_delete_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get
 
     quote = get_cotizacion_rapida_by_id(quote_id_typed)
     if not quote:
-        raise HTTPException(status_code=404, detail="Presupuesto rápido no encontrado.")
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado.")
     
     if current_user.get("rol") != "ADMIN_GLOBAL":
         user_id = str(current_user.get("id") or "")
@@ -94,8 +94,8 @@ def api_delete_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get
 
     success = delete_cotizacion_rapida(quote_id_typed)
     if not success:
-        raise HTTPException(status_code=500, detail="No se pudo eliminar el presupuesto rápido de la base de datos.")
-    return {"status": "success", "message": "Presupuesto rápido eliminado con éxito."}
+        raise HTTPException(status_code=500, detail="No se pudo eliminar el presupuesto de la base de datos.")
+    return {"status": "success", "message": "Presupuesto eliminado con éxito."}
 
 @router.post("/{quote_id}/duplicar")
 def api_duplicate_cotizacion_rapida(quote_id: str, current_user: dict = Depends(get_current_active_agent)):
@@ -108,13 +108,13 @@ def api_duplicate_cotizacion_rapida(quote_id: str, current_user: dict = Depends(
 
     existing = get_cotizacion_rapida_by_id(quote_id_typed)
     if not existing:
-        raise HTTPException(status_code=404, detail="Presupuesto rápido no encontrado.")
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado.")
     
     if current_user.get("rol") != "ADMIN_GLOBAL":
         quote_suc = existing.get("sucursal_id")
         user_suc = current_user.get("sucursal_id")
         if quote_suc and user_suc and str(quote_suc) != str(user_suc):
-            raise HTTPException(status_code=403, detail="No tienes permisos para duplicar este presupuesto rápido.")
+            raise HTTPException(status_code=403, detail="No tienes permisos para duplicar este presupuesto.")
 
     cloned_payload = existing.copy()
     cloned_payload.pop("id", None)
@@ -134,7 +134,7 @@ def api_duplicate_cotizacion_rapida(quote_id: str, current_user: dict = Depends(
 
     saved = save_cotizacion_rapida(cloned_payload)
     if not saved:
-        raise HTTPException(status_code=500, detail="No se pudo duplicar el presupuesto rápido de la base de datos.")
+        raise HTTPException(status_code=500, detail="No se pudo duplicar el presupuesto de la base de datos.")
     return saved
 
 

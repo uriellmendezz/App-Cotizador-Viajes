@@ -2,7 +2,8 @@ import { HOTEL_PICKER_BUTTON_HTML, starsToString } from './hotel_catalog.js';
 import { isCruceroQuote, renderCruceroSummaryFromQuote } from './crucero_resumen.js';
 import {
     buildQuoteModel, modelFromSummaryConfig, fetchQuote, openRecotizacion,
-    getRecotizacionBaseline, setRecotizacionBaseline, clearRecotizacionBaseline, renderRecotizacionSummary
+    getRecotizacionBaseline, setRecotizacionBaseline, clearRecotizacionBaseline, renderRecotizacionSummary,
+    isGrupalQuote, baseLabel, computeBasePrices, hotelBases
 } from './comparador.js';
 let hotelCount = 0;
 let agencyConfig = {};
@@ -179,7 +180,7 @@ function syncHotelDatesWithFlights() {
 }
 window.syncHotelDatesWithFlights = syncHotelDatesWithFlights;
 
-// -- Modalidad activa del cotizador ('standard' | 'multidestino' | 'vuelos') --
+// -- Modalidad activa del cotizador ('standard' | 'multidestino' | 'vuelos' | 'grupal') --
 let currentQuoteMode = 'standard';
 
 function isSoloVuelosMode() {
@@ -223,6 +224,127 @@ function applySoloVuelosLayout() {
 }
 window.applySoloVuelosLayout = applySoloVuelosLayout;
 
+function isGrupalMode() {
+    return currentQuoteMode === 'grupal';
+}
+window.isGrupalMode = isGrupalMode;
+window.isGrupalQuote = isGrupalQuote;
+
+/** Modalidad del formulario que corresponde a una cotización guardada. */
+function quoteModeOf(quote) {
+    if (isSoloVuelosQuote(quote)) return 'vuelos';
+    if (isGrupalQuote(quote)) return 'grupal';
+    return 'standard';
+}
+
+const QUOTE_MODE_PATHS = {
+    standard: '/cotizacion-completa',
+    vuelos: '/cotizacion-vuelos',
+    grupal: '/cotizacion-grupal'
+};
+
+/**
+ * Adapta el formulario estandar a la modalidad "grupal / family plan": los
+ * vuelos y traslados se cargan para todo el grupo y cada hotel se cotiza por
+ * base de habitacion (doble, triple, cuadruple...).
+ */
+function applyGrupalLayout() {
+    const setText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+    setText('label_cantidad_pasajeros', 'Pasajeros del grupo');
+    setText('label_monto_vuelos', 'Monto Vuelos (todo el grupo)');
+    updateTransferTypeUI(document.getElementById('tipo_traslado')?.value || 'tradicional');
+    setText('subtitle_alojamiento', 'Hasta dos opciones de hotel. Cargá el costo de la habitación para cada base (doble, triple, cuádruple...).');
+
+    const paxInput = document.getElementById('cantidad_pasajeros');
+    if (paxInput) paxInput.placeholder = '12';
+
+    document.querySelectorAll('.grupal-only').forEach(el => el.classList.remove('hidden'));
+    updateGrupalPerPersonHint();
+}
+window.applyGrupalLayout = applyGrupalLayout;
+
+/** Muestra debajo de los montos del grupo cuánto corresponde a cada persona. */
+function updateGrupalPerPersonHint() {
+    if (!isGrupalMode()) return;
+    const currency = document.getElementById('moneda_seleccionada')?.value || 'USD';
+    const grupo = parseInt(document.getElementById('cantidad_pasajeros')?.value) || 0;
+    const hint = (id, amountId) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const amount = parseFloat(document.getElementById(amountId)?.value) || 0;
+        el.textContent = grupo > 0 && amount > 0
+            ? `Por persona: ${currency} ${formatPriceES(amount / grupo)} (${grupo} pax)`
+            : 'Se divide por la cantidad de pasajeros del grupo';
+    };
+    hint('hint_vuelos_pp', 'monto_vuelos');
+    hint('hint_traslados_pp', 'monto_traslados');
+}
+window.updateGrupalPerPersonHint = updateGrupalPerPersonHint;
+
+const GRUPAL_BASE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+function hotelBaseRowHTML(pax = 2, costo = '') {
+    const currency = document.getElementById('moneda_seleccionada')?.value || 'USD';
+    const options = GRUPAL_BASE_OPTIONS.map(n =>
+        `<option value="${n}" ${n === pax ? 'selected' : ''}>Base ${baseLabel(n)} (${n} pax)</option>`
+    ).join('');
+    return `
+        <div class="hotel-base-row grid grid-cols-[1fr_1fr_auto] gap-3 items-center">
+            <select class="hotel-base-pax border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white" onchange="updateRealTimeSummary()">
+                ${options}
+            </select>
+            <div class="relative flex items-center">
+                <span class="absolute left-3 text-xs font-bold text-slate-400 pointer-events-none currency-label">${currency}</span>
+                <input type="number" class="hotel-base-costo w-full border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary transition-all bg-white" min="0" step="0.01" value="${costo}" placeholder="Costo habitación" oninput="updateRealTimeSummary()">
+            </div>
+            <button type="button" class="btn-hotel-base w-9 h-9 flex items-center justify-center rounded-lg bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-500 hover:text-white transition-all" title="Quitar base" onclick="removeHotelBase(this)">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>`;
+}
+
+/** Agrega una base a la tarjeta de hotel; por defecto la siguiente a la última cargada. */
+function addHotelBase(cardId, pax = null, costo = '') {
+    const list = document.querySelector(`#${cardId} .hotel-bases-list`);
+    if (!list) return;
+    if (pax === null) {
+        const used = Array.from(list.querySelectorAll('.hotel-base-pax')).map(el => parseInt(el.value) || 0);
+        pax = used.length ? Math.min(Math.max(...used) + 1, GRUPAL_BASE_OPTIONS[GRUPAL_BASE_OPTIONS.length - 1]) : 2;
+    }
+    list.insertAdjacentHTML('beforeend', hotelBaseRowHTML(pax, costo));
+    const input = list.lastElementChild.querySelector('.hotel-base-costo');
+    if (input) bindInputHelper(input);
+    updateRealTimeSummary();
+}
+window.addHotelBase = addHotelBase;
+
+function removeHotelBase(btn) {
+    const row = btn.closest('.hotel-base-row');
+    const list = row?.parentElement;
+    if (!row || !list) return;
+    if (list.querySelectorAll('.hotel-base-row').length <= 1) {
+        showAlert('warning', 'Cada hotel necesita al menos una base.');
+        return;
+    }
+    row.remove();
+    updateRealTimeSummary();
+}
+window.removeHotelBase = removeHotelBase;
+
+/** Bases cargadas en una tarjeta de hotel (las filas sin monto se ignoran). */
+function readHotelBases(card) {
+    return Array.from(card.querySelectorAll('.hotel-base-row'))
+        .map(row => ({
+            pax: parseInt(row.querySelector('.hotel-base-pax')?.value) || 0,
+            costo: parseFloat(row.querySelector('.hotel-base-costo')?.value)
+        }))
+        .filter(b => b.pax > 0 && !isNaN(b.costo))
+        .sort((a, b) => a.pax - b.pax);
+}
+
 function saveDetailedQuoteFormState() {
     if (isRestoringStateDetailed) return;
 
@@ -262,7 +384,11 @@ function saveDetailedQuoteFormState() {
             descripcion,
             operador,
             imagen,
-            recommended
+            recommended,
+            bases: Array.from(card.querySelectorAll('.hotel-base-row')).map(row => ({
+                pax: parseInt(row.querySelector('.hotel-base-pax')?.value) || 0,
+                costo: row.querySelector('.hotel-base-costo')?.value || ''
+            }))
         });
     });
 
@@ -441,6 +567,9 @@ function restoreDetailedQuoteFormState() {
 
         if (isSoloVuelosMode()) {
             applySoloVuelosLayout();
+        }
+        if (isGrupalMode()) {
+            applyGrupalLayout();
         }
 
         // Apply read only or editing mode layout
@@ -1329,6 +1458,15 @@ function addHotelCard(data = null) {
         }
     }
 
+    // Grupal: costo de la habitación por base (las guardadas traen el neto en costo_neto)
+    const grupal = isGrupalMode();
+    let basesVal = [];
+    if (grupal) {
+        basesVal = data && Array.isArray(data.bases) && data.bases.length
+            ? data.bases.map(b => ({ pax: parseInt(b.pax) || 2, costo: b.costo_neto ?? b.costo ?? '' }))
+            : [{ pax: 2, costo: '' }, { pax: 3, costo: '' }];
+    }
+
     let checkinVal = data ? (data.fecha_checkin || data.checkin || '') : '';
     let checkoutVal = data ? (data.fecha_checkout || data.checkout || '') : '';
     if (!checkinVal) {
@@ -1410,11 +1548,11 @@ function addHotelCard(data = null) {
                     <input type="text" class="hotel-habitacion-custom border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand-primary transition-all bg-white ${selectedHabitacionOption === 'Personalizado' ? '' : 'hidden'}" placeholder="Ej. Apartamento Doble" value="${customHabitacionVal}" oninput="updateRealTimeSummary()" onblur="handleCapitalizationBlur(this)">
                 </div>
             </div>
-            <div class="flex flex-col gap-1">
+            <div class="flex flex-col gap-1 ${grupal ? 'hidden' : ''}">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Costo</label>
                 <div class="relative flex items-center">
                     <span class="absolute left-3 text-xs font-bold text-slate-400 pointer-events-none currency-label">${document.getElementById('moneda_seleccionada')?.value || 'USD'}</span>
-                    <input type="number" class="hotel-costo-val w-full border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary transition-all bg-white" min="0" step="0.01" required value="${costVal}" placeholder="0.00" oninput="updateRealTimeSummary()">
+                    <input type="number" class="hotel-costo-val w-full border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary transition-all bg-white" min="0" step="0.01" ${grupal ? '' : 'required'} value="${costVal}" placeholder="0.00" oninput="updateRealTimeSummary()">
                 </div>
             </div>
             <div class="flex flex-col gap-1">
@@ -1423,6 +1561,20 @@ function addHotelCard(data = null) {
             </div>
         </div>
         
+        ${grupal ? `
+        <div class="hotel-bases-section flex flex-col gap-2 w-full rounded-xl border border-brand-primary/15 bg-white/70 p-4">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bases de habitación</label>
+                    <p class="text-[10px] text-slate-400 font-medium">Costo total de la habitación para cada base. El PDF muestra un recuadro por base.</p>
+                </div>
+                <button type="button" class="btn-hotel-base shrink-0 px-3 py-1.5 bg-slate-100 hover:bg-brand-primary hover:text-white rounded-full font-bold text-[10px] text-slate-600 uppercase tracking-wider transition-all" onclick="addHotelBase('${cardId}')">+ Agregar base</button>
+            </div>
+            <div class="hotel-bases-list flex flex-col gap-2">
+                ${basesVal.map(b => hotelBaseRowHTML(b.pax, b.costo)).join('')}
+            </div>
+        </div>` : ''}
+
         <div class="flex flex-col gap-1 w-full">
             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Descripción</label>
             <div class="relative flex flex-col w-full">
@@ -1561,6 +1713,7 @@ function addHotelCard(data = null) {
     if (costInput) {
         bindInputHelper(costInput);
     }
+    card.querySelectorAll('.hotel-base-costo').forEach(input => bindInputHelper(input));
 
     updateRealTimeSummary();
     updateHotelBadges();
@@ -1794,6 +1947,9 @@ function checkIfFormHasData() {
         const hCost = card.querySelector('.hotel-costo-val')?.value || '';
         const hDesc = card.querySelector('.hotel-descripcion-val')?.value || '';
         if (hName.trim() !== '' || hCost.trim() !== '' || hDesc.trim() !== '') {
+            return true;
+        }
+        if (Array.from(card.querySelectorAll('.hotel-base-costo')).some(el => el.value.trim() !== '')) {
             return true;
         }
     }
@@ -2053,6 +2209,115 @@ function renderSoloVuelosSummaryHTML(config, container) {
 }
 window.renderSoloVuelosSummaryHTML = renderSoloVuelosSummaryHTML;
 
+/**
+ * Desglose de una cotización grupal: una columna por cada base de cada hotel.
+ * Vuelos, fee y traslados son del grupo y se prorratean por persona de la base.
+ */
+function renderGrupalSummaryHTML(config, container) {
+    const { currency, cantPax, flightsCost, flightsFee, transfersCost, aplicarRedondeo, hotelList } = config;
+    const operadorVuelos = config.operadorVuelos || '';
+    const operadorTraslados = config.operadorTraslados || '';
+    if (!container) return;
+
+    const columns = [];
+    (hotelList || []).forEach((h, idx) => {
+        (h.bases || []).forEach(b => columns.push({
+            hotelName: h.hotelName || `Opción ${idx + 1}`,
+            operador: h.operador || '',
+            isRecomendado: h.isRecomendado,
+            pax: b.pax,
+            values: computeBasePrices({
+                pax: b.pax, alojamiento: b.costo, grupoPax: cantPax,
+                vuelos: flightsCost, fee: flightsFee, traslados: transfersCost, redondear: aplicarRedondeo
+            })
+        }));
+    });
+
+    if (columns.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-slate-400 text-xs font-semibold">
+                Cargá el costo de al menos una base de habitación.
+            </div>
+        `;
+        return;
+    }
+
+    const money = (val) => `${currency} ${formatPriceES(val)}`;
+    const cells = (fn, cls = 'py-2 px-2 text-right font-semibold text-slate-700') =>
+        columns.map(c => `<td class="${cls}">${fn(c)}</td>`).join('');
+    const conceptCell = (icon, label, extra = '') => `
+        <td class="py-2 pr-2 font-medium text-slate-500 flex items-center gap-1">
+            <img src="/assets/iconos/${icon}" class="w-3.5 h-3.5 icon-slate" alt="${label}">
+            <span class="truncate">${label}</span>
+            ${extra}
+        </td>`;
+
+    const grupo = Math.max(1, cantPax);
+    container.innerHTML = `
+        <div class="mb-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 text-[10px] font-semibold text-slate-500 leading-relaxed">
+            Grupo de <strong class="text-slate-700">${grupo} pax</strong> · Vuelo por persona
+            <strong class="text-slate-700">${money((flightsCost + flightsFee) / grupo)}</strong>
+            ${transfersCost > 0 ? ` · Traslado por persona <strong class="text-slate-700">${money(transfersCost / grupo)}</strong>` : ''}
+        </div>
+        <div class="w-full overflow-x-auto">
+            <table class="w-full min-w-max text-left border-collapse text-[10px] font-medium">
+                <thead>
+                    <tr class="border-b border-slate-200 text-slate-500 font-bold">
+                        <th class="py-2 pr-2 text-[9px] uppercase tracking-wider text-slate-400 w-[130px]">Concepto</th>
+                        ${columns.map(c => `<th class="py-2 px-2 text-right text-[9px] uppercase tracking-wider ${c.isRecomendado ? 'text-brand-primary font-extrabold' : 'text-slate-400 font-bold'} min-w-[80px]">Base ${baseLabel(c.pax)}</th>`).join('')}
+                    </tr>
+                    <tr class="border-b border-slate-100 text-slate-700">
+                        <th class="py-1.5 pr-2 text-[9px] uppercase tracking-wider text-slate-400 font-semibold">Hotel</th>
+                        ${columns.map(c => `<th class="py-1.5 px-2 text-right text-[10px] font-bold text-slate-800 truncate max-w-[100px]" title="${c.hotelName}">${c.hotelName}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-slate-600">
+                    <tr>
+                        ${conceptCell('avion.svg', 'Vuelos', getOperatorTag(operadorVuelos, { compact: true }))}
+                        ${cells(c => `<div class="flex flex-col items-end gap-0.5"><span>${money(c.values.vuelos)}</span><span class="text-[8px] text-slate-400">${c.pax} pax</span></div>`)}
+                    </tr>
+                    <tr class="${flightsFee > 0 ? '' : 'opacity-40'}">
+                        ${conceptCell('gastos.svg', 'Fee Aéreo')}
+                        ${cells(c => c.values.fee > 0 ? money(c.values.fee) : '<span class="text-slate-300">—</span>')}
+                    </tr>
+                    <tr>
+                        ${conceptCell('cama.svg', 'Alojamiento')}
+                        ${cells(c => `<div class="flex flex-col items-end gap-0.5"><span>${money(c.values.alojamiento)}</span>${getOperatorTag(c.operador, { compact: true })}</div>`)}
+                    </tr>
+                    ${transfersCost > 0 ? `
+                    <tr>
+                        ${conceptCell('traslados.svg', 'Traslados', getOperatorTag(operadorTraslados, { compact: true }))}
+                        ${cells(c => money(c.values.traslados))}
+                    </tr>` : ''}
+                    <tr>
+                        ${conceptCell('gastos.svg', 'Gastos Admin (5%)')}
+                        ${cells(c => money(c.values.admin))}
+                    </tr>
+                    <tr>
+                        ${conceptCell('dinero.svg', 'Redondeo')}
+                        ${cells(c => money(c.values.redondeo))}
+                    </tr>
+                    <tr class="bg-slate-50/50 font-bold border-t border-slate-200">
+                        <td class="py-2.5 pr-2 text-[10px] text-slate-800 uppercase tracking-wider flex items-center gap-1">
+                            <img src="/assets/iconos/dinero.svg" class="w-3.5 h-3.5 icon-dark" alt="Total">
+                            <span>Total base</span>
+                        </td>
+                        ${cells(c => money(c.values.total), 'py-2.5 px-2 text-right text-xs text-slate-800 font-extrabold')}
+                    </tr>
+                    <tr class="bg-brand-primary/5 font-bold border-t border-brand-primary/10">
+                        <td class="py-2.5 pr-2 text-[9px] text-brand-primary uppercase tracking-widest flex items-center gap-1">
+                            <img src="/assets/iconos/persona.svg" class="w-3.5 h-3.5 icon-brand" alt="Por persona">
+                            <span class="truncate">Por persona</span>
+                        </td>
+                        ${cells(c => money(c.values.porPax), 'py-2.5 px-2 text-right text-xs text-brand-primary font-extrabold')}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+window.renderGrupalSummaryHTML = renderGrupalSummaryHTML;
+
 function renderMultidestinoSummaryHTML(config, container) {
     const { currency, cantPax, flightsCost, flightsFee, transfersCost, aplicarRedondeo, hotelList } = config;
     const operadorVuelos = config.operadorVuelos || '';
@@ -2290,6 +2555,26 @@ function renderSummaryFromQuoteObject(quote, containerId = 'ver-realtime-breakdo
         return;
     }
 
+    if (isGrupalQuote(quote)) {
+        renderGrupalSummaryHTML({
+            currency,
+            cantPax,
+            flightsCost,
+            flightsFee,
+            transfersCost,
+            aplicarRedondeo,
+            operadorVuelos: quote.operador_vuelos || '',
+            operadorTraslados: quote.operador_traslados || '',
+            hotelList: realHotels.map((h, idx) => ({
+                hotelName: h.nombre || h.hotel_nombre || `Opción ${idx + 1}`,
+                operador: h.operador || '',
+                isRecomendado: idx === 0,
+                bases: hotelBases(h)
+            }))
+        }, container);
+        return;
+    }
+
     let recommendedIdx = realHotels.findIndex(h => h.recomendado || h.hotel_recomendado);
     if (recommendedIdx === -1) recommendedIdx = 0;
 
@@ -2423,11 +2708,13 @@ function updateRealTimeSummary() {
         ...allHotelCards.filter((_, idx) => idx !== recommendedIdx)
     ];
 
+    const grupal = isGrupalMode();
     const hotelList = orderedCards.map((card, idx) => ({
         hotelName: card.querySelector('.hotel-nombre-val')?.value.trim() || `Opción ${idx + 1}`,
         hotelCost: parseFloat(card.querySelector('.hotel-costo-val')?.value) || 0,
         operador: card.querySelector('.hotel-operador-val')?.value.trim() || '',
-        isRecomendado: idx === 0
+        isRecomendado: idx === 0,
+        bases: grupal ? readHotelBases(card) : undefined
     }));
 
     const aplicarRedondeo = document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true;
@@ -2443,8 +2730,11 @@ function updateRealTimeSummary() {
         operadorTraslados: document.getElementById('operador_traslados')?.value.trim() || '',
         hotelList
     };
+    if (grupal) updateGrupalPerPersonHint();
     if (recotizacionBaseline) {
-        renderRecotizacionSummary(recotizacionBaseline, modelFromSummaryConfig(summaryConfig, 'estandar'), container);
+        renderRecotizacionSummary(recotizacionBaseline, modelFromSummaryConfig(summaryConfig, grupal ? 'grupal' : 'estandar'), container);
+    } else if (grupal) {
+        renderGrupalSummaryHTML(summaryConfig, container);
     } else {
         renderSummaryTableHTML(summaryConfig, container);
     }
@@ -2486,7 +2776,7 @@ async function startRecotizacion(quoteId) {
 
     const isMultidestino = quote.tipo_cotizacion === 'multidestino' ||
         (Array.isArray(quote.hoteles) && quote.hoteles.some(h => h.tipo_cotizacion === 'multidestino'));
-    const mode = isMultidestino ? 'multidestino' : (isSoloVuelosQuote(quote) ? 'vuelos' : 'standard');
+    const mode = isMultidestino ? 'multidestino' : quoteModeOf(quote);
 
     window.pendingEditQuoteId = quote.id;
     window.pendingEditQuoteEditable = true;
@@ -2540,6 +2830,20 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
             descInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
             showAlert('warning', 'Superaste el máximo de caracteres (200 máx.). Acota la descripción para continuar.');
             return;
+        }
+    }
+
+    if (isGrupalMode()) {
+        for (const card of hotelOptionCards) {
+            if (readHotelBases(card).length === 0) {
+                const firstBase = card.querySelector('.hotel-base-costo');
+                if (firstBase) {
+                    firstBase.focus();
+                    firstBase.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                showAlert('warning', 'Cargá el costo de al menos una base de habitación para cada hotel.');
+                return;
+            }
         }
     }
 
@@ -2650,8 +2954,18 @@ async function generatePDFPreview(e, isViewingSavedQuote = false) {
         const total = aereosTotal + hotelCost + transfersCost + adminFee;
         const perPerson = total / cantPax;
         const aplicarRedondeo = document.getElementById('aplicar_redondeo') ? document.getElementById('aplicar_redondeo').checked : true;
-        const roundedPerPerson = aplicarRedondeo ? (Math.ceil(perPerson / 10) * 10) : perPerson;
-        const roundedTotal = aplicarRedondeo ? (roundedPerPerson * cantPax) : total;
+        let roundedPerPerson = aplicarRedondeo ? (Math.ceil(perPerson / 10) * 10) : perPerson;
+        let roundedTotal = aplicarRedondeo ? (roundedPerPerson * cantPax) : total;
+        if (isGrupalMode() && primaryHotel?.bases?.length) {
+            // Grupal: la referencia es la primera base del hotel recomendado
+            const b = primaryHotel.bases[0];
+            const prices = computeBasePrices({
+                pax: b.pax, alojamiento: b.costo, grupoPax: cantPax,
+                vuelos: flightsCost, fee: flightsFee, traslados: transfersCost, redondear: aplicarRedondeo
+            });
+            roundedPerPerson = prices.porPax;
+            roundedTotal = prices.total;
+        }
 
         const selectedCurrency = document.getElementById('moneda_seleccionada')?.value || 'USD';
         const elTotal = document.getElementById('res-total-price');
@@ -2769,8 +3083,11 @@ function _buildPayload() {
         hoteles: []
     };
 
+    const grupal = isGrupalMode();
     if (soloVuelos) {
         payload.tipo_cotizacion = 'solo_vuelos';
+    } else if (grupal) {
+        payload.tipo_cotizacion = 'grupal';
     }
 
     if (currentQuoteId) {
@@ -2807,8 +3124,11 @@ function _buildPayload() {
             primaryHotelNochesAlojamiento = nochesAlojamiento;
         }
 
-        const hotelCostVal = parseFloat(card.querySelector('.hotel-costo-val').value) || 0;
-        payload.hoteles.push({
+        const bases = grupal ? readHotelBases(card) : null;
+        const hotelCostVal = grupal
+            ? (bases[0]?.costo || 0)
+            : (parseFloat(card.querySelector('.hotel-costo-val').value) || 0);
+        const hotelData = {
             nombre: card.querySelector('.hotel-nombre-val').value,
             estrellas: card.querySelector('.hotel-estrellas-val').value,
             regimen: card.querySelector('.hotel-regimen-val').value,
@@ -2825,7 +3145,12 @@ function _buildPayload() {
             imagen2: "",
             imagen3: "",
             redondear: aplicarRedondeo
-        });
+        };
+        if (grupal) {
+            hotelData.bases = bases;
+            hotelData.tipo_cotizacion = 'grupal';
+        }
+        payload.hoteles.push(hotelData);
     });
 
     if (primaryHotelNochesAlojamiento) {
@@ -2843,6 +3168,8 @@ function _buildPayload() {
     if (soloVuelos) {
         // La modalidad viaja dentro de la metadata porque la tabla no tiene columna propia
         metadata.tipo_cotizacion = 'solo_vuelos';
+    } else if (grupal) {
+        metadata.tipo_cotizacion = 'grupal';
     }
     payload.hoteles.push(metadata);
 
@@ -3429,6 +3756,7 @@ function updateTransferTypeUI(type) {
 
     if (labelMonto) {
         labelMonto.textContent = (currentTransferType === 'auto') ? 'Monto Alquiler de Vehículo' : 'Monto Traslados In/Out';
+        if (isGrupalMode()) labelMonto.textContent += ' (todo el grupo)';
     }
 }
 window.updateTransferTypeUI = updateTransferTypeUI;
@@ -3783,6 +4111,41 @@ async function fillTestData() {
         return;
     }
 
+    if (isGrupalMode()) {
+        // Grupo de 12: vuelos y traslados del grupo, dos hoteles con base doble, triple y cuádruple
+        document.getElementById('nombre_pax').value = 'Grupo de prueba';
+        document.getElementById('destino').value = 'Punta Cana';
+        document.getElementById('cantidad_pasajeros').value = 12;
+        document.getElementById('monto_vuelos').value = '12000.00';
+        document.getElementById('monto_traslados').value = '600.00';
+        toggleFeeType();
+
+        addHotelCard({
+            nombre: 'Lopesan Costa Bávaro',
+            estrellas: '5',
+            habitacion: 'Junior Suite Tropical',
+            regimen: 'Todo Incluido',
+            descripcion: 'Espectacular resort de 5 estrellas con infinitas piscinas frente a la playa, club de niños y actividades para toda la familia.',
+            imagen1: hotel1B64,
+            bases: [{ pax: 2, costo: 1800 }, { pax: 3, costo: 2400 }, { pax: 4, costo: 2900 }]
+        });
+        addHotelCard({
+            nombre: 'Barceló Bávaro Palace',
+            estrellas: '4',
+            habitacion: 'Superior Room',
+            regimen: 'Todo Incluido',
+            descripcion: 'Resort ideal para grupos con parque acuático, spa y acceso directo a una de las mejores playas del mundo.',
+            imagen1: hotel2B64,
+            bases: [{ pax: 2, costo: 1500 }, { pax: 3, costo: 2000 }, { pax: 4, costo: 2500 }]
+        });
+
+        updateBaseLabel();
+        updateRealTimeSummary();
+        // Genera el PDF completo directamente (lo guarda como cualquier cotización nueva)
+        await generatePDFPreview(null);
+        return;
+    }
+
     // Add Hotel 1 (Nuestra recomendación)
     addHotelCard({
         nombre: 'Lopesan Costa Bávaro',
@@ -3862,7 +4225,7 @@ async function loadSavedQuotesList() {
         ]);
 
         if (!resQuotes.ok) throw new Error("Error al obtener las cotizaciones detalladas.");
-        if (!resQuick.ok) throw new Error("Error al obtener los presupuestos rápidos.");
+        if (!resQuick.ok) throw new Error("Error al obtener los presupuestos.");
 
         allSavedQuotes = await resQuotes.json();
         allSavedQuickQuotes = await resQuick.json();
@@ -3910,12 +4273,12 @@ function updateTabButtonsUI() {
     if (!tabDetalladas || !tabRapidos) return;
 
     if (savedQuotesActiveTab === 'detalladas') {
-        tabDetalladas.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-slate-200 bg-white text-slate-800 -mb-[1px] relative z-20 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
-        tabRapidos.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mb-[1px] relative z-10 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        tabDetalladas.className = "px-6 py-3 text-xs font-bold rounded-t-2xl border-t border-x border-slate-200 bg-white text-slate-800 -mb-[1px] relative z-20 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        tabRapidos.className = "px-6 py-3 text-xs font-bold rounded-t-2xl border-t border-x border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mb-[1px] relative z-10 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
         if (searchInput) searchInput.placeholder = "Buscar por pasajero o destino...";
     } else {
-        tabDetalladas.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mb-[1px] relative z-10 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
-        tabRapidos.className = "px-6 py-3 text-xs font-bold uppercase tracking-wider rounded-t-2xl border-t border-x border-slate-200 bg-white text-slate-800 -mb-[1px] relative z-20 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        tabDetalladas.className = "px-6 py-3 text-xs font-bold rounded-t-2xl border-t border-x border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 -mb-[1px] relative z-10 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
+        tabRapidos.className = "px-6 py-3 text-xs font-bold rounded-t-2xl border-t border-x border-slate-200 bg-white text-slate-800 -mb-[1px] relative z-20 cursor-pointer flex items-center gap-2 transition-all duration-200 ease-in-out";
         if (searchInput) searchInput.placeholder = "Buscar por pasajero...";
     }
 }
@@ -4022,7 +4385,7 @@ function renderAgentFilters() {
     if (agentsMap.size === 0) return;
 
     const label = document.createElement('span');
-    label.className = 'text-[10px] font-bold text-slate-450 uppercase tracking-wider mr-1';
+    label.className = 'text-[10px] font-bold text-slate-450 mr-1';
     label.innerText = 'Filtrar Agente:';
     container.appendChild(label);
 
@@ -4092,7 +4455,7 @@ function renderActiveTabTable(customFilteredList = null) {
     if (savedQuotesActiveTab === 'detalladas') {
         // Detailed headers (no text for delete column header)
         thead.innerHTML = `
-            <tr class="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+            <tr class="border-b border-slate-200 text-slate-400 font-bold text-[10px]">
                 <th class="p-3 hidden sm:table-cell">Fecha Creado</th>
                 <th class="p-3">Pasajero</th>
                 <th class="p-3">Destino</th>
@@ -4192,7 +4555,7 @@ function renderActiveTabTable(customFilteredList = null) {
     } else {
         // Quick Budgets headers (no text for delete column header)
         thead.innerHTML = `
-            <tr class="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+            <tr class="border-b border-slate-200 text-slate-400 font-bold text-[10px]">
                 <th class="p-3 hidden sm:table-cell">Fecha Creado</th>
                 <th class="p-3">Pasajero</th>
                 <th class="p-3 hidden md:table-cell">Operador</th>
@@ -4213,7 +4576,7 @@ function renderActiveTabTable(customFilteredList = null) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="6" class="p-8 text-center text-slate-400 font-semibold">
-                        No se encontraron presupuestos rápidos.
+                        No se encontraron presupuestos.
                     </td>
                 </tr>
             `;
@@ -4475,7 +4838,7 @@ function filterSavedQuotes(resetPage = true) {
 
 async function deleteSavedQuickQuote(quoteId) {
     showCustomConfirm({
-        title: '¿Eliminar cotización rápida?',
+        title: '¿Eliminar presupuesto?',
         desc: 'Esta acción borrará el registro de Supabase de forma definitiva. No se puede deshacer.',
         btnText: 'Sí, Eliminar',
         confirmColorClass: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
@@ -4486,9 +4849,9 @@ async function deleteSavedQuickQuote(quoteId) {
                 });
                 if (!res.ok) {
                     const errData = await res.json().catch(() => ({}));
-                    throw new Error(errData.detail || "No se pudo eliminar la cotización rápida.");
+                    throw new Error(errData.detail || "No se pudo eliminar el presupuesto.");
                 }
-                showAlert('success', 'Cotización rápida eliminada con éxito.');
+                showAlert('success', 'Presupuesto eliminado con éxito.');
                 loadSavedQuotesList();
             } catch (e) {
                 showAlert('warning', 'Error al eliminar: ' + e.message);
@@ -4588,7 +4951,7 @@ function enableFormEditing(enabled) {
     });
 
     // Deshabilitar botones de añadir/remover hotel
-    const actionButtons = form.querySelectorAll('.add-hotel-btn, .btn-remove-hotel, .btn-optimize-desc, .btn-hotel-picker');
+    const actionButtons = form.querySelectorAll('.add-hotel-btn, .btn-remove-hotel, .btn-optimize-desc, .btn-hotel-picker, .btn-hotel-base');
     actionButtons.forEach(btn => {
         if (enabled) {
             btn.style.pointerEvents = 'auto';
@@ -4664,11 +5027,12 @@ async function loadSavedQuoteIntoForm(quoteId, forceEditMode = false) {
 
         // La cotización y el formulario abierto deben ser de la misma modalidad
         const isSoloVuelos = isSoloVuelosQuote(q);
-        if (isSoloVuelos !== isSoloVuelosMode()) {
+        const quoteMode = quoteModeOf(q);
+        if (quoteMode !== currentQuoteMode) {
             window.pendingEditQuoteId = quoteId;
             window.pendingEditQuoteEditable = forceEditMode;
             window.hideLoader();
-            navigateTo((isSoloVuelos ? '/cotizacion-vuelos?id=' : '/cotizacion-completa?id=') + quoteId);
+            navigateTo(QUOTE_MODE_PATHS[quoteMode] + '?id=' + quoteId);
             return;
         }
 
@@ -5048,7 +5412,8 @@ export async function switchQuoteMode(targetMode, preserveData = true) {
     const QUOTE_MODES = {
         standard: { index: 0, button: 'btn-mode-standard', title: 'Cotización Estándar', path: '/cotizacion-completa' },
         multidestino: { index: 1, button: 'btn-mode-multidestino', title: 'Cotización Multidestino', path: '/cotizacion-multidestino' },
-        vuelos: { index: 2, button: 'btn-mode-vuelos', title: 'Cotización Solo Vuelos', path: '/cotizacion-vuelos' }
+        vuelos: { index: 2, button: 'btn-mode-vuelos', title: 'Cotización Solo Vuelos', path: '/cotizacion-vuelos' },
+        grupal: { index: 3, button: 'btn-mode-grupal', title: 'Cotización Grupal / Family Plan', path: '/cotizacion-grupal' }
     };
 
     const mode = QUOTE_MODES[targetMode] ? targetMode : 'standard';
@@ -5099,6 +5464,8 @@ export async function switchQuoteMode(targetMode, preserveData = true) {
 
     if (mode === 'vuelos') {
         applySoloVuelosLayout();
+    } else if (mode === 'grupal') {
+        applyGrupalLayout();
     }
 
     initCotizarStandard();
@@ -5121,6 +5488,8 @@ export async function initCotizar() {
         switchQuoteMode('multidestino', false);
     } else if (path === '/cotizacion-vuelos' || modoParam === 'vuelos') {
         switchQuoteMode('vuelos', false);
+    } else if (path === '/cotizacion-grupal' || modoParam === 'grupal') {
+        switchQuoteMode('grupal', false);
     } else {
         switchQuoteMode('standard', false);
     }
@@ -5568,10 +5937,8 @@ export async function editQuoteFromView() {
         navigateTo('/cotizacion-crucero?id=' + quoteId);
     } else if (isMultidestino) {
         navigateTo('/cotizacion-multidestino?id=' + quoteId);
-    } else if (isSoloVuelosQuote(quote)) {
-        navigateTo('/cotizacion-vuelos?id=' + quoteId);
     } else {
-        navigateTo('/cotizacion-completa?id=' + quoteId);
+        navigateTo(QUOTE_MODE_PATHS[quoteModeOf(quote)] + '?id=' + quoteId);
     }
 }
 window.editQuoteFromView = editQuoteFromView;
@@ -5618,6 +5985,8 @@ async function duplicateQuoteFromView() {
             navigateTo('/cotizacion-multidestino?id=' + cloned.id);
         } else if (isSoloVuelosQuote(cloned) || isSoloVuelosQuote(window.currentViewQuote)) {
             navigateTo('/cotizacion-vuelos?id=' + cloned.id);
+        } else if (isGrupalQuote(cloned) || isGrupalQuote(window.currentViewQuote)) {
+            navigateTo('/cotizacion-grupal?id=' + cloned.id);
         } else {
             navigateTo('/cotizacion-completa?id=' + cloned.id);
         }
