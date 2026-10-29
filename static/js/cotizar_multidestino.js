@@ -1513,10 +1513,14 @@ async function loadMultidestinoQuoteIntoForm(quoteId, forceEditMode = true) {
         if (!isMultidestino) {
             const esSoloVuelos = window.isSoloVuelosQuote ? window.isSoloVuelosQuote(q) : false;
             const esCrucero = window.isCruceroQuote ? window.isCruceroQuote(q) : false;
+            const esGrupal = window.isGrupalQuote ? window.isGrupalQuote(q) : false;
             window.pendingEditQuoteId = quoteId;
             window.pendingEditQuoteEditable = forceEditMode;
             window.hideLoader ? window.hideLoader() : null;
-            const ruta = esCrucero ? '/cotizacion-crucero?id=' : (esSoloVuelos ? '/cotizacion-vuelos?id=' : '/cotizacion-completa?id=');
+            const ruta = esCrucero ? '/cotizacion-crucero?id='
+                : esSoloVuelos ? '/cotizacion-vuelos?id='
+                : esGrupal ? '/cotizacion-grupal?id='
+                : '/cotizacion-completa?id=';
             navigateTo(ruta + quoteId);
             return;
         }

@@ -320,6 +320,15 @@ def generate_pdf(data: dict) -> bytes:
         )
     )
 
+    # Detect if this is a group / family plan quotation (prices per room base)
+    is_grupal = not is_solo_vuelos and not is_multidestino and (
+        str(data.get("tipo_cotizacion", "")).strip().lower() == "grupal"
+        or any(
+            isinstance(h, dict) and str(h.get("tipo_cotizacion", "")).strip().lower() == "grupal"
+            for h in hoteles_raw
+        )
+    )
+
     # ── Process hotel data ─────────────────────────────────────────────────
     hoteles = [] if is_solo_vuelos else [h for h in hoteles_raw if h.get("nombre") not in ("METADATA_COTIZACION", "METADATA_PRESUPUESTO_RAPIDO")]
     processed_hotels = []
@@ -389,6 +398,22 @@ def generate_pdf(data: dict) -> bytes:
             h["precio_persona"] = float(h["precio_persona"])
         except (ValueError, TypeError):
             h["precio_persona"] = 0.0
+
+        if is_grupal:
+            bases = []
+            for b in h.get("bases") or []:
+                if not isinstance(b, dict):
+                    continue
+                try:
+                    bases.append({
+                        "pax": int(b.get("pax") or 0),
+                        "label": b.get("label") or f"{b.get('pax')} personas",
+                        "costo": float(b.get("costo") or 0.0),
+                        "precio_persona": float(b.get("precio_persona") or 0.0),
+                    })
+                except (ValueError, TypeError):
+                    continue
+            h["bases"] = [b for b in bases if b["pax"] > 0]
 
         processed_hotels.append(h)
 
@@ -494,6 +519,7 @@ def generate_pdf(data: dict) -> bytes:
         # Multidestino / solo vuelos flags and unified pricing
         "is_multidestino": is_multidestino,
         "is_solo_vuelos": is_solo_vuelos,
+        "is_grupal": is_grupal,
         "costo_total_general": costo_total_general,
         "precio_persona_general": precio_persona_general,
         # SVGs for dynamic inlining and styling

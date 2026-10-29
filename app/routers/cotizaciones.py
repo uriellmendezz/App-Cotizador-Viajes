@@ -229,14 +229,33 @@ def is_crucero_quote(data: dict) -> bool:
     return False
 
 
+def is_grupal_quote(data: dict) -> bool:
+    """
+    Checks if a quote is a group / family plan ('grupal'): flights are loaded for
+    the whole group and each hotel is priced per room base (doble, triple...).
+    """
+    if not isinstance(data, dict):
+        return False
+    if str(data.get("tipo_cotizacion", "")).strip().lower() == "grupal":
+        return True
+    hoteles_raw = data.get("hoteles", [])
+    if isinstance(hoteles_raw, list):
+        for h in hoteles_raw:
+            if isinstance(h, dict) and str(h.get("tipo_cotizacion", "")).strip().lower() == "grupal":
+                return True
+    return False
+
+
 def quote_type_label(data: dict) -> str:
-    """Modality label exposed to the frontend: crucero / multidestino / solo_vuelos / estandar."""
+    """Modality label exposed to the frontend: crucero / multidestino / solo_vuelos / grupal / estandar."""
     if is_crucero_quote(data):
         return "crucero"
     if is_multidestino_quote(data):
         return "multidestino"
     if is_solo_vuelos_quote(data):
         return "solo_vuelos"
+    if is_grupal_quote(data):
+        return "grupal"
     return "estandar"
 
 
@@ -286,6 +305,68 @@ def _solo_vuelos_totals(monto_vuelos: float, fee_aereo: float, gastos_iva: float
         rounded_pp = math.ceil(precio_persona / 10.0) * 10
         return rounded_pp * cant_pax, rounded_pp
     return round(costo_total, 2), round(precio_persona, 2)
+
+
+BASE_LABELS = {1: "Single", 2: "Doble", 3: "Triple", 4: "Cuádruple", 5: "Quíntuple", 6: "Séxtuple"}
+
+
+def base_label(pax: int) -> str:
+    return BASE_LABELS.get(pax, f"{pax} personas")
+
+
+def _apply_grupal_totals(quote: dict, hoteles: list, monto_vuelos: float, fee_aereo: float,
+                         monto_traslados: float, gastos_iva: float, cant_pax: int, redondear: bool) -> None:
+    """
+    Group / family plan quote: flights, air fee, transfers and taxes are loaded for
+    the whole group and prorated per person. Each hotel carries its room bases
+    (`bases`: [{pax, costo}]) and every base is priced as:
+    room cost + per-person air/transfers x pax + 5% admin fee over the land services.
+    """
+    grupo = cant_pax if cant_pax > 0 else 1
+    vuelo_pp = monto_vuelos / grupo
+    fee_pp = fee_aereo / grupo
+    traslados_pp = monto_traslados / grupo
+    iva_pp = gastos_iva / grupo
+
+    for hotel in hoteles:
+        bases = []
+        for b in hotel.get("bases") or []:
+            if not isinstance(b, dict):
+                continue
+            pax = safe_int(b.get("pax"), 0)
+            if pax < 1:
+                continue
+            costo_aloj = safe_float(b.get("costo_neto") if "costo_neto" in b else b.get("costo"))
+            traslados_base = traslados_pp * pax
+            gastos_admin = (costo_aloj + traslados_base) * 0.05
+            total = (vuelo_pp + fee_pp + iva_pp) * pax + costo_aloj + traslados_base + gastos_admin
+            precio_pp = total / pax
+            if redondear:
+                precio_pp = math.ceil(precio_pp / 10.0) * 10
+                total = precio_pp * pax
+            bases.append({
+                "pax": pax,
+                "label": base_label(pax),
+                "costo_neto": costo_aloj,
+                "costo": round(total, 2),
+                "precio_persona": round(precio_pp, 2),
+            })
+        bases.sort(key=lambda b: b["pax"])
+
+        hotel["bases"] = bases
+        hotel["tipo_cotizacion"] = "grupal"
+        hotel["redondear"] = redondear
+        # La primera base queda como precio de referencia del hotel (listados, CSV)
+        first = bases[0] if bases else {"costo_neto": 0.0, "costo": 0.0, "precio_persona": 0.0}
+        hotel["costo_neto"] = first["costo_neto"]
+        hotel["costo"] = first["costo"]
+        hotel["precio_persona"] = first["precio_persona"]
+
+    if hoteles:
+        quote["costo_total"] = hoteles[0]["costo"]
+        quote["precio_persona"] = hoteles[0]["precio_persona"]
+    else:
+        quote["costo_total"], quote["precio_persona"] = 0.0, 0.0
 
 
 def _calculate_noches_and_format_hotels(quote: dict) -> str:
@@ -890,6 +971,9 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
     is_multidestino = False if (is_solo_vuelos or is_crucero) else is_multidestino_quote(quote)
     if is_multidestino:
         quote["tipo_cotizacion"] = "multidestino"
+    is_grupal = False if (is_solo_vuelos or is_crucero or is_multidestino) else is_grupal_quote(quote)
+    if is_grupal:
+        quote["tipo_cotizacion"] = "grupal"
 
     if is_crucero:
         _apply_crucero_totals(quote, hoteles, monto_vuelos, fee_aereo, monto_traslados, gastos_iva, cant_pax, redondear)
@@ -897,6 +981,8 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
         quote["costo_total"], quote["precio_persona"] = _solo_vuelos_totals(
             monto_vuelos, fee_aereo, gastos_iva, cant_pax, redondear
         )
+    elif is_grupal:
+        _apply_grupal_totals(quote, hoteles, monto_vuelos, fee_aereo, monto_traslados, gastos_iva, cant_pax, redondear)
     elif is_multidestino:
         # AND operator: Sum all hotel stops for a single unified itinerary cost
         suma_costo_hoteles = sum(
@@ -957,12 +1043,15 @@ def api_cotizar_pdf(quote: dict, current_user: dict = Depends(get_current_active
                 h["tipo_cotizacion"] = "solo_vuelos"
             elif is_crucero:
                 h["tipo_cotizacion"] = "crucero"
+            elif is_grupal:
+                h["tipo_cotizacion"] = "grupal"
 
     base_habitacion = "Single"
     if cant_pax == 2: base_habitacion = "Doble"
     elif cant_pax == 3: base_habitacion = "Triple"
     elif cant_pax == 4: base_habitacion = "Cuádruple"
     elif cant_pax > 4: base_habitacion = "Grupal"
+    if is_grupal: base_habitacion = "Grupal"
     quote["base_habitacion"] = base_habitacion
     
     noches_alojamiento = _calculate_noches_and_format_hotels(quote)
@@ -1129,6 +1218,7 @@ def api_exportar_cotizaciones_csv(current_user: dict = Depends(get_current_activ
             q.get("cantidad_pasajeros") or "",
             "Crucero" if is_crucero_quote(q)
             else "Solo vuelos" if is_solo_vuelos_quote(q)
+            else "Grupal" if is_grupal_quote(q)
             else ("Multidestino" if len(hoteles) > 1 and all(h.get("destino") for h in hoteles) else "Estándar"),
             extract_currency(q.get("hoteles") or []),
             _csv_date(q.get("fecha_salida")),
@@ -1271,6 +1361,9 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
     is_multidestino = False if (is_solo_vuelos or is_crucero) else is_multidestino_quote(payload)
     if is_multidestino:
         payload["tipo_cotizacion"] = "multidestino"
+    is_grupal = False if (is_solo_vuelos or is_crucero or is_multidestino) else is_grupal_quote(payload)
+    if is_grupal:
+        payload["tipo_cotizacion"] = "grupal"
 
     if is_crucero:
         _apply_crucero_totals(payload, hoteles, monto_vuelos, fee_aereo, monto_traslados, gastos_iva, cant_pax, redondear)
@@ -1278,6 +1371,8 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
         payload["costo_total"], payload["precio_persona"] = _solo_vuelos_totals(
             monto_vuelos, fee_aereo, gastos_iva, cant_pax, redondear
         )
+    elif is_grupal:
+        _apply_grupal_totals(payload, hoteles, monto_vuelos, fee_aereo, monto_traslados, gastos_iva, cant_pax, redondear)
     elif is_multidestino:
         # AND operator: Sum all hotel stops for a single unified itinerary cost
         suma_costo_hoteles = sum(
@@ -1343,6 +1438,8 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
             elif is_crucero:
                 h["tipo_cotizacion"] = "crucero"
                 h["crucero"] = crucero_data
+            elif is_grupal:
+                h["tipo_cotizacion"] = "grupal"
             meta_found = True
             break
     if not meta_found:
@@ -1358,6 +1455,8 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
         elif is_crucero:
             meta_dict["tipo_cotizacion"] = "crucero"
             meta_dict["crucero"] = crucero_data
+        elif is_grupal:
+            meta_dict["tipo_cotizacion"] = "grupal"
         hoteles_raw.append(meta_dict)
         
     base_habitacion = "Single"
@@ -1365,6 +1464,7 @@ def api_save_cotizacion(payload: dict, current_user: dict = Depends(get_current_
     elif cant_pax == 3: base_habitacion = "Triple"
     elif cant_pax == 4: base_habitacion = "Cuádruple"
     elif cant_pax > 4: base_habitacion = "Grupal"
+    if is_grupal: base_habitacion = "Grupal"
     payload["base_habitacion"] = base_habitacion
     
     noches_alojamiento = _calculate_noches_and_format_hotels(payload)

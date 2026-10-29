@@ -32,6 +32,7 @@ const TIPO_LABELS = {
     estandar: 'Cotización',
     multidestino: 'Multidestino',
     vuelos: 'Solo vuelos',
+    grupal: 'Grupal',
     crucero: 'Crucero',
     rapida: 'Presupuesto'
 };
@@ -82,6 +83,52 @@ export function computePrices({ vuelos = 0, fee = 0, alojamiento = 0, traslados 
         total: round2(totalFinal),
         porPax: round2(porPax)
     };
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// GRUPAL / FAMILY PLAN
+// ──────────────────────────────────────────────────────────────────────────────
+
+const BASE_LABELS = { 1: 'Single', 2: 'Doble', 3: 'Triple', 4: 'Cuádruple', 5: 'Quíntuple', 6: 'Séxtuple' };
+
+export function baseLabel(pax) {
+    const n = parseInt(pax, 10) || 0;
+    return BASE_LABELS[n] || `${n} personas`;
+}
+
+/** Detecta si una cotización es grupal (vuelos del grupo + alojamiento por base). */
+export function isGrupalQuote(quote) {
+    if (!quote) return false;
+    if (String(quote.tipo_cotizacion || '').toLowerCase() === 'grupal') return true;
+    return Array.isArray(quote.hoteles) &&
+        quote.hoteles.some(h => h && String(h.tipo_cotizacion || '').toLowerCase() === 'grupal');
+}
+
+/**
+ * Precio de una base de habitación: los vuelos, el fee, los traslados y el IVA se
+ * cargan para todo el grupo y se prorratean por persona; el alojamiento es el costo
+ * de la habitación para esa base. Misma fórmula que _apply_grupal_totals (backend).
+ */
+export function computeBasePrices({ pax, alojamiento = 0, grupoPax = 1, vuelos = 0, fee = 0, traslados = 0, iva = 0, redondear = false }) {
+    const grupo = Math.max(1, parseInt(grupoPax, 10) || 1);
+    const n = Math.max(1, parseInt(pax, 10) || 1);
+    return computePrices({
+        vuelos: num(vuelos) / grupo * n,
+        fee: num(fee) / grupo * n,
+        traslados: num(traslados) / grupo * n,
+        iva: num(iva) / grupo * n,
+        alojamiento,
+        cantPax: n,
+        redondear
+    });
+}
+
+/** Bases guardadas de un hotel grupal, con el costo neto de la habitación. */
+export function hotelBases(h) {
+    return (Array.isArray(h?.bases) ? h.bases : [])
+        .map(b => ({ pax: parseInt(b.pax, 10) || 0, costo: num(b.costo_neto !== undefined ? b.costo_neto : b.costo) }))
+        .filter(b => b.pax > 0)
+        .sort((a, b) => a.pax - b.pax);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -210,6 +257,21 @@ export function buildQuoteModel(quote) {
 
     const flightsTotal = flightsCost + flightsFee;
 
+    if (isGrupalQuote(quote)) {
+        const info = baseInfo(quote, 'grupal');
+        const columns = [];
+        hoteles.forEach((h, idx) => {
+            hotelBases(h).forEach(b => columns.push({
+                name: `${h.nombre || `Opción ${idx + 1}`} · ${baseLabel(b.pax)}`,
+                values: computeBasePrices({
+                    pax: b.pax, alojamiento: b.costo, grupoPax: info.cantPax,
+                    vuelos: flightsCost, fee: flightsFee, traslados: transfersCost, iva, redondear
+                })
+            }));
+        });
+        return { ...info, columns };
+    }
+
     if (esMulti) {
         const info = baseInfo(quote, 'multidestino');
         const alojamiento = hoteles.reduce((acc, h) => acc + netHotelCost(h, quote, flightsTotal, transfersCost), 0);
@@ -254,6 +316,19 @@ export function modelFromSummaryConfig(config, tipo = 'estandar') {
 
     if (tipo === 'vuelos') {
         return { ...base, columns: [{ name: 'Servicios aéreos', values: computePrices(common) }] };
+    }
+    if (tipo === 'grupal') {
+        const columns = [];
+        hotelList.forEach((h, idx) => {
+            (h.bases || []).forEach(b => columns.push({
+                name: `${h.hotelName || `Opción ${idx + 1}`} · ${baseLabel(b.pax)}`,
+                values: computeBasePrices({
+                    pax: b.pax, alojamiento: b.costo, grupoPax: base.cantPax,
+                    vuelos: flightsCost, fee: flightsFee, traslados: transfersCost, redondear: aplicarRedondeo
+                })
+            }));
+        });
+        return { ...base, columns };
     }
     if (tipo === 'multidestino') {
         const alojamiento = hotelList.reduce((acc, h) => acc + num(h.hotelCost), 0);
@@ -424,7 +499,7 @@ export function renderRecotizacionSummary(baseline, current, container, { exitHa
         for (let i = 0; i < columnCount; i++) {
             cells += cell(concepto, current.columns[i]?.values[concepto.key], baseline.columns[i]?.values[concepto.key]);
         }
-        const label = concepto.key === 'porPax' ? `Por Pax (${current.cantPax})` : concepto.label;
+        const label = concepto.key === 'porPax' ? (current.tipo === 'grupal' ? 'Por Persona' : `Por Pax (${current.cantPax})`) : concepto.label;
         const rowCls = concepto.key === 'total'
             ? 'bg-slate-50/50 border-t border-slate-200'
             : (concepto.key === 'porPax' ? 'bg-brand-primary/5 border-t border-brand-primary/10' : '');

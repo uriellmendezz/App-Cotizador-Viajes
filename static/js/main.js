@@ -535,6 +535,7 @@ const routeNames = {
     '/cotizacion-completa': 'Cotización',
     '/cotizacion-multidestino': 'Cotización',
     '/cotizacion-vuelos': 'Cotización',
+    '/cotizacion-grupal': 'Cotización',
     '/cotizacion-crucero': 'Cotización de Crucero',
     '/editar': 'Creados',
     '/comparar': 'Comparar Cotizaciones',
@@ -617,7 +618,7 @@ const VIEW_LEAVE_MS = 80;
 // su estado limpio) a partir del texto en memoria, sin pasar por la red.
 // Cambiar APP_VERSION al publicar cambios en los módulos compartidos.
 // ──────────────────────────────────────────────────────────────────────────────
-const APP_VERSION = '2.5.1';
+const APP_VERSION = '2.6.0';
 window.APP_VERSION = APP_VERSION;
 
 const appCaches = (() => {
@@ -705,6 +706,7 @@ const routes = {
     '/cotizacion-completa': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/cotizacion-multidestino': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/cotizacion-vuelos': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
+    '/cotizacion-grupal': { html: '/static/views/cotizar_detallado.html', js: '/static/js/cotizar.js', init: 'initCotizar' },
     '/cotizacion-crucero': { html: '/static/views/cotizar_crucero.html', js: '/static/js/cotizar_crucero.js', init: 'initCotizarCrucero' },
     '/editar': { html: '/static/views/cotizaciones_guardadas.html', js: '/static/js/cotizar.js', init: 'initSavedQuotes' },
     '/ver-cotizacion': { html: '/static/views/ver_cotizacion.html', js: '/static/js/cotizar.js', init: 'initVerCotizacion' },
@@ -1106,7 +1108,7 @@ function updateNavActiveState(path) {
     let btnId = '';
     if (path === '/inicio' || path === '/') btnId = 'sidebar-btn-inicio';
     else if (path === '/cotizacion-rapida') btnId = 'sidebar-btn-quick-quote';
-    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino' || path === '/cotizacion-vuelos' || path === '/cotizacion-crucero') btnId = 'sidebar-btn-full-quote';
+    else if (path === '/cotizacion-completa' || path === '/cotizacion-multidestino' || path === '/cotizacion-vuelos' || path === '/cotizacion-grupal' || path === '/cotizacion-crucero') btnId = 'sidebar-btn-full-quote';
     else if (path === '/editar') btnId = 'sidebar-btn-editar';
     else if (path === '/comparar') btnId = 'sidebar-btn-comparar';
     else if (path === '/paquetes') btnId = 'sidebar-btn-paquetes';
@@ -1207,6 +1209,12 @@ window.addEventListener('keydown', async (e) => {
         if ((path === '/cotizacion-completa' || path === '/cotizacion-vuelos') && typeof window.fillTestData === 'function') {
             e.preventDefault();
             await window.fillTestData();
+        } else if (path === '/cotizacion-grupal' && typeof window.fillTestData === 'function') {
+            // Grupal: carga 12 pax con dos hoteles (base doble, triple y cuádruple) y genera el PDF
+            e.preventDefault();
+            if (window._grupalTestRunning) return;
+            window._grupalTestRunning = true;
+            try { await window.fillTestData(); } finally { window._grupalTestRunning = false; }
         } else if (path === '/cotizacion-crucero' && typeof window.fillCruceroTestData === 'function') {
             e.preventDefault();
             await window.fillCruceroTestData();
