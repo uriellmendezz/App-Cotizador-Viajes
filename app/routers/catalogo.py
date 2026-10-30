@@ -8,7 +8,7 @@ from app.database import (
 )
 from app.lugares_hoteles import (
     normalizar_destino, describir_lugar, identificar_hotel, buscar_hotel,
-    sugerir_lugares, coincide_con_lo_escrito
+    sugerir_lugares, coincide_con_lo_escrito, claves_del_destino, es_del_destino
 )
 
 router = APIRouter(prefix="/api", tags=["catalogo"])
@@ -25,7 +25,8 @@ LOGO_PATH_RE = re.compile(r"^/assets/logos_aerolineas/[A-Za-z0-9_.-]+$")
 
 # Operadores mayoristas con los que trabaja la agencia (los logos viven en /assets)
 OPERADORES = ("ola", "delfos", "360")
-CAMPOS_COMISION = ("pct_terrestre", "pct_aereo", "pct_paquete")
+# pct_*: gastos de gestión que cobra el operador; pct_entrega: entrega inicial que exige al financiar un paquete
+CAMPOS_COMISION = ("pct_terrestre", "pct_aereo", "pct_paquete", "pct_entrega")
 
 def _is_data_image(value) -> bool:
     return isinstance(value, str) and bool(DATA_IMAGE_RE.match(value))
@@ -90,8 +91,17 @@ def _normalize_hotel(payload: dict) -> dict:
         "fotos": fotos[:MAX_FOTOS_HOTEL],
     }
 
+# Listado liviano: solo la portada (primera foto) sale de la base, no todas las fotos en base64.
+# `total_fotos` es una columna calculada (scripts/009); sin ella, list_rows reintenta con "*".
+HOTEL_LIST_COLUMNS = (
+    "id, nombre, destino, estrellas, regimen, habitacion, descripcion, hotel_id, "
+    "sucursal_id, agente_id, agente_nombre, created_at, updated_at, total_fotos, portada:fotos->>0"
+)
+
 def _hotel_summary(row: dict) -> dict:
     """List view: only the cover photo travels to the client to keep the payload light."""
+    if "fotos" not in row:
+        return {**row, "portada": row.get("portada") or "", "total_fotos": row.get("total_fotos") or 0}
     fotos = row.get("fotos") or []
     summary = {k: v for k, v in row.items() if k != "fotos"}
     summary["portada"] = fotos[0] if fotos else ""
@@ -138,9 +148,13 @@ def _vincular_hotel(data: dict, current_user: dict, ficha_id=None, hotel_actual_
     }
 
 @router.get("/hoteles")
-def api_list_hoteles(current_user: dict = Depends(get_current_active_agent)):
+def api_list_hoteles(destino: str = "", current_user: dict = Depends(get_current_active_agent)):
+    """Con `destino`, solo los hoteles de ese destino ("pta cana" encuentra los de "Punta Cana")."""
     _require_agent(current_user)
-    rows = list_rows(TABLE_HOTELES, current_user.get("sucursal_id"), current_user.get("id"))
+    rows = list_rows(TABLE_HOTELES, current_user.get("sucursal_id"), current_user.get("id"), HOTEL_LIST_COLUMNS)
+    if destino.strip():
+        claves = claves_del_destino(destino)
+        rows = [r for r in rows if es_del_destino(r.get("destino"), claves)]
     return [_hotel_summary(r) for r in rows]
 
 @router.get("/hoteles/identificar")
@@ -274,7 +288,7 @@ def api_update_comision(operador: str, payload: dict, current_user: dict = Depen
     else:
         saved = save_row(TABLE_COMISIONES, {"operador": operador, **cambios, **_ownership_fields(current_user)})
     if not saved:
-        raise HTTPException(status_code=500, detail="No se pudo guardar la comisión. Verifique que la tabla 'comisiones_operadores' exista en la base de datos.")
+        raise HTTPException(status_code=500, detail="No se pudo guardar el porcentaje. Verifique que la tabla 'comisiones_operadores' exista y que se haya corrido scripts/009_entrega_operadores_catalogo.sql.")
     return _comision_view(operador, saved)
 
 

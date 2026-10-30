@@ -1111,7 +1111,7 @@ function openQuickHotelPicker(el) {
     openHotelPicker((hotel) => {
         applyHotelToQuickRow(tr, hotel);
         window.showAlert?.('success', `Se cargaron los datos de "${hotel.nombre}" desde tu cat\u00e1logo.`, true);
-    });
+    }, { destino: document.getElementById('rapido-destino')?.value.trim() || '' });
 }
 window.openQuickHotelPicker = openQuickHotelPicker;
 

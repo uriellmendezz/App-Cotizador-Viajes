@@ -487,7 +487,7 @@ function renderHotelCard(etapa, data = {}) {
             if (foto) setImage(target, foto);
             updateSummary();
             window.showAlert?.('success', `Se cargaron los datos de "${hotel.nombre}" desde tu catálogo.`, true);
-        });
+        }, { destino: card.querySelector('.h-ciudad').value.trim() });
     });
     updateCurrencyLabels();
 }

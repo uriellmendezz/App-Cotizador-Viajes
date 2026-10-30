@@ -618,7 +618,7 @@ const VIEW_LEAVE_MS = 80;
 // su estado limpio) a partir del texto en memoria, sin pasar por la red.
 // Cambiar APP_VERSION al publicar cambios en los módulos compartidos.
 // ──────────────────────────────────────────────────────────────────────────────
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.7.0';
 window.APP_VERSION = APP_VERSION;
 
 const appCaches = (() => {

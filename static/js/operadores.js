@@ -1,26 +1,29 @@
-// operadores.js - Operadores mayoristas y sus comisiones
-// Lo usan: Configuración (ajuste de porcentajes) y Paquetes Promocionales (cálculo de comisión).
+// operadores.js - Operadores mayoristas, sus gastos de gestión y la entrega que exigen
+// Lo usan: Configuración (ajuste de porcentajes) y Paquetes Promocionales (precio final y cuotas).
 
+// El ?v= fuerza a los navegadores a bajar de nuevo el logo cuando cambia el archivo (los assets se cachean un día)
 export const OPERADORES = [
-    { id: 'ola', nombre: 'Ola', logo: '/assets/logo_ola.png' },
-    { id: 'delfos', nombre: 'Delfos', logo: '/assets/logo_delfos.webp' },
-    // El ?v= fuerza a los navegadores a bajar de nuevo el logo cuando cambia el archivo (los assets se cachean un día)
-    { id: '360', nombre: '360 Tour Operator', logo: '/assets/logo_360viajes.png?v=2' }
+    { id: 'ola', nombre: 'Ola', logo: '/assets/logo_ola.png?v=3' },
+    { id: 'delfos', nombre: 'Delfos', logo: '/assets/logo_delfos.png?v=3' },
+    { id: '360', nombre: '360 Tour Operator', logo: '/assets/logo_360viajes.png?v=3' }
 ];
 
-// Los logos tienen proporciones distintas: con la misma altura y ancho automático los tres se ven del mismo tamaño
-export const LOGO_OPERADOR_CLASS = 'h-14 w-auto object-contain';
+// Los logos son cuadrados de 500x500 con el mismo margen transparente: con un tamaño fijo cuadrado los tres se ven parejos
+export const LOGO_OPERADOR_CLASS = 'h-24 w-24 object-contain';
 
 export const getOperador = (id) => OPERADORES.find(o => o.id === id) || null;
 
-// Tipos de servicio sobre los que cada operador paga comisión
+// Porcentajes de cada operador. Los pct_terrestre/aereo/paquete son los gastos de gestión que
+// COBRA el operador (un costo que se suma al precio, no una ganancia de la agencia).
+// pct_entrega es la entrega inicial que exige el operador al pagar un paquete en cuotas.
 export const TIPOS_COMISION = [
-    { campo: 'pct_terrestre', label: 'Servicios terrestres' },
-    { campo: 'pct_aereo', label: 'Servicios aéreos' },
-    { campo: 'pct_paquete', label: 'Paquetes enteros' }
+    { campo: 'pct_terrestre', label: 'Gestión servicios terrestres' },
+    { campo: 'pct_aereo', label: 'Gestión servicios aéreos' },
+    { campo: 'pct_paquete', label: 'Gestión paquetes enteros' },
+    { campo: 'pct_entrega', label: 'Entrega inicial en cuotas' }
 ];
 
-// { ola: { pct_terrestre, pct_aereo, pct_paquete }, ... } — 0% para lo que no se configuró
+// { ola: { pct_terrestre, pct_aereo, pct_paquete, pct_entrega }, ... } — 0% para lo que no se configuró
 export async function fetchComisiones() {
     const res = await window.authenticatedFetch('/api/comisiones');
     if (!res.ok) {
@@ -29,7 +32,7 @@ export async function fetchComisiones() {
     }
     const rows = await res.json();
     const map = {};
-    OPERADORES.forEach(o => { map[o.id] = { pct_terrestre: 0, pct_aereo: 0, pct_paquete: 0 }; });
+    OPERADORES.forEach(o => { map[o.id] = { pct_terrestre: 0, pct_aereo: 0, pct_paquete: 0, pct_entrega: 0 }; });
     rows.forEach(r => { if (map[r.operador]) Object.assign(map[r.operador], r); });
     return map;
 }

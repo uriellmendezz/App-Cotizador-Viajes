@@ -372,20 +372,25 @@ def _scope_query(query, sucursal_id: str = None, agente_id: str = None):
         return query.eq("agente_id", agente_id)
     return query
 
-def list_rows(table: str, sucursal_id: str = None, agente_id: str = None) -> list:
-    """Retrieves all rows of a catalog table for the given branch/agent, newest first."""
+def list_rows(table: str, sucursal_id: str = None, agente_id: str = None, columns: str = "*") -> list:
+    """
+    Retrieves all rows of a catalog table for the given branch/agent, newest first.
+    If the given columns fail (e.g. a migration that adds one is pending), retries with all of them.
+    """
     client = get_supabase_client()
     if not client:
         print(f"Supabase Client: Client not configured. Skipping list on '{table}'.")
         return []
     try:
-        query = _scope_query(client.table(table).select("*"), sucursal_id, agente_id)
+        query = _scope_query(client.table(table).select(columns), sucursal_id, agente_id)
         response = query.order("updated_at", desc=True).execute()
         if response and hasattr(response, 'data') and response.data:
             return response.data
         return []
     except Exception as e:
-        print(f"Supabase Client: Failed to list '{table}'. Details: {e}")
+        print(f"Supabase Client: Failed to list '{table}' ({columns}). Details: {e}")
+        if columns != "*":
+            return list_rows(table, sucursal_id, agente_id)
         return []
 
 def find_scoped_rows(table: str, field: str, value, sucursal_id: str = None, agente_id: str = None,

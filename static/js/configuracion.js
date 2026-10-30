@@ -1,7 +1,8 @@
 // configuracion.js - Configuración: Catálogo de Hoteles de la sucursal
 import {
     REGIMENES, HABITACIONES, MAX_FOTOS_HOTEL, MAX_DESCRIPCION_HOTEL,
-    escapeHtml, safeImageSrc, starsToString, resizeImageFile, fetchHotelList, fetchHotel
+    escapeHtml, safeImageSrc, starsToString, resizeImageFile, fetchHotelList, fetchHotel,
+    groupHotelsByDestino, clearHotelListCache
 } from './hotel_catalog.js';
 import { OPERADORES, LOGO_OPERADOR_CLASS, TIPOS_COMISION, fetchComisiones, saveComision, fmtPct } from './operadores.js';
 
@@ -31,6 +32,7 @@ export async function initConfiguracion() {
     document.getElementById('config-btn-new-hotel').addEventListener('click', () => openEditor());
     document.getElementById('config-btn-new-airline').addEventListener('click', () => openAirlineEditor());
     document.getElementById('config-hotel-search').addEventListener('input', renderGrid);
+    document.getElementById('config-hotel-destino').addEventListener('change', renderGrid);
 
     // Los catálogos se cargan al entrar para poder mostrar el conteo en el menú
     await Promise.all([loadHotels(), loadAirlines(), loadComisiones()]);
@@ -66,7 +68,7 @@ const ENCABEZADOS = {
         tag: 'Configuración',
         tagCls: 'text-amber-600 bg-amber-50',
         titulo: 'Comisiones de Operadores',
-        desc: 'Porcentaje de comisión de cada operador por servicios terrestres, aéreos y paquetes enteros.'
+        desc: 'Gastos de gestión que cobra cada operador y la entrega inicial que exige al pagar un paquete en cuotas.'
     },
     exportar: {
         tag: 'Configuración',
@@ -134,6 +136,8 @@ async function loadHotels() {
     const grid = document.getElementById('config-hotels-grid');
     try {
         hotels = await fetchHotelList();
+        clearHotelListCache(); // el selector de las cotizaciones no debe mostrar un listado viejo
+        renderDestinoFilter();
         renderGrid();
         actualizarConteos();
     } catch (err) {
@@ -141,39 +145,42 @@ async function loadHotels() {
     }
 }
 
+// Opciones del filtro de destino, con la cantidad de hoteles de cada uno
+function renderDestinoFilter() {
+    const select = document.getElementById('config-hotel-destino');
+    if (!select) return;
+    const actual = select.value;
+    const grupos = groupHotelsByDestino([...hotels]);
+    select.innerHTML = `<option value="">Todos los destinos (${hotels.length})</option>` + grupos
+        .map(g => `<option value="${escapeHtml(g.destino)}">${escapeHtml(g.destino)} (${g.hotels.length})</option>`).join('');
+    select.value = grupos.some(g => g.destino === actual) ? actual : '';
+}
+
 function renderGrid() {
     const grid = document.getElementById('config-hotels-grid');
     if (!grid) return;
     const q = (document.getElementById('config-hotel-search')?.value || '').toLowerCase().trim();
-    const list = q ? hotels.filter(h => `${h.nombre} ${h.destino}`.toLowerCase().includes(q)) : hotels;
+    const destino = document.getElementById('config-hotel-destino')?.value || '';
+    let list = q ? hotels.filter(h => `${h.nombre} ${h.destino}`.toLowerCase().includes(q)) : hotels;
+    if (destino) list = list.filter(h => ((h.destino || '').trim() || 'Sin destino') === destino);
 
     if (!list.length) {
         grid.innerHTML = `
             <div class="col-span-full flex flex-col items-center justify-center text-center gap-3 py-16 border-2 border-dashed border-slate-200 rounded-2xl">
                 <svg class="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                <p class="text-xs font-semibold text-slate-500">${q ? 'No hay hoteles que coincidan con la búsqueda.' : 'Todavía no cargaste hoteles. Empezá con el botón "Nuevo Hotel".'}</p>
+                <p class="text-xs font-semibold text-slate-500">${q || destino ? 'No hay hoteles que coincidan con la búsqueda.' : 'Todavía no cargaste hoteles. Empezá con el botón "Nuevo Hotel".'}</p>
             </div>`;
         return;
     }
 
-    grid.innerHTML = list.map(h => `
-        <div data-view-hotel="${h.id}" role="button" tabindex="0" title="Ver ficha del hotel"
-            class="group bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col cursor-pointer focus:outline-none focus:ring-4 focus:ring-brand-primary/10">
-            <div class="relative h-40 bg-slate-100 overflow-hidden">
-                ${safeImageSrc(h.portada) ? `<img src="${safeImageSrc(h.portada)}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">` : '<div class="w-full h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-slate-400">Sin fotos</div>'}
-                ${h.total_fotos > 1 ? `<span class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-slate-950/60 text-white text-[10px] font-bold">${h.total_fotos} fotos</span>` : ''}
-            </div>
-            <div class="p-4 flex flex-col gap-1 flex-1">
-                <div class="text-sm font-bold text-slate-800 truncate" title="${escapeHtml(h.nombre)}">${escapeHtml(h.nombre)}</div>
-                <div class="text-xs text-amber-500 tracking-wider">${starsToString(h.estrellas)}</div>
-                <div class="text-[11px] text-slate-500 font-semibold truncate">${escapeHtml(h.destino || 'Sin destino')}${h.regimen ? ' · ' + escapeHtml(h.regimen) : ''}</div>
-                ${h.descripcion ? `<p class="text-[11px] text-slate-500 leading-snug mt-1 line-clamp-2">${escapeHtml(h.descripcion)}</p>` : ''}
-                <div class="flex gap-2 pt-3 mt-auto">
-                    <button type="button" data-edit-hotel="${h.id}" class="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer">Editar</button>
-                    <button type="button" data-delete-hotel="${h.id}" class="px-3 py-2 bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-500 hover:text-white font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer">Eliminar</button>
-                </div>
-            </div>
-        </div>`).join('');
+    // Un bloque por destino: el encabezado ocupa toda la fila de la grilla
+    grid.innerHTML = groupHotelsByDestino([...list]).map(g => `
+        <div class="col-span-full flex items-center gap-3 pt-2 first:pt-0">
+            <span class="text-xs font-black uppercase tracking-widest text-slate-700">${escapeHtml(g.destino)}</span>
+            <span class="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">${g.hotels.length} ${g.hotels.length === 1 ? 'hotel' : 'hoteles'}</span>
+            <span class="flex-1 h-px bg-slate-200/70"></span>
+        </div>
+        ${g.hotels.map(hotelCardHtml).join('')}`).join('');
 
     // stopPropagation: los botones no deben abrir además la ficha del hotel
     grid.querySelectorAll('[data-edit-hotel]').forEach(btn => btn.addEventListener('click', (e) => {
@@ -192,6 +199,27 @@ function renderGrid() {
             openHotelView(card.dataset.viewHotel);
         });
     });
+}
+
+function hotelCardHtml(h) {
+    return `
+        <div data-view-hotel="${h.id}" role="button" tabindex="0" title="Ver ficha del hotel"
+            class="group bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col cursor-pointer focus:outline-none focus:ring-4 focus:ring-brand-primary/10">
+            <div class="relative h-40 bg-slate-100 overflow-hidden">
+                ${safeImageSrc(h.portada) ? `<img src="${safeImageSrc(h.portada)}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">` : '<div class="w-full h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-slate-400">Sin fotos</div>'}
+                ${h.total_fotos > 1 ? `<span class="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-slate-950/60 text-white text-[10px] font-bold">${h.total_fotos} fotos</span>` : ''}
+            </div>
+            <div class="p-4 flex flex-col gap-1 flex-1">
+                <div class="text-sm font-bold text-slate-800 truncate" title="${escapeHtml(h.nombre)}">${escapeHtml(h.nombre)}</div>
+                <div class="text-xs text-amber-500 tracking-wider">${starsToString(h.estrellas)}</div>
+                <div class="text-[11px] text-slate-500 font-semibold truncate">${escapeHtml(h.destino || 'Sin destino')}${h.regimen ? ' · ' + escapeHtml(h.regimen) : ''}</div>
+                ${h.descripcion ? `<p class="text-[11px] text-slate-500 leading-snug mt-1 line-clamp-2">${escapeHtml(h.descripcion)}</p>` : ''}
+                <div class="flex gap-2 pt-3 mt-auto">
+                    <button type="button" data-edit-hotel="${h.id}" class="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer">Editar</button>
+                    <button type="button" data-delete-hotel="${h.id}" class="px-3 py-2 bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-500 hover:text-white font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer">Eliminar</button>
+                </div>
+            </div>
+        </div>`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -298,6 +326,8 @@ function confirmDelete(id) {
                     throw new Error(err.detail || 'No se pudo eliminar el hotel.');
                 }
                 hotels = hotels.filter(h => String(h.id) !== String(id));
+                clearHotelListCache();
+                renderDestinoFilter();
                 renderGrid();
                 window.showAlert('success', 'Hotel eliminado del catálogo.');
             } catch (err) {
@@ -361,10 +391,10 @@ function renderComisiones() {
 
     list.innerHTML = OPERADORES.map(op => `
         <div class="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center gap-5">
-            <div class="lg:w-48 h-16 shrink-0 flex items-center justify-center lg:justify-start">
+            <div class="lg:w-32 h-24 shrink-0 flex items-center justify-center lg:justify-start">
                 <img src="${op.logo}" alt="${escapeHtml(op.nombre)}" class="${LOGO_OPERADOR_CLASS}">
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 flex-1">
                 ${TIPOS_COMISION.map(t => renderComisionCell(op, t)).join('')}
             </div>
         </div>`).join('');

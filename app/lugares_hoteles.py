@@ -275,6 +275,35 @@ def sugerir_lugares(texto: str, limite: int = 6) -> list:
     puntajes.sort(key=lambda p: p[0])
     return [{k: v for k, v in lugar.items() if k != "alias"} for _, lugar in puntajes[:limite]]
 
+def _claves_texto(texto: str) -> set:
+    """'Pta. Cana, Rep. Dominicana' -> {'pta cana rep dominicana', 'pta cana', 'punta cana'}."""
+    texto = str(texto or "")
+    primero = texto.split(",")[0]
+    return {c for c in (clave_destino(texto), clave_destino(primero), expandir_abreviaturas(primero)) if c}
+
+def claves_del_destino(texto: str) -> set:
+    """
+    Todas las formas en que puede estar escrito un destino: lo escrito y, si ese destino ya se
+    normalizó antes, su nombre estándar y las búsquedas que resuelven a él. Sirve para filtrar
+    el catálogo por destino sin consultar la API externa (respuesta inmediata).
+    """
+    claves = _claves_texto(texto)
+    if not claves:
+        return set()
+    try:
+        lugares = _lugares_para_sugerir()
+    except Exception as e:
+        print(f"Lugares: no se pudieron leer los lugares guardados: {e}")
+        lugares = []
+    for lugar in lugares:
+        conocidas = set(lugar.get("alias") or []) | {clave_destino(lugar.get("nombre"))}
+        if claves & conocidas:
+            claves |= conocidas
+    return claves
+
+def es_del_destino(destino_hotel: str, claves: set) -> bool:
+    return bool(claves) and bool(_claves_texto(destino_hotel) & claves)
+
 def describir_lugar(lugar: dict | None) -> str:
     """'Punta Cana, República Dominicana'."""
     if not lugar:

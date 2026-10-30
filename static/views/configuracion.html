@@ -52,7 +52,7 @@
             </div>
             <div class="space-y-1">
                 <h2 class="font-display font-bold text-sm text-slate-800 tracking-tight">Comisiones de Operadores</h2>
-                <p class="text-xs text-slate-500 font-medium leading-relaxed">Porcentaje de comisión de cada operador por servicios terrestres, aéreos y paquetes enteros.</p>
+                <p class="text-xs text-slate-500 font-medium leading-relaxed">Gastos de gestión que cobra cada operador y la entrega inicial que exige al pagar un paquete en cuotas.</p>
             </div>
         </button>
 
@@ -78,6 +78,10 @@
                 <input type="text" id="config-hotel-search" placeholder="Buscar por nombre o destino..."
                     class="w-full border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white">
             </div>
+            <select id="config-hotel-destino" aria-label="Filtrar por destino"
+                class="w-full md:w-64 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white md:mr-auto">
+                <option value="">Todos los destinos</option>
+            </select>
             <button type="button" id="config-btn-new-hotel"
                 class="px-5 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
@@ -108,7 +112,7 @@
 
     <!-- ═══════════ PANEL: COMISIONES DE OPERADORES ═══════════ -->
     <section id="config-panel-comisiones" class="hidden space-y-6">
-        <p class="text-xs text-slate-500 font-medium max-w-2xl">Estos porcentajes se usan en los <strong class="text-slate-700">Paquetes Promocionales</strong> para calcular la comisión de cada operador. Tocá el lápiz de un porcentaje para modificarlo.</p>
+        <p class="text-xs text-slate-500 font-medium max-w-2xl">Los porcentajes de gestión son lo que <strong class="text-slate-700">cobra el operador</strong> (no es ganancia de la agencia): en los <strong class="text-slate-700">Paquetes Promocionales</strong> de un operador se suman solos al precio base e impuestos. La <strong class="text-slate-700">entrega inicial</strong> es el porcentaje del precio final que exige el operador antes de las cuotas. Tocá el lápiz de un porcentaje para modificarlo.</p>
         <div id="config-comisiones-list" class="space-y-4">
             <div class="text-center text-xs font-semibold text-slate-400 py-16">Cargando comisiones...</div>
         </div>

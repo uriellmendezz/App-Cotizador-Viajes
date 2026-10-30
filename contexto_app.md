@@ -146,7 +146,10 @@ Dado que el backend procesa el costo del hotel calculando el total acumulado y r
 
 ### G. Configuración: Catálogo de Hoteles (`/configuracion`)
 - **Alta y edición de hoteles** por sucursal: nombre, destino, calificación (1 a 5 estrellas), régimen y habitación habituales, descripción (máx. 200 caracteres, mismo límite que el PDF) y hasta 6 fotos (la primera es la portada; se pueden subir, arrastrar o pegar con Ctrl+V y se comprimen a JPEG).
-- **Selector "Mis Hoteles"**: cada tarjeta de hotel de la Cotización PDF (estándar y multidestino) tiene un botón que abre el catálogo y completa nombre, categoría, régimen, habitación, descripción e imagen. Si el hotel tiene varias fotos, el agente elige cuál usar. Lógica compartida en `static/js/hotel_catalog.js`.
+- **Selector "Mis Hoteles"**: cada tarjeta de hotel de la Cotización PDF (estándar y multidestino), las filas de alojamiento de la Cotización Rápida, los hoteles del Crucero y el editor de Paquetes Promocionales (de operador y propios) tienen un botón que abre el catálogo y completa nombre, categoría, régimen, habitación, descripción e imagen. Si el hotel tiene varias fotos, el agente elige cuál usar. Lógica compartida en `static/js/hotel_catalog.js`.
+- **Organizado por destino**: el selector se abre mostrando solo los hoteles del destino de la cotización (el de la parada en multidestino, la ciudad del hotel en cruceros, el destino del paquete). El filtro lo hace el servidor (`GET /api/hoteles?destino=`) comparando contra el destino normalizado y sus alias de la tabla `lugares` ("pta cana" encuentra los de "Punta Cana") sin consultar la API externa. Un enlace permite ver todos los destinos, agrupados; si el destino no tiene hoteles se muestran todos con un aviso. Los listados se reutilizan durante un minuto. En Configuración el catálogo se ve agrupado por destino y con un filtro de destino.
+- **Listado liviano**: el listado solo trae la portada (`fotos->>0`) y la columna calculada `total_fotos` (`scripts/009_entrega_operadores_catalogo.sql`), no todas las fotos en base64.
+- **Importar desde las cotizaciones**: `scripts/importar_hoteles_cotizaciones.py` junta los alojamientos de todas las cotizaciones de cada sucursal, agrupa las versiones del mismo hotel en el mismo destino y guarda en el catálogo la más completa (foto, descripción, régimen, habitación, categoría), completando lo que le falte con las demás y juntando hasta 6 fotos. También une las fichas repetidas del catálogo. Sin argumentos es una vista previa; con `--aplicar` escribe.
 
 - **Guardar desde una cotización**: al cargar a mano un alojamiento (tarjetas de la Cotización PDF estándar y multidestino, o filas de tipo Alojamiento de la Cotización Rápida) la app ofrece "Guardar en Mis Hoteles" si el nombre no es genérico ("Hotel", "Alojamiento Adicional"...) y todavía no está en el catálogo. Se guardan nombre, destino, categoría, régimen y, en la Cotización PDF, habitación, descripción y foto. La sugerencia se puede descartar y no se muestra en modo lectura.
 
@@ -154,7 +157,8 @@ Dado que el backend procesa el costo del hotel calculando el total acumulado y r
 Es un panel con opciones, no una única pantalla. El menú muestra una tarjeta por cada herramienta (con el conteo de registros) y al elegir una se abre su panel con un botón para volver:
 1. **Catálogo de Hoteles** (ver G).
 2. **Catálogo de Aerolíneas** (ver G.3).
-3. **Exportar Cotizaciones** (ver G.2).
+3. **Comisiones de Operadores** (ver H.1).
+4. **Exportar Cotizaciones** (ver G.2).
 
 ### G.2. Exportación de Cotizaciones a CSV (Configuración)
 - Botón **Descargar CSV** en `/configuracion`: exporta todas las cotizaciones detalladas de la sucursal con una fila por cotización (datos del pasaje, montos, operadores y hasta N columnas de hotel según el máximo encontrado).
@@ -175,8 +179,14 @@ Es un panel con opciones, no una única pantalla. El menú muestra una tarjeta p
 ### H. Paquetes Promocionales para Redes (`/paquetes`)
 - Se guardan en una tabla propia (`paquetes_promocionales`), **separados de las cotizaciones de pasajeros**.
 - Usan la misma fórmula de precios que las cotizaciones (vuelo + fee, terrestre + 5% de gastos administrativos, gastos + IVA), calculada sobre una base de pasajeros (single/doble/triple/cuádruple) para obtener el precio por persona, con redondeo opcional a múltiplos de 10.
-- **Financiación en cuotas**: la **entrega** es siempre el valor de los vuelos por persona (monto + fee) y el saldo (`precio por persona - entrega`) se divide en **3 y/o 6 cuotas** (redondeadas hacia arriba al centavo).
+- **Financiación en cuotas**: en los paquetes propios la **entrega** es el valor de los vuelos por persona (monto + fee) y el saldo (`precio por persona - entrega`) se divide en **3 y/o 6 cuotas** (redondeadas hacia arriba al centavo).
+- **Paquetes de operador**: el agente carga el **precio base** y los **impuestos** por persona tal como figuran en la página del operador para la base elegida. El sistema suma solo los **gastos de gestión** del operador (`pct_paquete`, sobre base + impuestos) y la **entrega inicial** es el `pct_entrega` del operador sobre el precio final (redondeada hacia arriba al centavo). Los paquetes guardados antes de este cambio tenían un único precio final (`precio_operador`): al abrirlos se carga como precio base y se avisa que hay que revisarlo.
+- **Detalle**: al tocar una tarjeta del listado se abre un modal de solo lectura con todos los datos del paquete (foto, fechas, alojamiento, qué incluye, desglose del precio, entrega y cuotas tal como se guardaron) y un botón para editarlo.
 - **Salidas para redes**: imagen 1080×1350 generada en el navegador con html2canvas (foto del hotel, logo de la agencia, qué incluye, precio y cuotas) y texto con emojis listo para copiar.
+
+### H.1. Comisiones de Operadores (Configuración)
+- Por operador (Ola, Delfos, 360): `pct_terrestre`, `pct_aereo` y `pct_paquete` son los **gastos de gestión que cobra el operador** (un costo que se suma al precio, **no** ganancia de la agencia), y `pct_entrega` es la entrega inicial que exige para pagar un paquete en cuotas.
+- En los paquetes de operador se aplican solos (precio final y entrega). En los paquetes propios, los de aéreo/terrestre se muestran como estimado interno y no se suman al precio.
 
 ### J. Cotización de Crucero (`/cotizacion-crucero`)
 - **Carga desde el PDF del operador**: el agente arrastra el presupuesto que descarga del mayorista (ej. Ola / Krooze) y `app/crucero_parser.py` extrae barco, naviera, cabina y tamaño, noches, fechas de embarque y desembarque, puertos, pasajeros, código, precio, itinerario día por día, foto de la cabina y mapa de la ruta (descarta los logos que se repiten en todas las páginas). Si faltan datos esenciales y hay `GROQ_API_KEY`, se completan con IA sin pisar lo ya detectado. Los campos autocompletados se resaltan en verde para que el agente los revise.
@@ -260,7 +270,8 @@ Recibe el PDF del operador (máx. 15 MB) y devuelve los datos del crucero detect
 > Las tablas de hoteles y paquetes se crean con `scripts/003_hoteles_paquetes.sql`;
 > las columnas de operador con `scripts/004_operadores.sql`;
 > la función de exportación con `scripts/005_exportar_cotizaciones.sql`;
-> la tabla de aerolíneas con `scripts/006_aerolineas.sql`.
+> la tabla de aerolíneas con `scripts/006_aerolineas.sql`;
+> la entrega inicial de cada operador y el listado liviano del catálogo con `scripts/009_entrega_operadores_catalogo.sql`.
 
 ---
 

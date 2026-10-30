@@ -1,6 +1,8 @@
 // paquetes.js - Paquetes Promocionales para Redes Sociales
 // Separados de las cotizaciones de pasajeros. Cada paquete calcula su financiación:
-// entrega = valor de los vuelos (monto + fee) por persona, saldo en 3 y/o 6 cuotas.
+// - Propio: entrega = valor de los vuelos (monto + fee) por persona, saldo en 3 y/o 6 cuotas.
+// - De un operador: precio = base + impuestos + gastos de gestión del operador (%), y la entrega
+//   es el % que exige ese operador sobre el precio final (Configuración > Comisiones de Operadores).
 import {
     REGIMENES, HABITACIONES, MAX_DESCRIPCION_HOTEL,
     escapeHtml, safeImageSrc, starsToString, resizeImageFile, openHotelPicker
@@ -14,13 +16,14 @@ const BASE_LABELS = { 1: 'single', 2: 'doble', 3: 'triple', 4: 'cuádruple' };
 const PLANES_CUOTAS = [3, 6];
 
 let paquetes = [];
-let comisiones = {};          // % de cada operador (Configuración > Comisiones de Operadores)
+let comisiones = {};          // % de gestión y de entrega de cada operador (Configuración > Comisiones de Operadores)
 let tabActiva = 'operadores'; // 'operadores' (prearmados) | 'propios' (One Trip Giordano)
 let tipoPaquete = 'propio';   // modo del paquete abierto en el editor
 let operadorPaquete = '';     // operador del paquete cuando tipoPaquete === 'operador'
 let editingId = null;
 let hotelId = null;
 let hotelFoto = '';
+let precioLegado = false;     // paquete de operador guardado antes de separar precio base e impuestos
 let isDirty = false;
 let previewObserver = null;
 
@@ -99,17 +102,29 @@ function buildCuotas(saldo, planes) {
         : [];
 }
 
-// Paquete prearmado de un operador: el precio por persona lo fija el operador
-function computePaqueteOperador(s) {
+// Paquete prearmado de un operador: el agente carga el precio base y los impuestos por persona
+// tal como figuran en la página del operador para la base elegida. Se suman solos los gastos de
+// gestión que cobra el operador (% de paquete entero) y la entrega es el % que exige ese operador.
+function computePaqueteOperador(s, tabla = comisiones) {
     const pax = Math.max(1, parseInt(s.base_pax, 10) || 1);
-    const precioPersona = round2(num(s.precio_operador));
-    const entrega = Math.min(round2(num(s.entrega_operador)), precioPersona);
+    const precioBase = round2(num(s.precio_base_operador));
+    const impuestos = round2(num(s.impuestos_operador));
+    const pctGestion = num(tabla[s.operador]?.pct_paquete);
+    const gastosGestion = round2((precioBase + impuestos) * pctGestion / 100);
+    const precioPersona = round2(precioBase + impuestos + gastosGestion);
+    const pctEntrega = num(tabla[s.operador]?.pct_entrega);
+    const entrega = Math.min(ceil2(precioPersona * pctEntrega / 100), precioPersona);
     const saldo = round2(precioPersona - entrega);
     return {
         base_pax: pax,
         fee: 0,
-        total_aereo: round2(entrega * pax),
+        total_aereo: 0,
         gastos_admin: 0,
+        precio_base: precioBase,
+        impuestos,
+        pct_gestion: pctGestion,
+        gastos_gestion: gastosGestion,
+        pct_entrega: pctEntrega,
         total: round2(precioPersona * pax),
         precio_persona: precioPersona,
         entrega,
@@ -118,9 +133,10 @@ function computePaqueteOperador(s) {
     };
 }
 
-// Comisión estimada que le deja el paquete a la agencia (dato interno, no va en la pieza).
-// Operador: % de paquete entero sobre el total. Propio: % aéreo sobre los vuelos y % terrestre
-// sobre hotel + traslados, según el operador elegido para cada servicio.
+// Gastos de gestión que cobran los operadores (dato interno, no va en la pieza). Son un costo
+// del operador, no una ganancia de la agencia.
+// Operador: % de paquete entero, ya sumado al precio. Propio: % aéreo sobre los vuelos y %
+// terrestre sobre hotel + traslados, según el operador elegido para cada servicio (estimado).
 export function computeComision(s, r, tabla = comisiones) {
     const pct = (operador, campo) => num(tabla[operador]?.[campo]);
     const lineas = [];
@@ -131,7 +147,7 @@ export function computeComision(s, r, tabla = comisiones) {
     };
 
     if (s.tipo === 'operador') {
-        add('Paquete entero', s.operador, 'pct_paquete', r.total);
+        add('Paquete entero', s.operador, 'pct_paquete', (num(s.precio_base_operador) + num(s.impuestos_operador)) * r.base_pax);
     } else {
         add('Servicios aéreos', s.operador_vuelos, 'pct_aereo', num(s.monto_vuelos));
         add('Servicios terrestres', s.operador_terrestre, 'pct_terrestre', num(s.costo_hotel) + num(s.monto_traslados));
@@ -140,8 +156,8 @@ export function computeComision(s, r, tabla = comisiones) {
 }
 
 // Misma fórmula que las cotizaciones: aéreo + terrestre + 5% gastos admin. sobre terrestre + gastos/IVA
-export function computePaquete(s) {
-    if (s.tipo === 'operador') return computePaqueteOperador(s);
+export function computePaquete(s, tabla = comisiones) {
+    if (s.tipo === 'operador') return computePaqueteOperador(s, tabla);
     const pax = Math.max(1, parseInt(s.base_pax, 10) || 1);
     const vuelos = num(s.monto_vuelos);
     const fee = s.fee_tipo === 'fixed' ? num(s.fee_monto) : round2(vuelos * 0.10);
@@ -205,7 +221,16 @@ function setupList() {
         if (dup) return duplicatePaquete(dup.dataset.dupPq);
         const del = e.target.closest('[data-del-pq]');
         if (del) return confirmDelete(del.dataset.delPq);
+        const view = e.target.closest('[data-view-pq]');
+        if (view) return openPaqueteView(view.dataset.viewPq);
     });
+    document.getElementById('paquetes-list-view').addEventListener('keydown', (e) => {
+        const card = e.target.closest?.('[data-view-pq]');
+        if (!card || e.target !== card || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        openPaqueteView(card.dataset.viewPq);
+    });
+    setupPaqueteView();
 }
 
 function setTab(tab) {
@@ -268,9 +293,11 @@ function renderCard(p) {
     const cuotasTxt = (r.cuotas || []).map(c => `${c.cantidad} x ${fmtMoney(c.monto, moneda)}`).join(' · ');
     const entregaTxt = r.entrega ? `Entrega ${fmtMoney(r.entrega, moneda)}` : '';
     const financiacion = [entregaTxt, cuotasTxt].filter(Boolean).join(' + ');
-    const comision = r.comision?.total;
+    // Paquetes de operador: cuánto del precio son gastos de gestión del operador
+    const gestion = p.tipo === 'operador' ? r.gastos_gestion : 0;
     return `
-        <div class="group bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
+        <div data-view-pq="${p.id}" role="button" tabindex="0" title="Ver detalle del paquete"
+            class="group bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col cursor-pointer focus:outline-none focus:ring-4 focus:ring-brand-primary/10">
             <div class="relative h-40 bg-slate-100 overflow-hidden">
                 ${safeImageSrc(p.portada) ? `<img src="${safeImageSrc(p.portada)}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">` : ''}
                 ${p.noches ? `<span class="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-brand-primary text-white text-[10px] font-black uppercase tracking-wider">${escapeHtml(p.noches)} noches</span>` : ''}
@@ -282,7 +309,7 @@ function renderCard(p) {
                 <div class="pt-2">
                     <div class="text-lg font-black text-slate-900">${fmtMoney(p.precio_persona, moneda)} <span class="text-[10px] font-bold text-slate-400 uppercase">p/persona</span></div>
                     ${financiacion ? `<div class="text-[11px] text-slate-500 font-semibold">${financiacion}</div>` : ''}
-                    ${comision > 0 ? `<div class="text-[11px] text-emerald-600 font-bold">Comisión ${fmtMoney(comision, moneda)}</div>` : ''}
+                    ${gestion > 0 ? `<div class="text-[11px] text-slate-400 font-semibold">Incluye gestión del operador ${fmtMoney(gestion, moneda)} p/p</div>` : ''}
                 </div>
                 <div class="flex gap-2 pt-3 mt-auto">
                     <button type="button" data-edit-pq="${p.id}" class="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer">Editar</button>
@@ -315,15 +342,19 @@ function renderOperadores() {
 
     container.innerHTML = OPERADORES.map(op => {
         const list = filtrarPaquetes(paquetes.filter(p => p.tipo === 'operador' && p.operador === op.id));
-        const pctPaquete = comisiones[op.id]?.pct_paquete ?? 0;
+        const pctGestion = comisiones[op.id]?.pct_paquete ?? 0;
+        const pctEntrega = comisiones[op.id]?.pct_entrega ?? 0;
         return `
         <section class="bg-white/80 border border-slate-200/60 rounded-2xl p-5 lg:p-6 shadow-sm space-y-5">
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="flex items-center gap-4 min-w-0">
-                    <div class="w-40 shrink-0 flex items-center justify-start">
+                    <div class="w-24 shrink-0 flex items-center justify-start">
                         <img src="${op.logo}" alt="${escapeHtml(op.nombre)}" class="${LOGO_OPERADOR_CLASS}">
                     </div>
-                    <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Comisión paquete ${fmtPct(pctPaquete)}</span>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider whitespace-nowrap" title="Gastos de gestión que cobra el operador">Gestión ${fmtPct(pctGestion)}</span>
+                        <span class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-wider whitespace-nowrap" title="Entrega inicial que exige el operador para pagar en cuotas">Entrega ${fmtPct(pctEntrega)}</span>
+                    </div>
                 </div>
                 <button type="button" data-new-op="${op.id}"
                     class="px-5 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0">
@@ -385,6 +416,164 @@ function confirmDelete(id) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Detalle del paquete (modal de solo lectura)
+// ──────────────────────────────────────────────────────────────────────────────
+
+let viewingPaqueteId = null;
+
+function setupPaqueteView() {
+    const modal = document.getElementById('pq-view-modal');
+    if (!modal) return;
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal || e.target.closest('[data-close-pq-view]')) closePaqueteView();
+    });
+    document.getElementById('pq-view-edit-btn').addEventListener('click', () => {
+        const id = viewingPaqueteId;
+        closePaqueteView();
+        openEditor(id);
+    });
+    // Each navigation re-imports this module: drop the listener of the previous instance
+    if (window.__paquetesViewKeyListener) document.removeEventListener('keydown', window.__paquetesViewKeyListener);
+    window.__paquetesViewKeyListener = (e) => {
+        if (e.key === 'Escape' && viewingPaqueteId !== null) closePaqueteView();
+    };
+    document.addEventListener('keydown', window.__paquetesViewKeyListener);
+}
+
+function closePaqueteView() {
+    document.getElementById('pq-view-modal')?.classList.add('opacity-0', 'pointer-events-none');
+    viewingPaqueteId = null;
+}
+
+function viewDato(label, value) {
+    return `
+        <div class="rounded-xl bg-slate-50 border border-slate-200/70 p-3 flex flex-col gap-1">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">${label}</span>
+            <span class="text-sm font-semibold text-slate-800">${value || '<span class="text-slate-400 font-medium">Sin especificar</span>'}</span>
+        </div>`;
+}
+
+function viewFila(label, value, cls = 'font-bold text-slate-800') {
+    return `
+        <div class="flex items-center justify-between gap-4 px-4 py-2.5">
+            <span class="text-xs font-semibold text-slate-500">${label}</span>
+            <span class="text-sm ${cls} whitespace-nowrap">${value}</span>
+        </div>`;
+}
+
+async function openPaqueteView(id) {
+    window.showLoader('Cargando paquete...');
+    let row;
+    try {
+        const res = await window.authenticatedFetch(`/api/paquetes/${id}`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'No se pudo cargar el paquete.');
+        }
+        row = await res.json();
+    } catch (err) {
+        window.showAlert('error', err.message);
+        return;
+    } finally {
+        window.hideLoader();
+    }
+
+    const d = { ...(row.data || {}), titulo: row.titulo, destino: row.destino, moneda: row.moneda || 'USD' };
+    // Se muestran los montos tal como se guardaron (lo publicado), aunque luego cambien los porcentajes
+    const r = d.resumen?.precio_persona !== undefined ? d.resumen : computePaquete(d);
+    const m = d.moneda;
+    const op = d.tipo === 'operador' ? getOperador(d.operador) : null;
+    const base = BASE_LABELS[r.base_pax] || `${r.base_pax || d.base_pax || 2} pax`;
+    const foto = safeImageSrc(d.hotel_foto);
+    const noches = parseInt(d.noches, 10) || 0;
+
+    const logo = document.getElementById('pq-view-op-logo');
+    if (op) {
+        logo.src = op.logo;
+        logo.alt = op.nombre;
+    } else {
+        logo.removeAttribute('src');
+    }
+    logo.classList.toggle('hidden', !op);
+    document.getElementById('pq-view-tag').textContent = op ? `Paquete de ${op.nombre}` : 'Paquete propio';
+
+    const precioFilas = [];
+    if (d.tipo === 'operador' && r.precio_base !== undefined) {
+        precioFilas.push(viewFila('Precio base', fmtMoney(r.precio_base, m)));
+        precioFilas.push(viewFila('Impuestos', fmtMoney(r.impuestos, m)));
+        precioFilas.push(viewFila(`Gastos de gestión (${fmtPct(r.pct_gestion)})`, fmtMoney(r.gastos_gestion, m)));
+    } else if (d.tipo !== 'operador') {
+        precioFilas.push(viewFila('Vuelos + fee (total base)', fmtMoney(r.total_aereo, m)));
+        precioFilas.push(viewFila('Gastos administrativos', fmtMoney(r.gastos_admin, m)));
+        precioFilas.push(viewFila('Total base', fmtMoney(r.total, m)));
+    }
+    precioFilas.push(viewFila(`Precio por persona (base ${escapeHtml(base)})`, fmtMoney(r.precio_persona, m), 'font-black text-slate-900'));
+    if (r.entrega > 0) {
+        const entregaLabel = d.tipo === 'operador'
+            ? `Entrega inicial${r.pct_entrega ? ` (${fmtPct(r.pct_entrega)})` : ''}`
+            : 'Entrega · valor de los vuelos';
+        precioFilas.push(viewFila(entregaLabel, fmtMoney(r.entrega, m), 'font-bold text-brand-primary'));
+    }
+    (r.cuotas || []).forEach(c => precioFilas.push(viewFila(`${c.cantidad} cuotas de`, fmtMoney(c.monto, m))));
+
+    const hotelLinea = [d.hotel_regimen, d.hotel_habitacion].filter(Boolean).map(escapeHtml).join(' · ');
+
+    document.getElementById('pq-view-body').innerHTML = `
+        <div class="relative aspect-[16/9] bg-slate-100">
+            ${foto ? `<img src="${foto}" alt="" class="w-full h-full object-cover">` : '<div class="w-full h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-slate-400">Sin foto</div>'}
+            ${noches ? `<span class="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-brand-primary text-white text-[10px] font-black uppercase tracking-wider">${noches} noches</span>` : ''}
+        </div>
+        <div class="p-6 space-y-6">
+            <div class="space-y-1">
+                <div class="text-[10px] font-black uppercase tracking-widest text-brand-primary">${escapeHtml(d.destino || 'Sin destino')}</div>
+                <h2 id="pq-view-titulo" class="font-display font-black text-2xl text-slate-900 tracking-tight">${escapeHtml(d.titulo || '')}</h2>
+                ${d.origen ? `<div class="text-xs font-semibold text-slate-500">Saliendo desde ${escapeHtml(d.origen)}</div>` : ''}
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                ${viewDato('Salida', escapeHtml(isoToDisplay(d.fecha_salida)))}
+                ${viewDato('Regreso', escapeHtml(isoToDisplay(d.fecha_regreso)))}
+                ${viewDato('Noches', noches ? String(noches) : '')}
+                ${viewDato('Base', escapeHtml(base))}
+                ${viewDato('Equipaje', escapeHtml(d.equipaje || ''))}
+                ${viewDato('Promo válida hasta', escapeHtml(isoToDisplay(d.validez)))}
+            </div>
+
+            ${d.hotel_nombre ? `
+            <div class="space-y-1">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Alojamiento</span>
+                <div class="text-base font-bold text-slate-800">${escapeHtml(d.hotel_nombre)} <span class="text-amber-500 tracking-wider">${d.hotel_estrellas ? starsToString(d.hotel_estrellas) : ''}</span></div>
+                ${hotelLinea ? `<div class="text-xs font-semibold text-slate-500">${hotelLinea}</div>` : ''}
+                ${d.hotel_descripcion ? `<p class="text-sm text-slate-600 leading-relaxed pt-1">${escapeHtml(d.hotel_descripcion)}</p>` : ''}
+            </div>` : ''}
+
+            <div class="space-y-2">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Incluye</span>
+                <ul class="space-y-1.5">
+                    ${buildIncluye(d).map(item => `
+                    <li class="flex items-start gap-2 text-sm font-medium text-slate-700">
+                        <span class="shrink-0 mt-0.5 w-4 h-4 rounded-full bg-brand-primary text-white text-[10px] font-black flex items-center justify-center">✓</span>
+                        ${escapeHtml(item)}
+                    </li>`).join('')}
+                </ul>
+            </div>
+
+            <div class="space-y-2">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Precio y financiación</span>
+                <div class="rounded-xl border border-slate-200 divide-y divide-slate-100">${precioFilas.join('')}</div>
+            </div>
+
+            ${d.notas ? `<p class="text-xs font-semibold text-slate-500">${escapeHtml(d.notas)}</p>` : ''}
+        </div>`;
+
+    viewingPaqueteId = id;
+    const modal = document.getElementById('pq-view-modal');
+    modal.querySelector('#pq-view-body').scrollTop = 0;
+    modal.classList.remove('opacity-0', 'pointer-events-none');
+    setTimeout(() => modal.querySelector('[data-close-pq-view]')?.focus(), 50);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Editor
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -428,7 +617,8 @@ function setupEditor() {
             callback: closeEditor
         });
     });
-    $('pq-btn-pick-hotel').addEventListener('click', () => openHotelPicker(applyCatalogHotel));
+    // Solo los hoteles guardados para el destino del paquete (con opción de ver todos)
+    $('pq-btn-pick-hotel').addEventListener('click', () => openHotelPicker(applyCatalogHotel, { destino: $('pq-destino').value.trim() }));
     $('pq-btn-save').addEventListener('click', savePaquete);
     $('pq-btn-copy').addEventListener('click', copyText);
     $('pq-btn-download').addEventListener('click', downloadFlyer);
@@ -530,6 +720,7 @@ function onDatesChanged(id) {
 
 function onFormChange(e) {
     if (e.target?.id === 'pq-hotel-nombre') hotelId = null; // manual edit unlinks the catalog hotel
+    if (e.target?.id === 'pq-op-precio' || e.target?.id === 'pq-op-impuestos') precioLegado = false;
     markDirty();
     render();
 }
@@ -552,8 +743,8 @@ function readForm() {
         // Cada modo solo guarda los campos que muestra
         operador_vuelos: tipoPaquete === 'propio' ? $('pq-op-vuelos').value : '',
         operador_terrestre: tipoPaquete === 'propio' ? $('pq-op-terrestre').value : '',
-        precio_operador: tipoPaquete === 'operador' ? $('pq-op-precio').value : '',
-        entrega_operador: tipoPaquete === 'operador' ? $('pq-op-entrega').value : '',
+        precio_base_operador: tipoPaquete === 'operador' ? $('pq-op-precio').value : '',
+        impuestos_operador: tipoPaquete === 'operador' ? $('pq-op-impuestos').value : '',
         titulo: $('pq-titulo').value.trim(),
         destino: $('pq-destino').value.trim(),
         origen: $('pq-origen').value.trim(),
@@ -612,8 +803,10 @@ function fillForm(d = {}) {
     operadorPaquete = tipoPaquete === 'operador' ? d.operador : '';
     $('pq-op-vuelos').value = d.operador_vuelos || '';
     $('pq-op-terrestre').value = d.operador_terrestre || '';
-    $('pq-op-precio').value = d.precio_operador || '';
-    $('pq-op-entrega').value = d.entrega_operador || '';
+    // Los paquetes de operador guardados antes tenían un único precio final (`precio_operador`)
+    precioLegado = d.tipo === 'operador' && d.precio_base_operador === undefined && !!d.precio_operador;
+    $('pq-op-precio').value = d.precio_base_operador ?? d.precio_operador ?? '';
+    $('pq-op-impuestos').value = d.impuestos_operador || '';
     applyModo();
     $('pq-titulo').value = d.titulo || '';
     $('pq-destino').value = d.destino || '';
@@ -718,40 +911,79 @@ function render() {
     $('pq-hotel-descripcion-counter').textContent = `${s.hotel_descripcion.length}/${MAX_DESCRIPCION_HOTEL}`;
 
     const r = computePaquete(s);
+    renderPrecioOperador(s, r);
     renderCuotasTable(s, r);
     renderComisionBox(s, r);
     $('pq-flyer-preview').innerHTML = buildFlyerHTML(s, r);
 }
 
-// Comisión estimada para la agencia: solo se ve en el editor, nunca en la pieza ni en el texto
+// Desglose del precio de un paquete de operador: base + impuestos + gastos de gestión = precio final
+function renderPrecioOperador(s, r) {
+    const box = $('pq-op-desglose');
+    if (!box) return;
+    if (s.tipo !== 'operador' || !(r.precio_base > 0)) {
+        box.innerHTML = precioLegado
+            ? '<p class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[11px] font-semibold text-amber-800">Este paquete se cargó con el precio final del operador. Revisá el precio base y los impuestos antes de guardarlo.</p>'
+            : '';
+        return;
+    }
+    const m = s.moneda;
+    const op = getOperador(s.operador);
+    const filas = [
+        ['Precio base', fmtMoney(r.precio_base, m)],
+        ['Impuestos', fmtMoney(r.impuestos, m)],
+        [`Gastos de gestión ${escapeHtml(op?.nombre || '')} (${fmtPct(r.pct_gestion)})`, fmtMoney(r.gastos_gestion, m)]
+    ];
+    const avisos = [];
+    if (precioLegado) avisos.push('Este paquete se cargó con el precio final del operador. Revisá el precio base y los impuestos antes de guardarlo.');
+    if (!r.pct_gestion) avisos.push(`${escapeHtml(op?.nombre || 'El operador')} no tiene cargado su porcentaje de gestión: configuralo en Configuración &gt; Comisiones de Operadores.`);
+    if (!r.pct_entrega) avisos.push(`${escapeHtml(op?.nombre || 'El operador')} no tiene cargada la entrega inicial: se financia el precio completo.`);
+    box.innerHTML = `
+        <div class="rounded-xl border border-slate-200 divide-y divide-slate-100">
+            ${filas.map(([label, value]) => `
+                <div class="flex items-center justify-between gap-4 px-4 py-2.5">
+                    <span class="text-xs font-semibold text-slate-500">${label}</span>
+                    <span class="text-sm font-bold text-slate-700 whitespace-nowrap">${value}</span>
+                </div>`).join('')}
+            <div class="flex items-center justify-between gap-4 px-4 py-3 bg-slate-50 rounded-b-xl">
+                <span class="text-xs font-black uppercase tracking-wider text-slate-700">Precio final por persona</span>
+                <span class="text-base font-black text-slate-900 whitespace-nowrap">${fmtMoney(r.precio_persona, m)}</span>
+            </div>
+        </div>
+        ${avisos.map(a => `<p class="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-3 text-[11px] font-semibold text-amber-800">${a}</p>`).join('')}`;
+}
+
+// Gastos de gestión de los operadores en un paquete propio: estimado interno, nunca va en la
+// pieza ni en el texto. En los paquetes de operador ya se ven en el desglose del precio.
 function renderComisionBox(s, r) {
     const box = $('pq-comision-box');
+    if (s.tipo === 'operador') {
+        box.innerHTML = '';
+        return;
+    }
     const c = computeComision(s, r);
     const m = s.moneda;
 
     if (!c.lineas.length) {
-        box.innerHTML = s.tipo === 'operador'
-            ? ''
-            : '<p class="text-[11px] text-slate-400 font-semibold">Elegí el operador de los vuelos y/o de hotel y traslados para ver la comisión estimada.</p>';
+        box.innerHTML = '<p class="text-[11px] text-slate-400 font-semibold">Elegí el operador de los vuelos y/o de hotel y traslados para ver sus gastos de gestión estimados.</p>';
         return;
     }
 
-    const porPersona = s.tipo === 'operador' ? ` · ${fmtMoney(c.total / r.base_pax, m)} por persona` : '';
     const sinPct = c.lineas.some(l => !l.pct);
     box.innerHTML = `
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2">
+        <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
             <div class="flex items-center justify-between gap-3">
-                <span class="text-[10px] font-black uppercase tracking-widest text-emerald-700">Comisión estimada · uso interno</span>
-                <span class="text-lg font-black text-emerald-700 whitespace-nowrap">${fmtMoney(c.total, m)}</span>
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Gastos de gestión de operadores · estimado interno</span>
+                <span class="text-lg font-black text-slate-700 whitespace-nowrap">${fmtMoney(c.total, m)}</span>
             </div>
-            <div class="divide-y divide-emerald-100">
+            <div class="divide-y divide-slate-200/70">
                 ${c.lineas.map(l => `
                     <div class="flex items-center justify-between gap-3 py-1.5 text-xs font-semibold text-slate-600">
                         <span>${escapeHtml(l.label)} · ${escapeHtml(getOperador(l.operador)?.nombre || '')} ${fmtPct(l.pct)} sobre ${fmtMoney(l.base, m)}</span>
                         <span class="font-bold text-slate-800 whitespace-nowrap">${fmtMoney(l.monto, m)}</span>
                     </div>`).join('')}
             </div>
-            <p class="text-[10px] text-slate-400 font-semibold">Total para ${r.base_pax} pasajero${r.base_pax > 1 ? 's' : ''}${porPersona}. Los porcentajes se ajustan en Configuración.${sinPct ? ' Hay operadores con 0%: cargá su comisión en Configuración.' : ''}</p>
+            <p class="text-[10px] text-slate-400 font-semibold">Total para ${r.base_pax} pasajero${r.base_pax > 1 ? 's' : ''}. Es lo que cobra cada operador (no es ganancia de la agencia) y no se suma al precio: verificá que esté incluido en los montos cargados. Los porcentajes se ajustan en Configuración.${sinPct ? ' Hay operadores con 0%: cargá su porcentaje en Configuración.' : ''}</p>
         </div>`;
 }
 
@@ -767,7 +999,7 @@ function renderCuotasTable(s, r) {
 
     const rows = [
         ['Precio por persona (base ' + base + ')', fmtMoney(r.precio_persona, m), 'font-black text-slate-900'],
-        ...(r.entrega > 0 ? [[s.tipo === 'operador' ? 'Entrega' : 'Entrega · valor de los vuelos', fmtMoney(r.entrega, m), 'font-bold text-brand-primary']] : []),
+        ...(r.entrega > 0 ? [[s.tipo === 'operador' ? `Entrega inicial · ${fmtPct(r.pct_entrega)} del operador` : 'Entrega · valor de los vuelos', fmtMoney(r.entrega, m), 'font-bold text-brand-primary']] : []),
         [r.entrega > 0 ? 'Saldo a financiar' : 'Precio a financiar', fmtMoney(r.saldo, m), 'font-bold text-slate-700']
     ];
 
@@ -793,7 +1025,7 @@ function renderCuotasTable(s, r) {
             </div>
         </div>
         <p class="text-[10px] text-slate-400 font-semibold mt-3">${s.tipo === 'operador'
-            ? `Precio del operador ${fmtMoney(r.precio_persona, m)} por persona · Total base ${fmtMoney(r.total, m)}`
+            ? `Base ${fmtMoney(r.precio_base, m)} + impuestos ${fmtMoney(r.impuestos, m)} + gestión ${fmtPct(r.pct_gestion)} ${fmtMoney(r.gastos_gestion, m)} = ${fmtMoney(r.precio_persona, m)} por persona · Total base ${fmtMoney(r.total, m)}`
             : `Vuelos ${fmtMoney(num(s.monto_vuelos), m)} + fee ${fmtMoney(r.fee, m)} · Gastos administrativos (5% terrestre) ${fmtMoney(r.gastos_admin, m)} · Total base ${fmtMoney(r.total, m)}`}</p>`;
 }
 
@@ -938,8 +1170,8 @@ export async function fillPaqueteTestData() {
         operador: operadorPaquete,
         operador_vuelos: 'ola',
         operador_terrestre: 'delfos',
-        precio_operador: 1450,
-        entrega_operador: 500,
+        precio_base_operador: 1250,
+        impuestos_operador: 180,
         titulo: 'Caribe Soñado - Salida Especial',
         destino: 'Punta Cana',
         origen: 'Córdoba',
@@ -983,7 +1215,7 @@ function validateRequired(s) {
     const missing = [];
     if (!s.titulo) missing.push(['pq-titulo', 'el título']);
     if (!s.destino) missing.push(['pq-destino', 'el destino']);
-    if (s.tipo === 'operador' && !(num(s.precio_operador) > 0)) missing.push(['pq-op-precio', 'el precio del operador']);
+    if (s.tipo === 'operador' && !(num(s.precio_base_operador) > 0)) missing.push(['pq-op-precio', 'el precio base del operador']);
     if (!missing.length) return true;
     const [firstId] = missing[0];
     $(firstId).focus();

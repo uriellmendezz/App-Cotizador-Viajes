@@ -6,7 +6,7 @@
             <div class="space-y-3">
                 <span class="text-xs font-black uppercase tracking-widest text-brand-primary bg-rose-50 px-3 py-1 rounded-full">Redes Sociales</span>
                 <h1 class="text-3xl md:text-4xl font-black text-slate-900 font-display tracking-tight leading-none">Paquetes Promocionales</h1>
-                <p class="text-slate-500 text-sm font-medium max-w-2xl">Armá paquetes para publicar en redes, separados de las cotizaciones de pasajeros. Podés cargar los paquetes prearmados de cada operador o armar los propios de One Trip Giordano. Cada paquete incluye su financiación y tiene en cuenta la comisión del operador.</p>
+                <p class="text-slate-500 text-sm font-medium max-w-2xl">Armá paquetes para publicar en redes, separados de las cotizaciones de pasajeros. Podés cargar los paquetes prearmados de cada operador o armar los propios de One Trip Giordano. Cada paquete incluye su financiación y suma los gastos de gestión del operador. Tocá una tarjeta para ver el detalle.</p>
             </div>
         </div>
 
@@ -53,7 +53,7 @@
                     class="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-all cursor-pointer">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <img id="pq-editor-op-logo" alt="" class="hidden h-10 w-auto object-contain">
+                <img id="pq-editor-op-logo" alt="" class="hidden h-16 w-16 object-contain">
                 <div>
                     <span id="pq-editor-tag" class="text-[10px] font-black uppercase tracking-widest text-brand-primary">Paquete Promocional</span>
                     <h1 id="paquete-editor-title" class="text-2xl font-black text-slate-900 font-display tracking-tight leading-none">Nuevo Paquete</h1>
@@ -138,7 +138,7 @@
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div class="flex flex-col gap-1">
-                            <label for="pq-op-precio" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Precio por persona del paquete <span class="text-brand-primary">*</span></label>
+                            <label for="pq-op-precio" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Precio base por persona <span class="text-brand-primary">*</span></label>
                             <div class="relative flex items-center">
                                 <span class="pq-currency absolute left-3 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
                                 <input type="number" id="pq-op-precio" data-field min="0" step="0.01" placeholder="0.00"
@@ -146,14 +146,15 @@
                             </div>
                         </div>
                         <div class="flex flex-col gap-1">
-                            <label for="pq-op-entrega" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Entrega por persona (opcional)</label>
+                            <label for="pq-op-impuestos" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Impuestos por persona</label>
                             <div class="relative flex items-center">
                                 <span class="pq-currency absolute left-3 text-xs font-bold text-slate-400 pointer-events-none">USD</span>
-                                <input type="number" id="pq-op-entrega" data-field min="0" step="0.01" placeholder="0.00"
+                                <input type="number" id="pq-op-impuestos" data-field min="0" step="0.01" placeholder="0.00"
                                     class="w-full border border-slate-200 rounded-xl pl-12 pr-3 py-2.5 text-sm font-semibold text-right focus:outline-none focus:border-brand-primary transition-all bg-white">
                             </div>
                         </div>
-                        <p class="md:col-span-2 text-[11px] text-slate-400 font-semibold leading-relaxed">Cargá el precio final que publica el operador. Si indicás una entrega, el saldo se divide en cuotas; si la dejás vacía, se financia el precio completo.</p>
+                        <div id="pq-op-desglose" class="md:col-span-2"></div>
+                        <p class="md:col-span-2 text-[11px] text-slate-400 font-semibold leading-relaxed">Cargá los montos tal como aparecen en la página del operador para la base elegida (sin sus gastos de gestión). El sistema suma solo el porcentaje de gestión del operador y calcula la entrega inicial que exige para pagar en cuotas (ambos se ajustan en Configuración &gt; Comisiones de Operadores).</p>
                     </div>
                 </section>
 
@@ -329,7 +330,7 @@
                     </div>
                     <div class="space-y-5">
                         <p data-modo="propio" class="text-xs text-slate-500 font-medium leading-relaxed">La <strong class="text-slate-700">entrega</strong> es siempre el valor de los vuelos (monto + fee) por persona. El saldo se divide en cuotas iguales.</p>
-                        <p data-modo="operador" class="hidden text-xs text-slate-500 font-medium leading-relaxed">La <strong class="text-slate-700">entrega</strong> es la que cargaste junto al precio del operador. El saldo se divide en cuotas iguales.</p>
+                        <p data-modo="operador" class="hidden text-xs text-slate-500 font-medium leading-relaxed">La <strong class="text-slate-700">entrega</strong> es el porcentaje del precio final que exige el operador (Configuración &gt; Comisiones de Operadores). El saldo se divide en cuotas iguales.</p>
                         <div class="flex flex-wrap gap-3">
                             <label class="pq-plan-chip flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 cursor-pointer select-none transition-all">
                                 <input type="checkbox" id="pq-plan-3" data-field class="w-4 h-4 accent-[#ff545d]" checked>
@@ -376,6 +377,30 @@
                         class="w-full px-4 py-3.5 bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer">Guardar Paquete</button>
                 </div>
             </aside>
+        </div>
+    </div>
+</div>
+
+<!-- Detalle del paquete (solo lectura): lo completa paquetes.js al tocar una tarjeta -->
+<div id="pq-view-modal"
+    class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div role="dialog" aria-modal="true" aria-labelledby="pq-view-titulo"
+        class="bg-white border border-slate-200/80 rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-100">
+            <div class="flex items-center gap-3 min-w-0">
+                <img id="pq-view-op-logo" alt="" class="hidden h-12 w-12 object-contain">
+                <h3 id="pq-view-tag" class="font-display font-black text-base text-slate-800 tracking-tight uppercase truncate">Detalle del Paquete</h3>
+            </div>
+            <button type="button" data-close-pq-view class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer" title="Cerrar">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+        <div id="pq-view-body" class="overflow-y-auto"></div>
+        <div class="flex gap-3 px-6 py-4 border-t border-slate-100">
+            <button type="button" data-close-pq-view
+                class="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200/80 text-slate-600 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer">Cerrar</button>
+            <button type="button" id="pq-view-edit-btn"
+                class="flex-1 px-4 py-3 bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md shadow-brand-primary/20 transition-all cursor-pointer">Editar Paquete</button>
         </div>
     </div>
 </div>

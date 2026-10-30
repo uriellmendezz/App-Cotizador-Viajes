@@ -62,13 +62,47 @@ export function resizeImageFile(file, maxWidth = 1280, maxHeight = 1280, quality
     });
 }
 
-export async function fetchHotelList() {
-    const res = await window.authenticatedFetch('/api/hoteles');
+// Con destino, el servidor devuelve solo los hoteles de ese destino ("pta cana" -> "Punta Cana")
+export async function fetchHotelList(destino = '') {
+    const query = destino ? `?destino=${encodeURIComponent(destino)}` : '';
+    const res = await window.authenticatedFetch(`/api/hoteles${query}`);
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || 'No se pudo cargar el catálogo de hoteles.');
     }
     return res.json();
+}
+
+// El selector se abre muchas veces seguidas al armar una cotización: cada listado se
+// reutiliza durante un minuto (se descarta al guardar un hotel nuevo en el catálogo)
+const PICKER_CACHE_TTL_MS = 60 * 1000;
+const pickerListCache = new Map();
+
+function fetchHotelListCached(destino = '') {
+    const key = destino.trim().toLowerCase();
+    const hit = pickerListCache.get(key);
+    if (hit && Date.now() - hit.at < PICKER_CACHE_TTL_MS) return hit.promise;
+    const promise = fetchHotelList(destino.trim());
+    pickerListCache.set(key, { at: Date.now(), promise });
+    promise.catch(() => pickerListCache.delete(key));
+    return promise;
+}
+
+export function clearHotelListCache() {
+    pickerListCache.clear();
+}
+
+// Agrupa por destino (orden alfabético, "Sin destino" al final)
+export function groupHotelsByDestino(hotels) {
+    const groups = new Map();
+    hotels.forEach(h => {
+        const key = (h.destino || '').trim() || 'Sin destino';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(h);
+    });
+    return Array.from(groups.entries())
+        .sort(([a], [b]) => (a === 'Sin destino') - (b === 'Sin destino') || a.localeCompare(b, 'es'))
+        .map(([destino, list]) => ({ destino, hotels: list.sort((x, y) => (x.nombre || '').localeCompare(y.nombre || '', 'es')) }));
 }
 
 export async function fetchHotel(id) {
@@ -129,7 +163,23 @@ function renderPickerShell() {
     return modal;
 }
 
-function renderHotelGrid(body, hotels, onPick) {
+function hotelPickerCard(h) {
+    return `
+        <button type="button" data-hotel-id="${escapeHtml(h.id)}"
+            class="group text-left bg-white border border-slate-200/80 rounded-2xl overflow-hidden hover:border-brand-primary hover:shadow-md transition-all cursor-pointer flex flex-col">
+            <div class="h-28 w-full bg-slate-100 overflow-hidden">
+                ${safeImageSrc(h.portada) ? `<img src="${safeImageSrc(h.portada)}" alt="" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">` : ''}
+            </div>
+            <div class="p-3 space-y-0.5">
+                <div class="text-sm font-bold text-slate-800 truncate">${escapeHtml(h.nombre)}</div>
+                <div class="text-[11px] text-amber-500 tracking-wider">${starsToString(h.estrellas)}</div>
+                <div class="text-[11px] text-slate-500 font-semibold truncate">${escapeHtml(h.destino || 'Sin destino')}${h.regimen ? ' · ' + escapeHtml(h.regimen) : ''}</div>
+            </div>
+        </button>`;
+}
+
+// grouped: un bloque por destino (cuando se ven todos los destinos)
+function renderHotelGrid(body, hotels, onPick, { grouped = false, notice = '' } = {}) {
     if (!hotels.length) {
         body.innerHTML = `
             <div class="text-center py-10 space-y-3">
@@ -142,18 +192,21 @@ function renderHotelGrid(body, hotels, onPick) {
         });
         return;
     }
-    body.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">${hotels.map(h => `
-        <button type="button" data-hotel-id="${escapeHtml(h.id)}"
-            class="group text-left bg-white border border-slate-200/80 rounded-2xl overflow-hidden hover:border-brand-primary hover:shadow-md transition-all cursor-pointer flex flex-col">
-            <div class="h-28 w-full bg-slate-100 overflow-hidden">
-                ${safeImageSrc(h.portada) ? `<img src="${safeImageSrc(h.portada)}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">` : ''}
-            </div>
-            <div class="p-3 space-y-0.5">
-                <div class="text-sm font-bold text-slate-800 truncate">${escapeHtml(h.nombre)}</div>
-                <div class="text-[11px] text-amber-500 tracking-wider">${starsToString(h.estrellas)}</div>
-                <div class="text-[11px] text-slate-500 font-semibold truncate">${escapeHtml(h.destino || 'Sin destino')}${h.regimen ? ' · ' + escapeHtml(h.regimen) : ''}</div>
-            </div>
-        </button>`).join('')}</div>`;
+    const noticeHtml = notice
+        ? `<div class="mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-800">${notice}</div>`
+        : '';
+    const gridHtml = (list) => `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">${list.map(hotelPickerCard).join('')}</div>`;
+    body.innerHTML = noticeHtml + (grouped
+        ? groupHotelsByDestino(hotels).map(g => `
+            <div class="mb-6 last:mb-0">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-[11px] font-black uppercase tracking-widest text-slate-700">${escapeHtml(g.destino)}</span>
+                    <span class="text-[10px] font-bold text-slate-400">${g.hotels.length}</span>
+                    <span class="flex-1 h-px bg-slate-100"></span>
+                </div>
+                ${gridHtml(g.hotels)}
+            </div>`).join('')
+        : gridHtml(hotels));
     body.querySelectorAll('[data-hotel-id]').forEach(btn => {
         btn.addEventListener('click', () => onPick(btn.dataset.hotelId));
     });
@@ -173,19 +226,19 @@ function renderPhotoChoice(body, hotel, onChoose) {
     });
 }
 
-// Abre el selector. onSelect(hotel, foto) recibe el hotel completo y la foto elegida ('' si no tiene)
-export async function openHotelPicker(onSelect) {
+// Abre el selector. onSelect(hotel, foto) recibe el hotel completo y la foto elegida ('' si no tiene).
+// Con opciones.destino muestra primero solo los hoteles guardados para ese destino.
+export async function openHotelPicker(onSelect, { destino = '' } = {}) {
     renderPickerShell();
     const body = document.getElementById('hotel-picker-body');
     const search = document.getElementById('hotel-picker-search');
+    const subtitle = document.getElementById('hotel-picker-subtitle');
+    const destinoTxt = String(destino || '').trim();
 
+    // 'destino' (solo los del destino de la cotización) | 'todos' (agrupados por destino)
+    let modo = destinoTxt ? 'destino' : 'todos';
     let hotels = [];
-    try {
-        hotels = await fetchHotelList();
-    } catch (err) {
-        body.innerHTML = `<div class="text-center text-xs font-semibold text-rose-500 py-10">${escapeHtml(err.message)}</div>`;
-        return;
-    }
+    let notice = '';
 
     const onPick = async (id) => {
         body.innerHTML = '<div class="text-center text-xs font-semibold text-slate-400 py-10">Cargando hotel...</div>';
@@ -212,11 +265,46 @@ export async function openHotelPicker(onSelect) {
         const filtered = q
             ? hotels.filter(h => `${h.nombre} ${h.destino}`.toLowerCase().includes(q))
             : hotels;
-        renderHotelGrid(body, filtered, onPick);
+        renderHotelGrid(body, filtered, onPick, { grouped: modo === 'todos', notice });
     };
+
+    const renderSubtitle = () => {
+        if (!subtitle) return;
+        if (!destinoTxt) {
+            subtitle.textContent = 'Seleccioná un alojamiento cargado en Configuración';
+            return;
+        }
+        const label = modo === 'destino'
+            ? `Hoteles guardados en <strong class="text-slate-700">${escapeHtml(destinoTxt)}</strong>`
+            : 'Todos los destinos';
+        const toggle = modo === 'destino' ? 'Ver todos los destinos' : `Solo ${escapeHtml(destinoTxt)}`;
+        subtitle.innerHTML = `${label} · <button type="button" data-picker-toggle class="text-brand-primary hover:underline font-bold cursor-pointer">${toggle}</button>`;
+        subtitle.querySelector('[data-picker-toggle]').addEventListener('click', () => load(modo === 'destino' ? 'todos' : 'destino'));
+    };
+
+    const load = async (nuevoModo) => {
+        modo = nuevoModo;
+        notice = '';
+        body.innerHTML = '<div class="text-center text-xs font-semibold text-slate-400 py-10">Cargando hoteles...</div>';
+        try {
+            hotels = await fetchHotelListCached(modo === 'destino' ? destinoTxt : '');
+            if (modo === 'destino' && !hotels.length) {
+                // Sin hoteles para el destino: se ofrecen todos, agrupados, avisando por qué
+                modo = 'todos';
+                notice = `Todavía no hay hoteles guardados para "${escapeHtml(destinoTxt)}". Se muestran los de todos los destinos.`;
+                hotels = await fetchHotelListCached('');
+            }
+        } catch (err) {
+            body.innerHTML = `<div class="text-center text-xs font-semibold text-rose-500 py-10">${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        renderSubtitle();
+        filterAndRender();
+    };
+
     search.addEventListener('input', filterAndRender);
-    filterAndRender();
     search.focus();
+    await load(modo);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -289,10 +377,13 @@ export function applyHotelToCard(card, hotel, foto) {
 window.openHotelPickerForCard = function (btn) {
     const card = btn.closest('.hotel-option-card, .hotel-stop-card');
     if (!card || card.querySelector('.hotel-nombre-val')?.disabled) return;
+    // Multidestino: el destino de la parada; estándar: el destino de la cotización
+    const destino = card.querySelector('.hotel-destino-val')?.value.trim()
+        || document.getElementById('destino')?.value.trim() || '';
     openHotelPicker((hotel, foto) => {
         applyHotelToCard(card, hotel, foto);
         window.showAlert?.('success', `Se cargaron los datos de "${hotel.nombre}" desde tu catálogo.`, true);
-    });
+    }, { destino });
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -360,6 +451,7 @@ export async function saveHotelToCatalog(data) {
         throw new Error(err.detail || 'No se pudo guardar el hotel en el catálogo.');
     }
     const saved = await res.json();
+    clearHotelListCache();
     const names = await loadCatalogHotelNames();
     if (names) names.add(normalizeHotelName(data.nombre));
     return saved;
